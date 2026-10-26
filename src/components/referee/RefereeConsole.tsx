@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTournament } from '../../context/TournamentContext';
 import { FinishType, Match, Participant } from '../../types/tournament';
 import { getMatchPointsToWin } from '../../lib/engine/arbitration';
+import { AceroIcon } from '../common/AceroIcon';
 import {
   RotateCcw,
   Zap,
@@ -399,7 +400,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
                     : 'bg-[var(--grafito)] text-[var(--acero)] hover:text-white'
                 }`}
               >
-                <CheckCircle2 className="w-3 h-3" />
+                <AceroIcon id="i-beycheck" size="sm" />
                 {p1?.inspected ? 'Bey Checked' : 'Inspeccionar'}
               </button>
 
@@ -413,7 +414,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
                   }}
                   className="text-[11px] text-[var(--tarjeta-amarilla)] hover:brightness-110 flex items-center gap-1 font-semibold"
                 >
-                  <AlertTriangle className="w-3 h-3" />
+                  <AceroIcon id="i-alerta" size="sm" />
                   +1 Falta
                 </button>
               )}
@@ -484,7 +485,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
                     : 'bg-[var(--grafito)] text-[var(--acero)] hover:text-white'
                 }`}
               >
-                <CheckCircle2 className="w-3 h-3" />
+                <AceroIcon id="i-beycheck" size="sm" />
                 {p2?.inspected ? 'Bey Checked' : 'Inspeccionar'}
               </button>
 
@@ -498,7 +499,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
                   }}
                   className="text-[11px] text-[var(--tarjeta-amarilla)] hover:brightness-110 flex items-center gap-1 font-semibold"
                 >
-                  <AlertTriangle className="w-3 h-3" />
+                  <AceroIcon id="i-alerta" size="sm" />
                   +1 Falta
                 </button>
               )}
@@ -555,7 +556,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
               }`}
             >
               <div className="flex items-center gap-1.5">
-                <Zap className="w-4 h-4 text-[#d3c4ff]" />
+                <AceroIcon id="i-xtreme" size="md" className="text-[#d3c4ff]" />
                 <span className="text-xs">Xtreme Finish</span>
               </div>
               <span className="text-[11px] font-mono font-black">+{activeTournament.finishPoints.xtreme} Pts</span>
@@ -572,7 +573,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
               }`}
             >
               <div className="flex items-center gap-1.5">
-                <Flame className="w-4 h-4 text-[#cc5290]" />
+                <AceroIcon id="i-burst" size="md" className="text-[#cc5290]" />
                 <span className="text-xs">Burst Finish</span>
               </div>
               <span className="text-[11px] font-mono font-black">+{activeTournament.finishPoints.burst} Pts</span>
@@ -589,7 +590,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
               }`}
             >
               <div className="flex items-center gap-1.5">
-                <Shield className="w-4 h-4 text-[#62d2b6]" />
+                <AceroIcon id="i-over" size="md" className="text-[#62d2b6]" />
                 <span className="text-xs">Over Finish</span>
               </div>
               <span className="text-[11px] font-mono font-black">+{activeTournament.finishPoints.over} Pts</span>
@@ -606,7 +607,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
               }`}
             >
               <div className="flex items-center gap-1.5">
-                <CircleDot className="w-4 h-4 text-[#a3abb5]" />
+                <AceroIcon id="i-spin" size="md" className="text-[#a3abb5]" />
                 <span className="text-xs">Spin Finish</span>
               </div>
               <span className="text-[11px] font-mono font-black">+{activeTournament.finishPoints.spin} Pt</span>
@@ -631,7 +632,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
                   : 'opacity-40 cursor-not-allowed'
               }`}
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <AceroIcon id="i-deshacer" size="sm" />
               Deshacer Batalla (Undo)
             </button>
           </div>

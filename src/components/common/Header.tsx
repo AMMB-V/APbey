@@ -12,6 +12,7 @@ import {
 import { useTournament } from '../../context/TournamentContext';
 import { UserRole } from '../../types/tournament';
 import { SupabaseModal } from '../admin/SupabaseModal';
+import { AceroIcon } from './AceroIcon';
 
 interface HeaderProps {
   activeTab: 'bracket' | 'referee' | 'participants' | 'wizard' | 'admin' | 'docs';
@@ -70,7 +71,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
                   : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
               }`}
             >
-              <Trophy className="w-3.5 h-3.5" />
+              <AceroIcon id="i-trofeo" size="sm" />
               Brackets & Grupos
             </button>
 
@@ -82,7 +83,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
                   : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
               }`}
             >
-              <Scale className="w-3.5 h-3.5" />
+              <AceroIcon id="i-arbitro" size="sm" />
               Panel de Árbitro
             </button>
 
@@ -94,7 +95,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
                   : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
               }`}
             >
-              <Users className="w-3.5 h-3.5" />
+              <AceroIcon id="i-participante" size="sm" />
               Bladers & Siembra
             </button>
 
@@ -107,7 +108,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
                     : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
                 }`}
               >
-                <Settings className="w-3.5 h-3.5" />
+                <AceroIcon id="i-ajustes" size="sm" />
                 Diseñador de Torneo
               </button>
             )}
@@ -164,7 +165,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-[var(--r-control)] bg-[var(--tarjeta-amarilla)] hover:brightness-110 text-[var(--tinta)] text-xs font-bold shadow-xs transition-colors"
               title="Abrir pantalla para proyector o transmisión de estadios"
             >
-              <Radio className="w-3.5 h-3.5" />
+              <AceroIcon id="i-envivo" size="sm" />
               <span className="hidden md:inline">Pantalla Estadio</span>
             </button>
 

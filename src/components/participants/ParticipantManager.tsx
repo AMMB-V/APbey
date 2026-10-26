@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTournament } from '../../context/TournamentContext';
+import { AceroIcon } from '../common/AceroIcon';
 import {
   Users,
   UserPlus,
@@ -133,7 +134,7 @@ export const ParticipantManager: React.FC = () => {
             className="btn btn--secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5"
             title="Exportar lista de participantes a CSV"
           >
-            <Download className="w-3.5 h-3.5" />
+            <AceroIcon id="i-exportar" size="sm" />
             Exportar CSV
           </button>
 
@@ -152,7 +153,7 @@ export const ParticipantManager: React.FC = () => {
                 onClick={() => checkInAll(activeTournament!.id)}
                 className="btn btn--secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5"
               >
-                <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <AceroIcon id="i-checkin" size="sm" className="text-emerald-400" />
                 Check-in a Todos
               </button>
 
@@ -207,7 +208,7 @@ export const ParticipantManager: React.FC = () => {
             type="submit"
             className="w-full sm:w-auto btn btn--primary text-xs px-4 py-2 flex items-center justify-center gap-1.5 shrink-0"
           >
-            <UserPlus className="w-3.5 h-3.5" />
+            <AceroIcon id="i-anadir" size="sm" />
             Añadir Blader
           </button>
         </form>
@@ -316,7 +317,7 @@ export const ParticipantManager: React.FC = () => {
                             : 'bg-[var(--grafito)] text-[var(--acero)] hover:text-white border border-[var(--costura)]'
                         }`}
                       >
-                        <ShieldCheck className="w-3 h-3 text-[var(--cobalto)]" />
+                        <AceroIcon id="i-beycheck" size="sm" className="text-[var(--cobalto)]" />
                         {p.inspected ? 'Aprobado' : 'Sin revisar'}
                       </button>
                     </td>

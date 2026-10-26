@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTournament } from '../../context/TournamentContext';
+import { AceroIcon } from '../common/AceroIcon';
 import {
   StageType,
   TiebreakerCriteria,

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Group, Match, Participant, Stage } from '../../types/tournament';
 import { useTournament } from '../../context/TournamentContext';
 import { computeStandings } from '../../lib/engine/tiebreakers';
+import { AceroIcon } from '../common/AceroIcon';
 import {
   Trophy,
   ArrowRight,
@@ -128,7 +129,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
                   className="btn btn--primary text-xs px-3.5 py-1.5 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs"
                   title="Calcula los clasificados y genera el cuadro de playoffs de eliminación directa"
                 >
-                  <Trophy className="w-3.5 h-3.5" />
+                  <AceroIcon id="i-trofeo" size="sm" />
                   Avanzar a Playoffs (Top {advanceCount * stageGroups.length})
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
@@ -172,7 +173,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
         {/* Referee Assigned to this specific Group */}
         {activeGroup && (
           <div className="flex items-center gap-2 text-xs bg-[var(--grafito)] px-3 py-1.5 rounded-[var(--r-control)] border border-[var(--costura)]">
-            <Scale className="w-3.5 h-3.5 text-[var(--cobalto)]" />
+            <AceroIcon id="i-arbitro" size="sm" className="text-[var(--cobalto)]" />
             <span className="font-semibold text-[var(--acero)]">Árbitro del {activeGroup.name}:</span>
             
             {(currentRole === 'organizer' || currentRole === 'admin' || currentRole === 'referee') ? (

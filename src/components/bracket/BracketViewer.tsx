@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Match, Participant, Round, Stage } from '../../types/tournament';
 import { useTournament } from '../../context/TournamentContext';
+import { AceroIcon } from '../common/AceroIcon';
 import {
   Trophy,
   ChevronRight,
@@ -107,7 +108,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-[var(--cobalto)]" />
+            <AceroIcon id="i-trofeo" size="md" className="text-[var(--cobalto)]" />
             <h3 className="font-bold text-sm tracking-tight font-display">
               Cuadro Eliminatorio Oficial (Best of {stage.bestOf || 1})
             </h3>
