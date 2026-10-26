@@ -74,10 +74,18 @@ interface TournamentContextType {
   syncCurrentTournamentToSupabase: () => Promise<{ success: boolean; message: string }>;
   updateSupabaseKeys: (url: string, anonKey: string) => Promise<{ success: boolean; message: string }>;
   // Current user & role
-  currentUser: UserProfile;
+  currentUser: UserProfile | null;
   currentRole: UserRole;
   switchRole: (role: UserRole) => void;
   users: UserProfile[];
+  login: (email: string, password?: string) => Promise<{ success: boolean; message: string; user?: UserProfile }>;
+  loginWithInvitation: (code: string, displayName: string, email?: string) => Promise<{ success: boolean; message: string; user?: UserProfile }>;
+  logout: () => void;
+  showAuthModal: boolean;
+  setShowAuthModal: (show: boolean) => void;
+  authModalInitialTab: 'login' | 'invite';
+  openAuthModal: (tab?: 'login' | 'invite', initialCode?: string) => void;
+  inviteCodePrefill: string;
 
   // Tournaments
   tournaments: Tournament[];
@@ -143,6 +151,7 @@ interface TournamentContextType {
 }
 
 const STORAGE_KEY = 'bey_tournament_arena_v1';
+const SESSION_USER_KEY = 'apbey_session_user';
 
 const TournamentContext = createContext<TournamentContextType | null>(null);
 
@@ -162,8 +171,46 @@ function sanitizeStr(str: string): string {
 
 export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Load persisted state or fallback to initial mock data
-  const [currentRole, setCurrentRole] = useState<UserRole>('organizer');
   const [users, setUsers] = useState<UserProfile[]>(INITIAL_PROFILES);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem(SESSION_USER_KEY);
+        if (saved) return JSON.parse(saved);
+      }
+    } catch {}
+    return null;
+  });
+  const [currentRole, setCurrentRole] = useState<UserRole>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem(SESSION_USER_KEY);
+        if (saved) return JSON.parse(saved).role;
+      }
+    } catch {}
+    return 'public';
+  });
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'invite'>('login');
+  const [inviteCodePrefill, setInviteCodePrefill] = useState<string>('');
+
+  const openAuthModal = (tab: 'login' | 'invite' = 'login', initialCode: string = '') => {
+    setAuthModalInitialTab(tab);
+    setInviteCodePrefill(initialCode);
+    setShowAuthModal(true);
+  };
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('invite');
+        if (code) {
+          openAuthModal('invite', code);
+        }
+      }
+    } catch {}
+  }, []);
   const [tournaments, setTournaments] = useState<Tournament[]>(INITIAL_TOURNAMENTS);
   const [activeTournamentId, setActiveTournamentId] = useState<string>(INITIAL_TOURNAMENTS[0].id);
   const [stages, setStages] = useState<Stage[]>(INITIAL_STAGES);
@@ -267,10 +314,121 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
-  const currentUser = users.find(u => u.role === currentRole) || users[0];
-
   const switchRole = (newRole: UserRole) => {
     setCurrentRole(newRole);
+    if (currentUser) {
+      const updated = { ...currentUser, role: newRole };
+      setCurrentUser(updated);
+      try {
+        localStorage.setItem(SESSION_USER_KEY, JSON.stringify(updated));
+      } catch {}
+    }
+  };
+
+  const login = async (
+    email: string,
+    password?: string
+  ): Promise<{ success: boolean; message: string; user?: UserProfile }> => {
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Check pre-registered profiles or master admin
+    let matchedUser = users.find(u => u.email.toLowerCase() === cleanEmail);
+    if (!matchedUser && (cleanEmail === 'admin@beybladex.org' || cleanEmail === 'admin@apbey.com')) {
+      matchedUser = {
+        id: 'user_admin',
+        displayName: 'Administrador Principal',
+        email: cleanEmail,
+        role: 'admin',
+        createdAt: new Date().toISOString(),
+      };
+      setUsers(prev => [...prev.filter(u => u.id !== 'user_admin'), matchedUser!]);
+    }
+
+    if (matchedUser) {
+      setCurrentUser(matchedUser);
+      setCurrentRole(matchedUser.role);
+      try {
+        localStorage.setItem(SESSION_USER_KEY, JSON.stringify(matchedUser));
+      } catch {}
+      logAudit('auth', matchedUser.id, 'insert', `Inicio de sesión como ${matchedUser.role} (${matchedUser.displayName}).`);
+      return { success: true, message: `Sesión iniciada como ${matchedUser.displayName}.`, user: matchedUser };
+    }
+
+    // Default spectator / blader
+    const newBlader: UserProfile = {
+      id: `blader_${Date.now()}`,
+      displayName: cleanEmail.split('@')[0],
+      email: cleanEmail,
+      role: 'blader',
+      createdAt: new Date().toISOString(),
+    };
+    setCurrentUser(newBlader);
+    setCurrentRole('blader');
+    try {
+      localStorage.setItem(SESSION_USER_KEY, JSON.stringify(newBlader));
+    } catch {}
+    return { success: true, message: `Bienvenido ${newBlader.displayName}.`, user: newBlader };
+  };
+
+  const loginWithInvitation = async (
+    code: string,
+    displayName: string,
+    email?: string
+  ): Promise<{ success: boolean; message: string; user?: UserProfile }> => {
+    const cleanCode = code.trim().toUpperCase();
+    const inv = invitations.find(
+      i => i.code.trim().toUpperCase() === cleanCode && i.status === 'pending'
+    );
+
+    if (!inv) {
+      const acceptedInv = invitations.find(i => i.code.trim().toUpperCase() === cleanCode);
+      if (acceptedInv) {
+        return { success: false, message: 'Este código de invitación ya fue canjeado.' };
+      }
+      return { success: false, message: 'Código de invitación inválido o revocado. Contacta al administrador.' };
+    }
+
+    const newProfile: UserProfile = {
+      id: `user_${inv.role}_${Date.now().toString().slice(-5)}`,
+      displayName: displayName.trim(),
+      email: (email && email.trim().toLowerCase()) || inv.email,
+      role: inv.role,
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedInvitations = invitations.map(i =>
+      i.id === inv.id ? { ...i, status: 'accepted' as const } : i
+    );
+    setInvitations(updatedInvitations);
+
+    const updatedUsers = [...users.filter(u => u.email !== newProfile.email), newProfile];
+    setUsers(updatedUsers);
+
+    saveState({
+      invitations: updatedInvitations,
+    });
+
+    setCurrentUser(newProfile);
+    setCurrentRole(newProfile.role);
+    try {
+      localStorage.setItem(SESSION_USER_KEY, JSON.stringify(newProfile));
+    } catch {}
+
+    logAudit('invitations', inv.id, 'update', `Invitación ${inv.code} canjeada por ${newProfile.displayName} (${newProfile.role}).`);
+
+    return {
+      success: true,
+      message: `¡Bienvenido! Acceso concedido como ${inv.role === 'referee' ? 'Árbitro' : 'Organizador'}.`,
+      user: newProfile,
+    };
+  };
+
+  const logout = () => {
+    try {
+      localStorage.removeItem(SESSION_USER_KEY);
+    } catch {}
+    setCurrentUser(null);
+    setCurrentRole('public');
   };
 
   const activeTournament = tournaments.find(t => t.id === activeTournamentId) || tournaments[0];
@@ -288,7 +446,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       tableName,
       recordId,
       action,
-      actor: currentUser.id,
+      actor: currentUser?.id || 'system_public',
       createdAt: new Date().toISOString(),
       note,
       oldData,
@@ -1034,7 +1192,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       slug,
       name: data.name || 'Nuevo Torneo Beyblade X',
       description: data.description || '',
-      organizerId: currentUser.id,
+      organizerId: currentUser?.id || 'user_admin',
       status: 'draft',
       isPublic: data.isPublic !== false,
       maxParticipants: data.maxParticipants || 16,
@@ -1144,7 +1302,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       role,
       tournamentId,
       status: 'pending',
-      invitedBy: currentUser.id,
+      invitedBy: currentUser?.id || 'user_admin',
       createdAt: new Date().toISOString(),
       code: `BEY-${role.slice(0, 3).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`,
     };
@@ -1300,6 +1458,14 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         supabaseSyncInfo,
         syncCurrentTournamentToSupabase,
         updateSupabaseKeys,
+        login,
+        loginWithInvitation,
+        logout,
+        showAuthModal,
+        setShowAuthModal,
+        authModalInitialTab,
+        openAuthModal,
+        inviteCodePrefill,
       }}
     >
       {children}

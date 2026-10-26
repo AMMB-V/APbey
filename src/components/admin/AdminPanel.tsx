@@ -282,6 +282,16 @@ export const AdminPanel: React.FC = () => {
                         )}
                       </button>
                       <button
+                        onClick={() => {
+                          const url = `${window.location.origin}?invite=${inv.code}`;
+                          copyToClipboard(url);
+                        }}
+                        className="p-1 rounded text-[var(--acero)] hover:text-[var(--cobalto)]"
+                        title="Copiar enlace directo de invitación"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                      <button
                         onClick={() => revokeInvitation(inv.id)}
                         className="p-1 rounded text-[var(--acero)] hover:text-rose-400"
                         title="Revocar invitación"
