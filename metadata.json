@@ -1,0 +1,6 @@
+{
+  "name": "Beyblade X Tournament Arena",
+  "description": "Plataforma profesional de creación, diseño y arbitraje de torneos de Beyblade X estilo Challonge con soporte multietapa, brackets interactivos y panel de juez móvil.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
