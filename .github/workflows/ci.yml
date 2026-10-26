@@ -1,0 +1,3 @@
+- npm run lint
+- npm run test # Vitest unit test suite para src/lib/engine/
+- npm run build # Verificación de compilación limpia
