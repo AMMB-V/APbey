@@ -1,8 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Default Supabase project URL provided for the application
-export const DEFAULT_SUPABASE_URL = 'https://inkxdmjxhzdssfzjjtaw.supabase.co';
-
 const STORAGE_KEY_URL = 'appbey_supabase_url';
 const STORAGE_KEY_ANON_KEY = 'appbey_supabase_anon_key';
 
@@ -14,7 +11,7 @@ export function getStoredSupabaseConfig(): { url: string; anonKey: string } {
   const storedKey = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_ANON_KEY) : null;
 
   return {
-    url: (storedUrl || envUrl || DEFAULT_SUPABASE_URL).trim(),
+    url: (storedUrl || envUrl || '').trim(),
     anonKey: (storedKey || envKey || '').trim(),
   };
 }

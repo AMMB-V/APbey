@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTournament } from '../../context/TournamentContext';
 import { AceroIcon } from '../common/AceroIcon';
-import { KeyRound, Mail, UserCheck, Shield, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { KeyRound, UserCheck, Shield, AlertCircle, CheckCircle2, X } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -16,7 +16,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   initialTab = 'login',
   initialCode = '',
 }) => {
-  const { login, loginWithInvitation, invitations } = useTournament();
+  const { login, loginWithInvitation } = useTournament();
 
   const [activeTab, setActiveTab] = useState<'login' | 'invite'>(initialTab);
   const [email, setEmail] = useState('');
@@ -101,11 +101,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickDemoAdmin = () => {
-    setEmail('admin@beybladex.org');
-    setPassword('admin2026');
   };
 
   return (
@@ -224,19 +219,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </button>
             </div>
 
-            {/* Quick Master Admin access pill */}
-            <div className="pt-3 border-t border-[var(--costura)] text-center">
-              <p className="text-[11px] text-[var(--acero)] mb-2">
-                ¿Acceso de administrador del torneo?
-              </p>
-              <button
-                type="button"
-                onClick={handleQuickDemoAdmin}
-                className="text-[11px] font-semibold text-[var(--cobalto)] hover:underline inline-flex items-center gap-1"
-              >
-                ⚡ Usar credencial Admin (admin@beybladex.org)
-              </button>
-            </div>
           </form>
         )}
 
