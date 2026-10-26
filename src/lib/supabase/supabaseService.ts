@@ -288,6 +288,7 @@ export async function loadTournamentsFromSupabase(): Promise<{
       refereeId: m.referee_id || undefined,
       nextMatchWinnerId: m.next_match_winner_id || undefined,
       nextMatchLoserId: m.next_match_loser_id || undefined,
+      version: m.version ?? 1,
     }));
 
     return { tournaments, stages, matches, participants };

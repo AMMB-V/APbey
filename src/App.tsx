@@ -220,10 +220,63 @@ function TournamentApp() {
   );
 }
 
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Unhandled UI Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#1b1d21] text-[#ece8e0] flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-[#25282e] border border-[#363b43] rounded-xl p-6 text-center space-y-4 shadow-xl">
+            <div className="w-12 h-12 mx-auto rounded-full bg-red-900/40 text-red-400 flex items-center justify-center font-bold text-xl border border-red-700/50">
+              ⚠️
+            </div>
+            <h1 className="text-lg font-bold">Error al inicializar la aplicación</h1>
+            <p className="text-xs text-[#a3abb5] leading-relaxed">
+              {this.state.error?.message || 'Ha ocurrido un error inesperado al cargar la interfaz.'}
+            </p>
+            <div className="flex gap-2 justify-center pt-2">
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 text-xs font-bold rounded-lg bg-[#ece8e0] text-[#101114] hover:bg-white transition-colors"
+              >
+                Recargar página
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.clear();
+                  window.location.reload();
+                }}
+                className="px-4 py-2 text-xs font-semibold rounded-lg border border-[#363b43] text-[#a3abb5] hover:text-[#ece8e0] transition-colors"
+              >
+                Limpiar datos locales
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <TournamentProvider>
-      <TournamentApp />
-    </TournamentProvider>
+    <ErrorBoundary>
+      <TournamentProvider>
+        <TournamentApp />
+      </TournamentProvider>
+    </ErrorBoundary>
   );
 }

@@ -187,6 +187,31 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   ]);
   const [activeStationAlert, setActiveStationAlert] = useState<{ matchId: string; message: string; timestamp: number } | null>(null);
   const [showStadiumModal, setShowStadiumModal] = useState<boolean>(false);
+  const [supabaseSyncInfo, setSupabaseSyncInfo] = useState<SupabaseSyncInfo>(() => {
+    const config = getStoredSupabaseConfig();
+    return {
+      isConfigured: Boolean(config.anonKey),
+      isConnected: false,
+      lastSync: null,
+      message: config.anonKey ? 'Clave configurada' : 'Modo local (Sin clave Supabase)',
+    };
+  });
+
+  useEffect(() => {
+    const checkInitialConnection = async () => {
+      const config = getStoredSupabaseConfig();
+      if (config.anonKey) {
+        const test = await testSupabaseConnection(config.url, config.anonKey);
+        setSupabaseSyncInfo({
+          isConfigured: true,
+          isConnected: test.success,
+          lastSync: test.success ? new Date().toLocaleTimeString() : null,
+          message: test.message,
+        });
+      }
+    };
+    checkInitialConnection();
+  }, []);
 
   // Sync to localStorage
   useEffect(() => {
@@ -1272,6 +1297,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         revokeInvitation,
         changeUserRole,
         resetAllData,
+        supabaseSyncInfo,
+        syncCurrentTournamentToSupabase,
+        updateSupabaseKeys,
       }}
     >
       {children}

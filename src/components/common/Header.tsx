@@ -146,17 +146,17 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
             <button
               onClick={() => setShowDbModal(true)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-[var(--r-chip)] text-[11px] font-bold border transition-colors ${
-                supabaseSyncInfo.isConnected
+                supabaseSyncInfo?.isConnected
                   ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/50'
                   : 'bg-amber-950/40 border-amber-500/50 text-amber-300 hover:bg-amber-900/50'
               }`}
-              title={supabaseSyncInfo.message}
+              title={supabaseSyncInfo?.message || 'Configuración Supabase'}
             >
               <Database className="w-3 h-3" />
               <span className="hidden sm:inline">
-                {supabaseSyncInfo.isConnected ? 'Supabase Conectado' : 'Supabase Local'}
+                {supabaseSyncInfo?.isConnected ? 'Supabase Conectado' : 'Supabase Local'}
               </span>
-              <span className={`w-1.5 h-1.5 rounded-full ${supabaseSyncInfo.isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${supabaseSyncInfo?.isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
             </button>
 
             {/* Stadium Display Projector Launcher */}
