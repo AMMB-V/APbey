@@ -328,3 +328,105 @@ begin
 
   return m;
 end $$;
+
+
+-- ====================================================================
+-- TABLA INVITATIONS (Cuentas de organizador y árbitro por invitación del admin)
+-- ====================================================================
+create table if not exists invitations (
+  id text primary key,
+  email text not null,
+  role user_role not null,
+  tournament_id text,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'revoked')),
+  invited_by text not null,
+  code text unique not null,
+  created_at timestamptz not null default now()
+);
+
+alter table invitations enable row level security;
+create policy "Invitaciones publicas o autenticadas lectura" on invitations for select using (true);
+create policy "Invitaciones admin insert" on invitations for insert with check (true);
+create policy "Invitaciones actualizacion status" on invitations for update using (true);
+
+-- ====================================================================
+-- TABLA AUDIT_LOGS
+-- ====================================================================
+create table if not exists audit_logs (
+  id text primary key,
+  table_name text not null,
+  record_id text not null,
+  action text not null,
+  actor text not null,
+  note text,
+  old_data jsonb,
+  new_data jsonb,
+  created_at timestamptz not null default now()
+);
+
+alter table audit_logs enable row level security;
+create policy "Audit logs lectura" on audit_logs for select using (true);
+create policy "Audit logs insercion" on audit_logs for insert with check (true);
+
+-- ====================================================================
+-- FUNCION TRANSACCIONAL: record_penalty
+-- ====================================================================
+create or replace function record_penalty(
+  p_match_id text,
+  p_offender_id text,
+  p_card card_type,
+  p_is_foul boolean,
+  p_points_awarded int,
+  p_awarded_to text,
+  p_reason text,
+  p_issued_by text,
+  p_expected_version int
+)
+returns jsonb
+language plpgsql
+security definer
+as $$
+declare
+  v_match matches%rowtype;
+  v_penalty_id text;
+  v_new_version int;
+begin
+  select * into v_match from matches where id = p_match_id for update;
+  if not found then
+    raise exception 'Match % no existe', p_match_id;
+  end if;
+
+  if v_match.version <> p_expected_version then
+    raise exception 'Conflicto de concurrencia: el match fue modificado por otro juez';
+  end if;
+
+  v_new_version := v_match.version + 1;
+  v_penalty_id := 'penalty_' || p_match_id || '_' || floor(extract(epoch from now()) * 1000)::text;
+
+  insert into penalties (
+    id, match_id, participant_id, card, is_foul, points_awarded, awarded_to, reason, issued_by, created_at
+  ) values (
+    v_penalty_id, p_match_id, p_offender_id, p_card, p_is_foul, p_points_awarded, p_awarded_to, p_reason, p_issued_by, now()
+  );
+
+  if p_points_awarded > 0 and p_awarded_to is not null then
+    if p_awarded_to = v_match.participant1_id then
+      update matches set score1 = score1 + p_points_awarded, version = v_new_version where id = p_match_id;
+    elsif p_awarded_to = v_match.participant2_id then
+      update matches set score2 = score2 + p_points_awarded, version = v_new_version where id = p_match_id;
+    end if;
+  else
+    update matches set version = v_new_version where id = p_match_id;
+  end if;
+
+  return jsonb_build_object(
+    'success', true,
+    'penalty_id', v_penalty_id,
+    'new_version', v_new_version
+  );
+end;
+$$;
+
+-- Realtime publication updates
+alter publication supabase_realtime add table invitations;
+alter publication supabase_realtime add table audit_logs;

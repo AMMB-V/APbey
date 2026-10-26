@@ -41,6 +41,17 @@ async function startServer() {
 
   app.use(express.json());
 
+  // CORS middleware for API routes
+  app.use((_req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (_req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+    next();
+  });
+
   // Health check
   app.get('/api/health', (_req, res) => {
     res.json({
@@ -120,6 +131,42 @@ async function startServer() {
       success: true,
       stageId,
       config: updated,
+    });
+  });
+
+
+  // GET Validate Invitation code
+  app.get('/api/invitations/validate/:code', (req, res) => {
+    const { code } = req.params;
+    const cleanCode = (code || '').trim().toUpperCase();
+    
+    // Check known codes or prefix patterns
+    const isKnown = cleanCode.startsWith('BEY-REF-') || cleanCode.startsWith('BEY-ORG-');
+    const role = cleanCode.startsWith('BEY-ORG-') ? 'organizer' : 'referee';
+
+    if (!cleanCode || !isKnown) {
+      return res.status(404).json({
+        valid: false,
+        message: 'Código de invitación no reconocido.',
+      });
+    }
+
+    res.json({
+      valid: true,
+      code: cleanCode,
+      role,
+      message: `Invitación válida para rol ${role}.`,
+    });
+  });
+
+  // GET Tournaments list
+  app.get('/api/tournaments', (_req, res) => {
+    const configs = readStoredConfigs();
+    const list = Object.keys(configs).map(k => ({ id: k, ...((configs[k] as Record<string, unknown>) || {}) }));
+    res.json({
+      success: true,
+      count: list.length,
+      tournaments: list,
     });
   });
 

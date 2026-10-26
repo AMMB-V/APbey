@@ -97,20 +97,39 @@ export function computeStandings(
     buchholzMap.set(p.id, opponentPointsSum);
   }
 
-  // Head to head resolver
-  const getHeadToHead = (idA: string, idB: string): number => {
+  // Direct pairwise match winner between two participants
+  const getPairwiseWinner = (idA: string, idB: string): string | null => {
     for (const m of matches) {
-      if (m.status !== 'completed') continue;
+      if (m.status !== 'completed' || !m.winnerId) continue;
       if (
         (m.participant1Id === idA && m.participant2Id === idB) ||
         (m.participant1Id === idB && m.participant2Id === idA)
       ) {
-        if (m.winnerId === idA) return -1; // A wins
-        if (m.winnerId === idB) return 1;  // B wins
-        return 0; // draw
+        return m.winnerId;
       }
     }
-    return 0;
+    return null;
+  };
+
+  // Pre-computes mini-league points among a cluster of tied participants
+  // Solves SEC-02 & Timsort non-transitivity bug in multi-way ties
+  const computeClusterMiniLeagueWins = (clusterIds: string[]): Map<string, number> => {
+    const winsMap = new Map<string, number>();
+    const clusterSet = new Set(clusterIds);
+    clusterIds.forEach((id) => winsMap.set(id, 0));
+
+    for (const m of matches) {
+      if (m.status !== 'completed' || !m.winnerId) continue;
+      if (
+        m.participant1Id &&
+        m.participant2Id &&
+        clusterSet.has(m.participant1Id) &&
+        clusterSet.has(m.participant2Id)
+      ) {
+        winsMap.set(m.winnerId, (winsMap.get(m.winnerId) || 0) + 1);
+      }
+    }
+    return winsMap;
   };
 
   const rows: GroupStandingRow[] = participants.map((p) => {
@@ -139,7 +158,7 @@ export function computeStandings(
     };
   });
 
-  // Sort based on configurable tiebreakerOrder
+  // Sort based on configurable tiebreakerOrder with transitive multi-way tie resolution
   rows.sort((a, b) => {
     for (const criterion of tiebreakerOrder) {
       if (criterion === 'points') {
@@ -157,14 +176,52 @@ export function computeStandings(
         const ratioB = b.pointsRatio || 0;
         if (ratioB !== ratioA) return ratioB - ratioA;
       } else if (criterion === 'head_to_head') {
-        const h2h = getHeadToHead(a.participantId, b.participantId);
-        if (h2h !== 0) return h2h;
+        // Find all candidates that are tied on all prior criteria
+        const priorIdx = tiebreakerOrder.indexOf('head_to_head');
+        const priorCriteria = tiebreakerOrder.slice(0, priorIdx);
+
+        const isTiedOnPrior = priorCriteria.every((crit) => {
+          if (crit === 'points') return a.points === b.points;
+          if (crit === 'point_diff') return a.pointDiff === b.pointDiff;
+          if (crit === 'points_for') return a.pointsFor === b.pointsFor;
+          if (crit === 'points_average') return (a.pointsAverage || 0) === (b.pointsAverage || 0);
+          if (crit === 'points_ratio') return (a.pointsRatio || 0) === (b.pointsRatio || 0);
+          if (crit === 'buchholz') return (a.buchholz || 0) === (b.buchholz || 0);
+          return true;
+        });
+
+        if (isTiedOnPrior) {
+          const tiedCluster = rows.filter((r) =>
+            priorCriteria.every((crit) => {
+              if (crit === 'points') return r.points === a.points;
+              if (crit === 'point_diff') return r.pointDiff === a.pointDiff;
+              if (crit === 'points_for') return r.pointsFor === a.pointsFor;
+              if (crit === 'points_average') return (r.pointsAverage || 0) === (a.pointsAverage || 0);
+              if (crit === 'points_ratio') return (r.pointsRatio || 0) === (a.pointsRatio || 0);
+              if (crit === 'buchholz') return (r.buchholz || 0) === (a.buchholz || 0);
+              return true;
+            })
+          );
+
+          if (tiedCluster.length === 2) {
+            const winner = getPairwiseWinner(a.participantId, b.participantId);
+            if (winner === a.participantId) return -1;
+            if (winner === b.participantId) return 1;
+          } else if (tiedCluster.length > 2) {
+            const clusterIds = tiedCluster.map((c) => c.participantId);
+            const miniWins = computeClusterMiniLeagueWins(clusterIds);
+            const winsA = miniWins.get(a.participantId) || 0;
+            const winsB = miniWins.get(b.participantId) || 0;
+            if (winsB !== winsA) {
+              return winsB - winsA;
+            }
+          }
+        }
       } else if (criterion === 'buchholz') {
         const bA = a.buchholz || 0;
         const bB = b.buchholz || 0;
         if (bB !== bA) return bB - bA;
       } else if (criterion === 'seed') {
-        // Lower seed number is better (Seed 1 > Seed 8)
         if (a.participant.seed !== b.participant.seed) {
           return a.participant.seed - b.participant.seed;
         }
