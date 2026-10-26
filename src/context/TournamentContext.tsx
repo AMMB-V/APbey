@@ -669,6 +669,16 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const startStage = (stageId: string) => {
+    const stage = stages.find(s => s.id === stageId);
+    if (!stage) return;
+
+    // Validate that tournament has at least 2 participants before starting
+    const tourneyParts = participants.filter(p => p.tournamentId === stage.tournamentId);
+    if (tourneyParts.length < 2) {
+      console.warn('[TournamentContext] No se puede iniciar etapa: se requieren al menos 2 bladers registrados.');
+      return;
+    }
+
     // Generate bracket if empty
     const existingMatches = matches.filter(m => m.stageId === stageId);
     if (existingMatches.length === 0) {
@@ -682,8 +692,6 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
 
     setTournaments(prev => {
-      const stage = stages.find(s => s.id === stageId);
-      if (!stage) return prev;
       const updated = prev.map(t => t.id === stage.tournamentId ? { ...t, status: 'in_progress' as const } : t);
       saveState({ tournaments: updated });
       return updated;
@@ -699,6 +707,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const stageGroups = groups.filter(g => g.stageId === stageId);
     const stageMatches = matches.filter(m => m.stageId === stageId);
     const tParts = participants.filter(p => p.tournamentId === stage.tournamentId);
+
+    // Guard: Do not advance if there are no participants or matches
+    if (tParts.length < 2 || (stageGroups.length === 0 && stageMatches.length === 0)) {
+      console.warn('[TournamentContext] No se puede avanzar a playoffs sin participantes o grupos configurados.');
+      return;
+    }
 
     const result = advanceGroupStageToPlayoffs(
       stage.tournamentId,

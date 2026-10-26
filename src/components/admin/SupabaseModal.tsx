@@ -220,20 +220,36 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
                 </p>
               </div>
 
-              <button
-                onClick={handleCopySql}
-                className="btn btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5"
-              >
-                {copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                {copiedSql ? '¡Copiado al portapapeles!' : 'Copiar SQL'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const rlsGrantSql = `-- Solución inmediata para Error 42501 (permission denied for table tournaments):\nGRANT USAGE ON SCHEMA public TO anon, authenticated;\nGRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;\nGRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;\nALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated;\nALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated;`;
+                    navigator.clipboard.writeText(rlsGrantSql);
+                    setFeedback({ type: 'info', text: '¡Script de Permisos RLS (Solución a Error 42501) copiado! Pégalo y ejecútalo en el SQL Editor de Supabase.' });
+                    setTimeout(() => setFeedback(null), 6000);
+                  }}
+                  className="btn btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5 text-amber-300 border-amber-800/60 hover:bg-amber-950/30"
+                  title="Soluciona el error [42501] permission denied for table tournaments"
+                >
+                  <Shield className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Fix Error 42501</span>
+                </button>
+
+                <button
+                  onClick={handleCopySql}
+                  className="btn btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5"
+                >
+                  {copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedSql ? '¡Copiado!' : 'Copiar Esquema Completo'}
+                </button>
+              </div>
             </div>
 
             <div className="p-3 bg-[var(--grafito)] border border-[var(--costura)] rounded-lg text-xs font-mono text-[var(--acero)] space-y-1">
-              <div>-- Instrucciones rápidas:</div>
-              <div>1. Copia el script SQL con el botón de arriba.</div>
-              <div>2. Ve a <a href="https://supabase.com/dashboard/project/inkxdmjxhzdssfzjjtaw/sql" target="_blank" rel="noreferrer" className="text-emerald-400 underline">Supabase SQL Editor</a> y pégalo.</div>
-              <div>3. Presiona "Run". ¡Listo! Todas las tablas, roles y procedimientos quedarán listos para producción.</div>
+              <div className="text-[var(--hueso)] font-bold">-- ¿Aparece "Error de Supabase [42501]" al conectar?</div>
+              <div className="text-amber-300">1. Haz clic en el botón amarillo "Fix Error 42501" para copiar los permisos RLS.</div>
+              <div>2. Pégalo en <a href="https://supabase.com/dashboard/project/inkxdmjxhzdssfzjjtaw/sql" target="_blank" rel="noreferrer" className="text-emerald-400 underline">Supabase SQL Editor</a> y presiona <strong>RUN</strong>.</div>
+              <div>3. ¡Listo! Vuelve a presionar "Guardar y Probar Conexión" y conectará de inmediato.</div>
             </div>
           </div>
         </div>

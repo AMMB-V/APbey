@@ -67,6 +67,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
   const totalMatches = stageMatches.length;
   const completedMatches = stageMatches.filter((m) => m.status === 'completed').length;
   const groupReferee = users.find((u) => u.id === activeGroup?.refereeId);
+  const tourneyParticipants = participants.filter((p) => p.tournamentId === stage.tournamentId);
 
   return (
     <div className="w-full space-y-6 text-[var(--hueso)]">
@@ -106,7 +107,8 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
             <>
               <button
                 onClick={() => rebalanceGroups(stage.id, stage.config.groupSize || 4)}
-                className="btn btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5"
+                disabled={tourneyParticipants.length < 2}
+                className="btn btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-50"
                 title="Subdivide y equilibra automáticamente los grupos según el número de bladers totales"
               >
                 <Shuffle className="w-3.5 h-3.5" />
@@ -115,8 +117,21 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
 
               {stage.status === 'pending' && (
                 <button
-                  onClick={() => startStage(stage.id)}
-                  className="btn btn--primary text-xs px-3.5 py-1.5 flex items-center gap-1.5"
+                  onClick={() => {
+                    if (tourneyParticipants.length < 2) return;
+                    startStage(stage.id);
+                  }}
+                  disabled={tourneyParticipants.length < 2}
+                  className={`text-xs px-3.5 py-1.5 flex items-center gap-1.5 rounded-[var(--r-control)] font-semibold transition-all ${
+                    tourneyParticipants.length < 2
+                      ? 'bg-[var(--grafito)] text-[var(--acero)] border border-[var(--costura)] opacity-50 cursor-not-allowed'
+                      : 'btn btn--primary'
+                  }`}
+                  title={
+                    tourneyParticipants.length < 2
+                      ? 'Se requieren al menos 2 bladers registrados para iniciar'
+                      : 'Iniciar fase de grupos y habilitar arbitraje'
+                  }
                 >
                   <Play className="w-3.5 h-3.5" />
                   Iniciar Fase de Grupos
@@ -138,6 +153,25 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
           )}
         </div>
       </div>
+
+      {/* Warning banner when tournament has fewer than 2 participants */}
+      {tourneyParticipants.length < 2 && stage.status === 'pending' && (
+        <div className="p-4 rounded-[var(--r-card)] border border-amber-500/50 bg-amber-950/20 text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="p-2 rounded bg-amber-900/40 border border-amber-700/50 text-amber-400">
+              <AceroIcon id="i-alerta" size="md" />
+            </span>
+            <div>
+              <div className="text-xs font-bold text-[var(--hueso)]">
+                Faltan participantes ({tourneyParticipants.length}/2 bladers mínimos)
+              </div>
+              <div className="text-[11px] text-[var(--acero)] mt-0.5">
+                Para sortear los grupos y generar los enfrentamientos, debes registrar a los bladers en la pestaña "Bladers".
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Group Selector Tabs + Group Referee Controls */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[var(--costura)] pb-3">

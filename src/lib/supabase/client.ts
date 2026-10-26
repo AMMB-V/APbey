@@ -84,6 +84,13 @@ export async function testSupabaseConnection(url?: string, anonKey?: string): Pr
           message: 'Conexión a Supabase exitosa (Las tablas aún no han sido creadas. Ejecuta el SQL de inicialización).',
         };
       }
+      // If error is code 42501 (insufficient privilege / RLS active), connection is valid but requires grant permissions
+      if (error.code === '42501') {
+        return {
+          success: true,
+          message: 'Conexión con Supabase verificada exitosamente. Tu base de datos tiene RLS activo; usa el botón "Copiar Permisos RLS" para permitir lectura al rol anónimo.',
+        };
+      }
       return {
         success: false,
         message: `Error de Supabase [${error.code || 'ERR'}]: ${error.message}`,

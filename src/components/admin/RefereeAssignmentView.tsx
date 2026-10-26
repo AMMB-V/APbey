@@ -261,7 +261,7 @@ export const RefereeAssignmentView: React.FC = () => {
           <button
             onClick={triggerAutoSync}
             disabled={isSyncing}
-            className="acero-btn acero-btn--secondary text-xs flex items-center gap-1.5"
+            className="px-3 py-1.5 rounded-[var(--r-control,4px)] border border-emerald-600/50 bg-emerald-950/30 text-emerald-300 hover:bg-emerald-900/40 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs antialiased"
             title="Guardar asignaciones en Supabase"
           >
             <AceroIcon id="i-ok" size="sm" className={isSyncing ? 'animate-spin' : 'text-emerald-400'} />
@@ -271,10 +271,10 @@ export const RefereeAssignmentView: React.FC = () => {
           {/* Toggle SQL inspector */}
           <button
             onClick={() => setShowSqlViewer(!showSqlViewer)}
-            className="acero-btn acero-btn--secondary text-xs flex items-center gap-1.5"
+            className="px-3 py-1.5 rounded-[var(--r-control,4px)] border border-[var(--costura,#363b43)] bg-[var(--chasis,#25282e)] text-[var(--hueso,#ece8e0)] hover:border-[var(--acero,#a3abb5)] text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs antialiased"
             title="Ver sentencias SQL generadas para Supabase"
           >
-            <AceroIcon id="i-ajustes" size="sm" />
+            <AceroIcon id="i-ajustes" size="sm" className="text-[var(--acero,#a3abb5)]" />
             <span>Ver SQL Supabase</span>
           </button>
         </div>

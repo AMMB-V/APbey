@@ -41,8 +41,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
   const currentRoleMeta = roleLabels[currentRole] || roleLabels.public;
 
   return (
-    <header className="border-b border-[var(--costura)] bg-[var(--chasis)] sticky top-0 z-30 shadow-md text-[var(--hueso)] w-full overflow-hidden">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2 sm:gap-4">
+    <header className="border-b border-[var(--costura)] bg-[var(--chasis)] sticky top-0 z-30 shadow-md text-[var(--hueso)] w-full">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-2 sm:gap-4">
         
         {/* Zone 1: Wordmark & Brand */}
         <div
@@ -202,21 +202,21 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
             </div>
           ) : (
             /* If logged in: User Badge + Logout */
-            <div className="flex items-center gap-2 bg-[var(--grafito)] border border-[var(--costura)] rounded-[var(--r-control)] p-1">
-              <div className="flex items-center gap-1.5 px-1.5">
-                <div className="w-5 h-5 rounded-full bg-[var(--chasis)] border border-[var(--costura)] flex items-center justify-center text-[10px] font-bold text-[var(--hueso)]">
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-[var(--grafito)] border border-[var(--costura)] rounded-[var(--r-control)] p-1 pr-1.5 shadow-2xs mr-1 sm:mr-0">
+              <div className="flex items-center gap-1.5 px-1">
+                <div className="w-5 h-5 rounded-full bg-[var(--chasis)] border border-[var(--costura)] flex items-center justify-center text-[10px] font-bold text-[var(--hueso)] shrink-0">
                   {currentUser.displayName.charAt(0).toUpperCase()}
                 </div>
-                <span className="text-xs font-semibold text-[var(--hueso)] max-w-[110px] truncate hidden sm:inline">
+                <span className="text-xs font-semibold text-[var(--hueso)] max-w-[80px] md:max-w-[110px] truncate hidden sm:inline">
                   {currentUser.displayName}
                 </span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border uppercase ${currentRoleMeta.color}`}>
+                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border uppercase shrink-0 ${currentRoleMeta.color}`}>
                   {currentRoleMeta.label}
                 </span>
               </div>
               <button
                 onClick={logout}
-                className="p-1 rounded text-[var(--acero)] hover:text-rose-400 hover:bg-[var(--chasis)] transition-colors"
+                className="p-1 rounded text-[var(--acero)] hover:text-rose-400 hover:bg-[var(--chasis)] transition-colors shrink-0"
                 title="Cerrar Sesión"
               >
                 <LogOut className="w-3.5 h-3.5" />

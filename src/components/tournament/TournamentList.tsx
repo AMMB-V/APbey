@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 interface TournamentListProps {
-  onSelectTournament: (tournamentId: string, targetTab?: 'bracket' | 'referee' | 'wizard') => void;
+  onSelectTournament: (tournamentId: string, targetTab?: 'bracket' | 'referee' | 'wizard' | 'participants') => void;
 }
 
 export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTournament }) => {
@@ -54,8 +54,29 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
   const [newPointsGroup, setNewPointsGroup] = useState<number>(4);
   const [newPointsPlayoffs, setNewPointsPlayoffs] = useState<number>(5);
   const [newPointsFinal, setNewPointsFinal] = useState<number>(7);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
 
   const canManage = currentRole === 'organizer' || currentRole === 'admin';
+
+  // Handle template selection to pre-fill parameters
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    if (!templateId) return;
+    const template = tournaments.find((t) => t.id === templateId);
+    if (template) {
+      setNewVenue(template.venueName || 'Arena Beyblade');
+      setNewCountry(template.country || 'PA');
+      setNewMaxParticipants(template.maxParticipants || 16);
+      setNewEntryFee(template.entryFee || 0);
+      setNewPointsGroup(template.pointsToWinGroup || 4);
+      setNewPointsPlayoffs(template.pointsToWinPlayoffs || 5);
+      setNewPointsFinal(template.pointsToWinFinal || 7);
+      const templateStage = stages.find((s) => s.tournamentId === template.id);
+      if (templateStage) {
+        setNewFormat(templateStage.type);
+      }
+    }
+  };
 
   // Filter tournaments
   const filteredTournaments = tournaments.filter((t) => {
@@ -68,11 +89,14 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
     return matchesSearch && matchesStatus;
   });
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = (e: React.FormEvent, targetView: 'participants' | 'bracket' = 'participants') => {
     e.preventDefault();
     if (!newName.trim()) return;
 
-    const stageConfig = {
+    const templateSource = selectedTemplateId ? tournaments.find(t => t.id === selectedTemplateId) : undefined;
+    const templateStage = selectedTemplateId ? stages.find(s => s.tournamentId === selectedTemplateId) : undefined;
+
+    const stageConfig = templateStage?.config || {
       advanceCount: 2,
       groupSize: 4,
       tiebreakers: ['points', 'point_diff', 'head_to_head', 'points_for', 'seed'] as any,
@@ -88,6 +112,9 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
         pointsToWinGroup: newPointsGroup,
         pointsToWinPlayoffs: newPointsPlayoffs,
         pointsToWinFinal: newPointsFinal,
+        foulPoints: templateSource?.foulPoints ?? 1,
+        foulsPerPoint: templateSource?.foulsPerPoint ?? 3,
+        finishPoints: templateSource?.finishPoints,
       },
       newFormat,
       stageConfig
@@ -95,11 +122,12 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
 
     setShowCreateModal(false);
     setNewName('');
-    setSuccessMsg(`¡Torneo "${created.name}" creado con éxito!`);
+    setSelectedTemplateId('');
+    setSuccessMsg(`¡Torneo "${created.name}" creado con éxito! Redirigiendo a Bladers & Siembra...`);
     setTimeout(() => setSuccessMsg(null), 3500);
 
-    // Switch to bracket of newly created tournament
-    onSelectTournament(created.id, 'bracket');
+    // Direct user to 'participants' so they can add bladers before starting!
+    onSelectTournament(created.id, targetView);
   };
 
   const handleDuplicate = (id: string, e: React.MouseEvent) => {
@@ -418,7 +446,29 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
             </div>
 
             {/* Form */}
-            <form onSubmit={handleCreateSubmit} className="p-6 space-y-4">
+            <form onSubmit={(e) => handleCreateSubmit(e, 'participants')} className="p-6 space-y-4">
+              {/* Plantilla de Configuración */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-[var(--acero)] block">
+                  Cargar desde Plantilla Existente (Opcional)
+                </label>
+                <select
+                  value={selectedTemplateId}
+                  onChange={(e) => handleTemplateChange(e.target.value)}
+                  className="w-full text-xs font-medium border border-[var(--costura)] rounded-[var(--r-control)] px-3 py-2 bg-[var(--grafito)] text-[var(--hueso)] focus:outline-hidden focus:border-[var(--cobalto)]"
+                >
+                  <option value="">-- Configuración Estándar Oficial WBO --</option>
+                  {tournaments.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      Usar Plantilla: {t.name} ({t.venueName || 'Arena Central'})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-[var(--acero)]">
+                  Copia automáticamente formato de etapas, metas de puntos y reglas de desempate de un torneo previo.
+                </p>
+              </div>
+
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-[var(--acero)] block">
                   Nombre del Torneo *
@@ -568,7 +618,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
               </div>
 
               {/* Buttons */}
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--costura)]">
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-[var(--costura)]">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
@@ -577,11 +627,18 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                   Cancelar
                 </button>
                 <button
+                  type="button"
+                  onClick={(e) => handleCreateSubmit(e, 'bracket')}
+                  className="px-4 py-2 text-xs font-semibold rounded-[var(--r-control)] border border-[var(--costura)] hover:bg-[var(--grafito)] text-[var(--hueso)] transition-colors"
+                >
+                  Guardar como Borrador
+                </button>
+                <button
                   type="submit"
                   className="px-5 py-2 text-xs font-bold rounded-[var(--r-control)] bg-[var(--hueso)] text-[var(--tinta)] hover:bg-white transition-all shadow-sm flex items-center gap-1.5"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Crear y Comenzar Torneo</span>
+                  <span>Crear Torneo y Registrar Bladers →</span>
                 </button>
               </div>
             </form>
