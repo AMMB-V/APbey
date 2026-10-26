@@ -9,6 +9,7 @@ const __dirname = path.dirname(__filename);
 
 const DATA_DIR = path.resolve(__dirname, 'data');
 const STAGE_CONFIGS_FILE = path.resolve(DATA_DIR, 'stage_configs.json');
+const REFEREE_ASSIGNMENTS_FILE = path.resolve(DATA_DIR, 'referee_assignments.json');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -32,6 +33,26 @@ function writeStoredConfigs(data: Record<string, unknown>): void {
     fs.writeFileSync(STAGE_CONFIGS_FILE, JSON.stringify(data, null, 2), 'utf-8');
   } catch (err) {
     console.error('Error writing stage_configs.json:', err);
+  }
+}
+
+function readStoredAssignments(): Record<string, unknown> {
+  try {
+    if (fs.existsSync(REFEREE_ASSIGNMENTS_FILE)) {
+      const content = fs.readFileSync(REFEREE_ASSIGNMENTS_FILE, 'utf-8');
+      return JSON.parse(content);
+    }
+  } catch (err) {
+    console.error('Error reading referee_assignments.json:', err);
+  }
+  return {};
+}
+
+function writeStoredAssignments(data: Record<string, unknown>): void {
+  try {
+    fs.writeFileSync(REFEREE_ASSIGNMENTS_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error writing referee_assignments.json:', err);
   }
 }
 
@@ -167,6 +188,46 @@ async function startServer() {
       success: true,
       count: list.length,
       tournaments: list,
+    });
+  });
+
+  // GET Referee assignments for a tournament
+  app.get('/api/referees/assignments/:tournamentId', (req, res) => {
+    const { tournamentId } = req.params;
+    const assignments = readStoredAssignments();
+    const assignment = assignments[tournamentId] || null;
+
+    res.json({
+      tournamentId,
+      assignment,
+      found: Boolean(assignment),
+    });
+  });
+
+  // PUT Referee assignments for a tournament
+  app.put('/api/referees/assignments/:tournamentId', (req, res) => {
+    const { tournamentId } = req.params;
+    const { groupAssignments, stageAssignments } = req.body;
+
+    const assignments = readStoredAssignments();
+    const current = (assignments[tournamentId] as Record<string, unknown>) || {};
+
+    const updated = {
+      ...current,
+      tournamentId,
+      groupAssignments: groupAssignments !== undefined ? groupAssignments : (current.groupAssignments || {}),
+      stageAssignments: stageAssignments !== undefined ? stageAssignments : (current.stageAssignments || {}),
+      updatedAt: new Date().toISOString(),
+    };
+
+    assignments[tournamentId] = updated;
+    writeStoredAssignments(assignments);
+
+    res.json({
+      success: true,
+      tournamentId,
+      assignment: updated,
+      message: `Asignación de árbitros guardada en backend para el torneo ${tournamentId}.`,
     });
   });
 

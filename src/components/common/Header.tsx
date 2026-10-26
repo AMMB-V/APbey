@@ -11,7 +11,7 @@ import {
 import { useTournament } from '../../context/TournamentContext';
 import { AceroIcon } from './AceroIcon';
 
-export type MainTabType = 'torneos' | 'bracket' | 'referee' | 'participants' | 'wizard' | 'admin';
+export type MainTabType = 'torneos' | 'bracket' | 'referee' | 'participants' | 'wizard' | 'admin' | 'docs';
 
 interface HeaderProps {
   activeTab: MainTabType;

@@ -132,6 +132,9 @@ interface TournamentContextType {
   undoBattle: (matchId: string) => void;
   assignReferee: (matchId: string, refereeId: string | null) => void;
   assignRefereeToGroup: (groupId: string, refereeId: string | null) => void;
+  assignRefereeToStage: (stageId: string, refereeId: string | null) => void;
+  unassignRefereeFromAll: (tournamentId: string, refereeId: string) => void;
+  autoBalanceRefereesAcrossGroups: (stageId: string) => void;
   claimMatchAsReferee: (matchId: string) => void;
   moveParticipantToGroup: (participantId: string, toGroupId: string) => void;
   rebalanceGroups: (stageId: string, targetGroupSize?: number) => void;
@@ -968,6 +971,85 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     logAudit('groups', groupId, 'update', `Árbitro ${refereeId ? 'asignado' : 'removido'} para ${group.name}.`);
   };
 
+  // Assign referee to a stage / phase
+  const assignRefereeToStage = (stageId: string, refereeId: string | null) => {
+    const stage = stages.find(s => s.id === stageId);
+    if (!stage) return;
+
+    // Update matches in this stage
+    setMatches(prev => {
+      const updated = prev.map(m => m.stageId === stageId ? { ...m, refereeId } : m);
+      saveState({ matches: updated });
+      return updated;
+    });
+
+    // If stage has groups, update groups as well
+    if (stage.type === 'group_stage') {
+      setGroups(prev => {
+        const updated = prev.map(g => g.stageId === stageId ? { ...g, refereeId } : g);
+        saveState({ groups: updated });
+        return updated;
+      });
+    }
+
+    logAudit('stages', stageId, 'update', `Árbitro general ${refereeId ? 'asignado' : 'removido'} para la fase "${stage.name}".`);
+  };
+
+  // Unassign referee from all matches and groups of tournament
+  const unassignRefereeFromAll = (tournamentId: string, refereeId: string) => {
+    const stageIds = stages.filter(s => s.tournamentId === tournamentId).map(s => s.id);
+
+    setGroups(prev => {
+      const updated = prev.map(g => (stageIds.includes(g.stageId) && g.refereeId === refereeId) ? { ...g, refereeId: null } : g);
+      saveState({ groups: updated });
+      return updated;
+    });
+
+    setMatches(prev => {
+      const updated = prev.map(m => (m.tournamentId === tournamentId && m.refereeId === refereeId) ? { ...m, refereeId: null } : m);
+      saveState({ matches: updated });
+      return updated;
+    });
+
+    logAudit('tournaments', tournamentId, 'update', `Árbitro desasignado de todas las partidas y grupos del torneo.`);
+  };
+
+  // Auto balance referees across groups in a stage
+  const autoBalanceRefereesAcrossGroups = (stageId: string) => {
+    const stageGroups = groups.filter(g => g.stageId === stageId);
+    if (stageGroups.length === 0) return;
+
+    const availableRefs = users.filter(u => u.role === 'referee' || u.role === 'organizer');
+    if (availableRefs.length === 0) return;
+
+    const updatedGroups = stageGroups.map((g, idx) => {
+      const assignedRef = availableRefs[idx % availableRefs.length];
+      return {
+        ...g,
+        refereeId: assignedRef.id,
+      };
+    });
+
+    setGroups(prev => {
+      const others = prev.filter(g => g.stageId !== stageId);
+      const combined = [...others, ...updatedGroups];
+      saveState({ groups: combined });
+      return combined;
+    });
+
+    setMatches(prev => {
+      const updated = prev.map(m => {
+        if (m.stageId !== stageId || !m.groupId) return m;
+        const matchedGrp = updatedGroups.find(g => g.id === m.groupId);
+        return matchedGrp ? { ...m, refereeId: matchedGrp.refereeId } : m;
+      });
+      saveState({ matches: updated });
+      return updated;
+    });
+
+    logAudit('stages', stageId, 'update', `Árbitros distribuidos equitativamente entre los ${stageGroups.length} grupos.`);
+  };
+
   // Claim match as referee (self-selection)
   const claimMatchAsReferee = (matchId: string) => {
     assignReferee(matchId, currentUser.id);
@@ -1431,6 +1513,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         createTournament,
         updateTournament,
         duplicateTournament,
+        deleteTournament,
         stages,
         groups,
         rounds,
@@ -1459,6 +1542,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         undoBattle,
         assignReferee,
         assignRefereeToGroup,
+        assignRefereeToStage,
+        unassignRefereeFromAll,
+        autoBalanceRefereesAcrossGroups,
         claimMatchAsReferee,
         moveParticipantToGroup,
         rebalanceGroups,

@@ -1,0 +1,20 @@
+{
+  "tourney_1": {
+    "groupAssignments": {
+      "grp_a": "user_ref_1"
+    },
+    "tournamentId": "tourney_1",
+    "updatedAt": "2026-10-26T08:40:53.052Z"
+  },
+  "tourn-1": {
+    "tournamentId": "tourn-1",
+    "groupAssignments": {
+      "group-a": "ref-1",
+      "group-b": "ref-2"
+    },
+    "stageAssignments": {
+      "stage-1": "ref-1"
+    },
+    "updatedAt": "2026-10-26T08:43:09.629Z"
+  }
+}

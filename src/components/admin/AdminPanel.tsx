@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTournament } from '../../context/TournamentContext';
 import { UserRole } from '../../types/tournament';
 import { SupabaseModal } from './SupabaseModal';
+import { RefereeAssignmentView } from './RefereeAssignmentView';
 import {
   ShieldCheck,
   Mail,
@@ -68,23 +69,25 @@ export const AdminPanel: React.FC = () => {
     setTimeout(() => setSuccessMsg(null), 5000);
   };
 
+  const [adminTab, setAdminTab] = useState<'referees' | 'invitations'>('referees');
+
   return (
-    <div className="max-w-6xl mx-auto space-y-6 text-[var(--hueso)]">
+    <div className="max-w-7xl mx-auto space-y-6 text-[var(--hueso)]">
       {/* Top Banner */}
       <div className="bg-[var(--chasis)] rounded-[var(--r-card)] border border-[var(--costura)] p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-[var(--hueso)] tracking-tight flex items-center gap-2 font-display">
               <ShieldCheck className="w-5 h-5 text-[var(--cobalto)]" />
-              Panel de Administración, Invitaciones & Base de Datos
+              Panel de Administración, Asignación & Supabase
             </h2>
           </div>
           <p className="text-xs text-[var(--acero)] mt-1">
-            "Cuentas de organizador y árbitro por invitación del admin": El registro público está cerrado; solo los administradores pueden generar accesos autorizados.
+            Gestión de oficiales, asignación de árbitros con arrastrar y soltar, sincronización en Supabase PostgreSQL y control de accesos RBAC.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setShowDbModal(true)}
             className="btn btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5"
@@ -146,23 +149,62 @@ export const AdminPanel: React.FC = () => {
         </div>
       </div>
 
-      {successMsg && (
-        <div className="p-3 bg-emerald-950/40 border border-emerald-600 rounded-[var(--r-control)] text-xs font-semibold text-emerald-300 flex items-center gap-2 animate-in fade-in">
-          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{successMsg}</span>
-        </div>
-      )}
+      {/* Subtabs Navigation Bar */}
+      <div className="flex items-center gap-2 border-b border-[var(--costura)] pb-2 overflow-x-auto">
+        <button
+          onClick={() => setAdminTab('referees')}
+          className={`px-4 py-2 rounded-[var(--r-control)] text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
+            adminTab === 'referees'
+              ? 'bg-[var(--chasis)] text-[var(--hueso)] border border-[var(--costura)] shadow-sm'
+              : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--chasis)]/50'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-[var(--cobalto)]" />
+          <span>Asignación de Árbitros</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-neutral-800 text-neutral-300">
+            Drag & Drop
+          </span>
+        </button>
 
-      {/* Grid: Invite Form + User List */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left: Invite Form */}
-        <div className="lg:col-span-5 bg-[var(--chasis)] rounded-[var(--r-card)] border border-[var(--costura)] p-5 shadow-xs space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-[var(--costura)]">
-            <UserPlus className="w-4 h-4 text-[var(--cobalto)]" />
-            <h3 className="text-sm font-bold text-[var(--hueso)] font-display">
-              Invitar Nuevo Organizador o Árbitro
-            </h3>
-          </div>
+        <button
+          onClick={() => setAdminTab('invitations')}
+          className={`px-4 py-2 rounded-[var(--r-control)] text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
+            adminTab === 'invitations'
+              ? 'bg-[var(--chasis)] text-[var(--hueso)] border border-[var(--costura)] shadow-sm'
+              : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--chasis)]/50'
+          }`}
+        >
+          <Users className="w-3.5 h-3.5 text-[var(--acero)]" />
+          <span>Invitaciones & Roles (RBAC)</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-neutral-800 text-neutral-300">
+            {users.length} usuarios
+          </span>
+        </button>
+      </div>
+
+      {/* Tab 1: Asignación de Árbitros */}
+      {adminTab === 'referees' && <RefereeAssignmentView />}
+
+      {/* Tab 2: Invitaciones & Roles (RBAC) */}
+      {adminTab === 'invitations' && (
+        <div className="space-y-6">
+          {successMsg && (
+            <div className="p-3 bg-emerald-950/40 border border-emerald-600 rounded-[var(--r-control)] text-xs font-semibold text-emerald-300 flex items-center gap-2 animate-in fade-in">
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+          )}
+
+          {/* Grid: Invite Form + User List */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left: Invite Form */}
+            <div className="lg:col-span-5 bg-[var(--chasis)] rounded-[var(--r-card)] border border-[var(--costura)] p-5 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-[var(--costura)]">
+                <UserPlus className="w-4 h-4 text-[var(--cobalto)]" />
+                <h3 className="text-sm font-bold text-[var(--hueso)] font-display">
+                  Invitar Nuevo Organizador o Árbitro
+                </h3>
+              </div>
 
           <form onSubmit={handleCreateInvite} className="space-y-3">
             <div className="space-y-1">
@@ -384,6 +426,8 @@ export const AdminPanel: React.FC = () => {
           </div>
         </div>
       </div>
+    </div>
+  )}
 
       <SupabaseModal isOpen={showDbModal} onClose={() => setShowDbModal(false)} />
     </div>

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { TournamentProvider, useTournament } from './context/TournamentContext';
-import { Header } from './components/common/Header';
+import { Header, MainTabType } from './components/common/Header';
 import { BracketViewer } from './components/bracket/BracketViewer';
 import { GroupStageViewer } from './components/bracket/GroupStageViewer';
 import { RefereeConsole } from './components/referee/RefereeConsole';
 import { ParticipantManager } from './components/participants/ParticipantManager';
 import { TournamentWizard } from './components/tournament/TournamentWizard';
+import { TournamentList } from './components/tournament/TournamentList';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { SoftwareEngineeringGuide } from './components/docs/SoftwareEngineeringGuide';
 import { StadiumDisplay } from './components/stadium/StadiumDisplay';
@@ -13,7 +14,7 @@ import { AuthModal } from './components/auth/AuthModal';
 import { Layers, Volume2, Shield, Lock, KeyRound, LogIn } from 'lucide-react';
 
 function TournamentApp() {
-  const [activeTab, setActiveTab] = useState<'bracket' | 'referee' | 'participants' | 'wizard' | 'admin' | 'docs'>('bracket');
+  const [activeTab, setActiveTab] = useState<MainTabType>('bracket');
   const [selectedRefereeMatchId, setSelectedRefereeMatchId] = useState<string | undefined>(undefined);
 
   const {
@@ -93,7 +94,7 @@ function TournamentApp() {
       )}
 
       {/* Main Container */}
-      <main className="grow max-w-full md:max-w-5xl w-full mx-auto px-3 sm:px-6 py-5">
+      <main className="grow max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5">
         {/* Tournament Bar Indicator */}
         <div className="mb-4 flex flex-wrap items-center justify-between text-xs text-[var(--acero)] bg-[var(--chasis)] border border-[var(--costura)] px-4 py-2 rounded-[var(--r-control)] shadow-xs gap-3">
           <div className="flex items-center gap-2">
@@ -124,6 +125,15 @@ function TournamentApp() {
             )}
           </div>
         </div>
+
+        {/* View 0: Hub de Torneos (Listado y Gestión) */}
+        {activeTab === 'torneos' && (
+          <TournamentList
+            onSelectTournament={(tourneyId, targetTab) => {
+              setActiveTab(targetTab || 'bracket');
+            }}
+          />
+        )}
 
         {/* View 1: Brackets & Groups (Public and All Roles) */}
         {activeTab === 'bracket' && (
