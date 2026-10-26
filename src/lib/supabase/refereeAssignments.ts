@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseAccessToken } from './client';
 
 export interface RefereeAssignmentRecord {
   tournamentId: string;
@@ -179,9 +180,13 @@ export async function persistRefereeAssignments(
 
   // 3. Fallback: Save to Fullstack Express Backend API
   try {
+    const accessToken = await getSupabaseAccessToken();
     const response = await fetch(`/api/referees/assignments/${encodeURIComponent(tournamentId)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify({
         ...payload,
         sqlStatements,
