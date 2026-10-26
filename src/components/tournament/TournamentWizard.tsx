@@ -368,7 +368,7 @@ export const TournamentWizard: React.FC = () => {
         <button
           onClick={() => setActiveTab('general')}
           className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-            activeTab === 'general' ? 'bg-[var(--acero)] text-[var(--grafito)]' : 'text-neutral-600 hover:text-neutral-900'
+            activeTab === 'general' ? 'bg-[var(--acero)] text-[var(--grafito)]' : 'text-[var(--acero)] hover:text-[var(--hueso)]'
           }`}
         >
           General & Sede
@@ -376,7 +376,7 @@ export const TournamentWizard: React.FC = () => {
         <button
           onClick={() => setActiveTab('arbitration')}
           className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-            activeTab === 'arbitration' ? 'bg-[var(--acero)] text-[var(--grafito)]' : 'text-neutral-600 hover:text-neutral-900'
+            activeTab === 'arbitration' ? 'bg-[var(--acero)] text-[var(--grafito)]' : 'text-[var(--acero)] hover:text-[var(--hueso)]'
           }`}
         >
           Arbitraje & Puntuaciones
@@ -384,7 +384,7 @@ export const TournamentWizard: React.FC = () => {
         <button
           onClick={() => setActiveTab('stages')}
           className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-            activeTab === 'stages' ? 'bg-[var(--acero)] text-[var(--grafito)]' : 'text-neutral-600 hover:text-neutral-900'
+            activeTab === 'stages' ? 'bg-[var(--acero)] text-[var(--grafito)]' : 'text-[var(--acero)] hover:text-[var(--hueso)]'
           }`}
         >
           Etapas & Avance
@@ -392,7 +392,7 @@ export const TournamentWizard: React.FC = () => {
         <button
           onClick={() => setActiveTab('tiebreakers')}
           className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-            activeTab === 'tiebreakers' ? 'bg-[var(--acero)] text-[var(--grafito)]' : 'text-neutral-600 hover:text-neutral-900'
+            activeTab === 'tiebreakers' ? 'bg-[var(--acero)] text-[var(--grafito)]' : 'text-[var(--acero)] hover:text-[var(--hueso)]'
           }`}
         >
           Criterios de Desempate
@@ -747,11 +747,11 @@ export const TournamentWizard: React.FC = () => {
       {activeTab === 'tiebreakers' && (
         <div className="bg-[var(--chasis)] rounded-xl border border-[var(--costura)] p-6 shadow-sm space-y-6">
           {/* Header */}
-          <div className="border-b border-neutral-200 pb-4">
+          <div className="border-b border-[var(--costura)] pb-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-bold text-neutral-900 tracking-tight flex items-center gap-2">
-                  <Scale className="w-5 h-5 text-neutral-700" />
+                <h3 className="text-base font-bold text-[var(--hueso)] tracking-tight flex items-center gap-2">
+                  <Scale className="w-5 h-5 text-[var(--acero)]" />
                   Módulo Avanzado: Reglas de Desempate por Etapa
                 </h3>
                 <p className="text-xs text-[var(--acero)] mt-1">
@@ -775,10 +775,10 @@ export const TournamentWizard: React.FC = () => {
           </div>
 
           {/* 1. Stage Selector */}
-          <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-200 space-y-3">
+          <div className="p-4 bg-[var(--grafito)] rounded-xl border border-[var(--costura)] space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <label className="text-xs font-bold text-[var(--hueso)] flex items-center gap-1.5">
-                <Filter className="w-4 h-4 text-neutral-600" />
+                <Filter className="w-4 h-4 text-[var(--acero)]" />
                 Selecciona la Etapa a Configurar:
               </label>
               <span className="text-[11px] text-[var(--acero)]">
@@ -799,12 +799,12 @@ export const TournamentWizard: React.FC = () => {
                     onClick={() => setSelectedStageId(stg.id)}
                     className={`p-3 text-left rounded-lg border transition-all text-xs flex flex-col justify-between ${
                       isSelected
-                        ? 'border-neutral-900 bg-white ring-2 ring-neutral-900 shadow-xs'
-                        : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50/50'
+                        ? 'border-neutral-900 bg-[var(--grafito)] ring-2 ring-neutral-900 shadow-xs'
+                        : 'border-[var(--costura)] bg-[var(--grafito)] hover:border-[var(--costura)] hover:bg-[var(--grafito)]/50'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-1 mb-1">
-                      <span className="font-bold text-neutral-900 truncate">
+                      <span className="font-bold text-[var(--hueso)] truncate">
                         {stg.position}. {stg.name}
                       </span>
                       {isSelected && (
@@ -812,7 +812,7 @@ export const TournamentWizard: React.FC = () => {
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-700 font-mono">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--chasis)] text-[var(--acero)] font-mono">
                         {stg.type}
                       </span>
                       <span className="text-[10px] text-[var(--acero)]">
@@ -846,9 +846,9 @@ export const TournamentWizard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => applyPreset('wbo')}
-                className="p-2.5 rounded-lg border border-neutral-200 hover:border-neutral-400 bg-neutral-50 hover:bg-white text-left text-xs transition-colors group"
+                className="p-2.5 rounded-lg border border-[var(--costura)] hover:border-neutral-400 bg-[var(--grafito)] hover:bg-[var(--grafito)] text-left text-xs transition-colors group"
               >
-                <div className="font-bold text-neutral-900 group-hover:text-neutral-950">
+                <div className="font-bold text-[var(--hueso)] group-hover:text-neutral-950">
                   Estándar WBO
                 </div>
                 <div className="text-[10px] text-[var(--acero)] truncate mt-0.5">
@@ -859,7 +859,7 @@ export const TournamentWizard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => applyPreset('average')}
-                className="p-2.5 rounded-lg border border-neutral-200 hover:border-neutral-400 bg-neutral-50 hover:bg-white text-left text-xs transition-colors group"
+                className="p-2.5 rounded-lg border border-[var(--costura)] hover:border-neutral-400 bg-[var(--grafito)] hover:bg-[var(--grafito)] text-left text-xs transition-colors group"
               >
                 <div className="font-bold text-indigo-900 group-hover:text-indigo-950">
                   Puntos Promedio
@@ -872,7 +872,7 @@ export const TournamentWizard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => applyPreset('offensive')}
-                className="p-2.5 rounded-lg border border-neutral-200 hover:border-neutral-400 bg-neutral-50 hover:bg-white text-left text-xs transition-colors group"
+                className="p-2.5 rounded-lg border border-[var(--costura)] hover:border-neutral-400 bg-[var(--grafito)] hover:bg-[var(--grafito)] text-left text-xs transition-colors group"
               >
                 <div className="font-bold text-amber-900 group-hover:text-amber-950">
                   Puntos Totales
@@ -885,7 +885,7 @@ export const TournamentWizard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => applyPreset('swiss')}
-                className="p-2.5 rounded-lg border border-neutral-200 hover:border-neutral-400 bg-neutral-50 hover:bg-white text-left text-xs transition-colors group"
+                className="p-2.5 rounded-lg border border-[var(--costura)] hover:border-neutral-400 bg-[var(--grafito)] hover:bg-[var(--grafito)] text-left text-xs transition-colors group"
               >
                 <div className="font-bold text-rose-900 group-hover:text-rose-950">
                   Challonge / Suizo
@@ -901,7 +901,7 @@ export const TournamentWizard: React.FC = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[var(--hueso)] flex items-center gap-1.5">
-                <ListOrdered className="w-4 h-4 text-neutral-700" />
+                <ListOrdered className="w-4 h-4 text-[var(--acero)]" />
                 Jerarquía Activa de Desempate para "{activeStage?.name || 'Etapa actual'}":
               </span>
               <span className="text-[11px] text-[var(--acero)] font-mono">
@@ -924,7 +924,7 @@ export const TournamentWizard: React.FC = () => {
                 return (
                   <div
                     key={critId}
-                    className="p-3.5 bg-neutral-50/70 hover:bg-neutral-50 border border-neutral-200 hover:border-neutral-300 rounded-xl flex items-center justify-between gap-3 transition-all shadow-2xs"
+                    className="p-3.5 bg-[var(--grafito)]/70 hover:bg-[var(--grafito)] border border-[var(--costura)] hover:border-[var(--costura)] rounded-xl flex items-center justify-between gap-3 transition-all shadow-2xs"
                   >
                     <div className="flex items-start gap-3 min-w-0">
                       <div className="flex flex-col items-center shrink-0">
@@ -938,14 +938,14 @@ export const TournamentWizard: React.FC = () => {
 
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-bold text-neutral-900">
+                          <span className="text-xs font-bold text-[var(--hueso)]">
                             {meta.label}
                           </span>
                           <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${meta.accent}`}>
                             {meta.tag}
                           </span>
                         </div>
-                        <p className="text-[11px] text-neutral-600 mt-0.5">
+                        <p className="text-[11px] text-[var(--acero)] mt-0.5">
                           {meta.subtitle}
                         </p>
                         <p className="text-[11px] text-neutral-400 italic mt-0.5">
@@ -959,10 +959,10 @@ export const TournamentWizard: React.FC = () => {
                         type="button"
                         onClick={() => moveTiebreaker(idx, 'up')}
                         disabled={idx === 0}
-                        className={`p-1.5 rounded-lg border border-neutral-200 transition-colors ${
+                        className={`p-1.5 rounded-lg border border-[var(--costura)] transition-colors ${
                           idx === 0
                             ? 'opacity-20 cursor-not-allowed bg-[var(--grafito)]'
-                            : 'text-neutral-700 bg-white hover:bg-neutral-100 hover:border-neutral-300'
+                            : 'text-[var(--acero)] bg-[var(--grafito)] hover:bg-[var(--chasis)] hover:border-[var(--costura)]'
                         }`}
                         title="Subir prioridad en la jerarquía"
                       >
@@ -972,10 +972,10 @@ export const TournamentWizard: React.FC = () => {
                         type="button"
                         onClick={() => moveTiebreaker(idx, 'down')}
                         disabled={idx === stageTiebreakers.length - 1}
-                        className={`p-1.5 rounded-lg border border-neutral-200 transition-colors ${
+                        className={`p-1.5 rounded-lg border border-[var(--costura)] transition-colors ${
                           idx === stageTiebreakers.length - 1
                             ? 'opacity-20 cursor-not-allowed bg-[var(--grafito)]'
-                            : 'text-neutral-700 bg-white hover:bg-neutral-100 hover:border-neutral-300'
+                            : 'text-[var(--acero)] bg-[var(--grafito)] hover:bg-[var(--chasis)] hover:border-[var(--costura)]'
                         }`}
                         title="Bajar prioridad en la jerarquía"
                       >
@@ -985,7 +985,7 @@ export const TournamentWizard: React.FC = () => {
                         type="button"
                         onClick={() => removeTiebreaker(critId)}
                         disabled={stageTiebreakers.length <= 1}
-                        className={`p-1.5 rounded-lg border border-neutral-200 transition-colors ${
+                        className={`p-1.5 rounded-lg border border-[var(--costura)] transition-colors ${
                           stageTiebreakers.length <= 1
                             ? 'opacity-20 cursor-not-allowed bg-[var(--grafito)]'
                             : 'text-rose-400 bg-[var(--grafito)] hover:bg-rose-900/30 hover:border-rose-700'
@@ -1067,7 +1067,7 @@ export const TournamentWizard: React.FC = () => {
               type="button"
               onClick={handleSaveTiebreakers}
               disabled={isSavingTiebreakers}
-              className="px-5 py-2.5 text-xs font-bold text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-500 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-xs"
+              className="px-5 py-2.5 text-xs font-bold text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-[var(--grafito)]0 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-xs"
             >
               {isSavingTiebreakers ? (
                 <>

@@ -171,7 +171,7 @@ export const StadiumDisplay: React.FC<StadiumDisplayProps> = ({ onClose }) => {
         >
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl shrink-0">
+              <div className="p-3 bg-[var(--chasis)]/20 backdrop-blur-md rounded-2xl shrink-0">
                 <Volume2 className="w-8 h-8 text-white animate-bounce" />
               </div>
               <div>
