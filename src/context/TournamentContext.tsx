@@ -25,6 +25,7 @@ import {
   persistBattleToSupabase,
 } from '../lib/supabase/supabaseService';
 import {
+  getSupabaseClient,
   getStoredSupabaseConfig,
   saveSupabaseConfig,
   testSupabaseConnection,
@@ -176,24 +177,8 @@ function sanitizeStr(str: string): string {
 export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Load persisted state or fallback to initial mock data
   const [users, setUsers] = useState<UserProfile[]>(INITIAL_PROFILES);
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem(SESSION_USER_KEY);
-        if (saved) return JSON.parse(saved);
-      }
-    } catch {}
-    return null;
-  });
-  const [currentRole, setCurrentRole] = useState<UserRole>(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem(SESSION_USER_KEY);
-        if (saved) return JSON.parse(saved).role;
-      }
-    } catch {}
-    return 'public';
-  });
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [currentRole, setCurrentRole] = useState<UserRole>('public');
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'invite'>('login');
   const [inviteCodePrefill, setInviteCodePrefill] = useState<string>('');
@@ -214,6 +199,41 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       }
     } catch {}
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const restoreAuthenticatedSession = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const authUser = sessionData.session?.user;
+      if (!authUser || !active) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, display_name, role, created_at')
+        .eq('id', authUser.id)
+        .single();
+      if (!profile || !active) return;
+
+      const authenticatedUser: UserProfile = {
+        id: profile.id,
+        displayName: profile.display_name,
+        email: authUser.email || '',
+        role: profile.role as UserRole,
+        createdAt: profile.created_at,
+      };
+      setCurrentUser(authenticatedUser);
+      setCurrentRole(authenticatedUser.role);
+      localStorage.setItem(SESSION_USER_KEY, JSON.stringify(authenticatedUser));
+    };
+
+    void restoreAuthenticatedSession();
+    return () => {
+      active = false;
+    };
   }, []);
   const [tournaments, setTournaments] = useState<Tournament[]>(INITIAL_TOURNAMENTS);
   const [activeTournamentId, setActiveTournamentId] = useState<string>(INITIAL_TOURNAMENTS[0].id);
@@ -319,14 +339,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const switchRole = (newRole: UserRole) => {
-    setCurrentRole(newRole);
-    if (currentUser) {
-      const updated = { ...currentUser, role: newRole };
-      setCurrentUser(updated);
-      try {
-        localStorage.setItem(SESSION_USER_KEY, JSON.stringify(updated));
-      } catch {}
-    }
+    console.warn('[Auth] El cambio de rol está deshabilitado en el cliente.');
   };
 
   const login = async (
@@ -339,33 +352,56 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return { success: false, message: 'Ingresa tu contraseña.' };
     }
 
-    // Check pre-registered profiles. Production authentication is handled by Supabase.
-    let matchedUser = users.find(u => u.email.toLowerCase() === cleanEmail);
-
-    if (matchedUser) {
-      setCurrentUser(matchedUser);
-      setCurrentRole(matchedUser.role);
-      try {
-        localStorage.setItem(SESSION_USER_KEY, JSON.stringify(matchedUser));
-      } catch {}
-      logAudit('auth', matchedUser.id, 'insert', `Inicio de sesión como ${matchedUser.role} (${matchedUser.displayName}).`);
-      return { success: true, message: `Sesión iniciada como ${matchedUser.displayName}.`, user: matchedUser };
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      return {
+        success: false,
+        message: 'Configura Supabase Auth antes de iniciar sesión.',
+      };
     }
 
-    // Default spectator / blader
-    const newBlader: UserProfile = {
-      id: `blader_${Date.now()}`,
-      displayName: cleanEmail.split('@')[0],
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: cleanEmail,
-      role: 'blader',
-      createdAt: new Date().toISOString(),
+      password,
+    });
+    if (authError || !authData.user) {
+      return {
+        success: false,
+        message: authError?.message || 'No se pudo validar la sesión.',
+      };
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, display_name, role, created_at')
+      .eq('id', authData.user.id)
+      .single();
+    if (profileError || !profile) {
+      await supabase.auth.signOut();
+      return {
+        success: false,
+        message: 'La cuenta no tiene un perfil de torneo habilitado.',
+      };
+    }
+
+    const authenticatedUser: UserProfile = {
+      id: profile.id,
+      displayName: profile.display_name,
+      email: authData.user.email || cleanEmail,
+      role: profile.role as UserRole,
+      createdAt: profile.created_at,
     };
-    setCurrentUser(newBlader);
-    setCurrentRole('blader');
+    setCurrentUser(authenticatedUser);
+    setCurrentRole(authenticatedUser.role);
     try {
-      localStorage.setItem(SESSION_USER_KEY, JSON.stringify(newBlader));
+      localStorage.setItem(SESSION_USER_KEY, JSON.stringify(authenticatedUser));
     } catch {}
-    return { success: true, message: `Bienvenido ${newBlader.displayName}.`, user: newBlader };
+    logAudit('auth', authenticatedUser.id, 'insert', `Inicio de sesión como ${authenticatedUser.role}.`);
+    return {
+      success: true,
+      message: `Sesión iniciada como ${authenticatedUser.displayName}.`,
+      user: authenticatedUser,
+    };
   };
 
   const loginWithInvitation = async (
@@ -373,55 +409,16 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     displayName: string,
     email?: string
   ): Promise<{ success: boolean; message: string; user?: UserProfile }> => {
-    const cleanCode = code.trim().toUpperCase();
-    const inv = invitations.find(
-      i => i.code.trim().toUpperCase() === cleanCode && i.status === 'pending'
-    );
-
-    if (!inv) {
-      const acceptedInv = invitations.find(i => i.code.trim().toUpperCase() === cleanCode);
-      if (acceptedInv) {
-        return { success: false, message: 'Este código de invitación ya fue canjeado.' };
-      }
-      return { success: false, message: 'Código de invitación inválido o revocado. Contacta al administrador.' };
-    }
-
-    const newProfile: UserProfile = {
-      id: `user_${inv.role}_${Date.now().toString().slice(-5)}`,
-      displayName: displayName.trim(),
-      email: (email && email.trim().toLowerCase()) || inv.email,
-      role: inv.role,
-      createdAt: new Date().toISOString(),
-    };
-
-    const updatedInvitations = invitations.map(i =>
-      i.id === inv.id ? { ...i, status: 'accepted' as const } : i
-    );
-    setInvitations(updatedInvitations);
-
-    const updatedUsers = [...users.filter(u => u.email !== newProfile.email), newProfile];
-    setUsers(updatedUsers);
-
-    saveState({
-      invitations: updatedInvitations,
-    });
-
-    setCurrentUser(newProfile);
-    setCurrentRole(newProfile.role);
-    try {
-      localStorage.setItem(SESSION_USER_KEY, JSON.stringify(newProfile));
-    } catch {}
-
-    logAudit('invitations', inv.id, 'update', `Invitación ${inv.code} canjeada por ${newProfile.displayName} (${newProfile.role}).`);
-
     return {
-      success: true,
-      message: `¡Bienvenido! Acceso concedido como ${inv.role === 'referee' ? 'Árbitro' : 'Organizador'}.`,
-      user: newProfile,
+      success: false,
+      message: 'El canje de invitaciones debe completar Supabase Auth antes de asignar un rol.',
     };
+
   };
 
   const logout = () => {
+    const supabase = getSupabaseClient();
+    void supabase?.auth.signOut();
     try {
       localStorage.removeItem(SESSION_USER_KEY);
     } catch {}

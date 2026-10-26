@@ -58,6 +58,17 @@ export function getSupabaseClient(): SupabaseClient | null {
   }
 }
 
+export async function getSupabaseAccessToken(): Promise<string | null> {
+  const client = getSupabaseClient();
+  if (!client) return null;
+  const { data, error } = await client.auth.getSession();
+  if (error) {
+    console.error('[Supabase Auth] Error al leer la sesión:', error);
+    return null;
+  }
+  return data.session?.access_token || null;
+}
+
 export async function testSupabaseConnection(url?: string, anonKey?: string): Promise<{ success: boolean; message: string }> {
   const targetUrl = url || getStoredSupabaseConfig().url;
   const targetKey = anonKey || getStoredSupabaseConfig().anonKey;

@@ -1,4 +1,5 @@
 import { StageConfig, TiebreakerCriteria } from '../../types/tournament';
+import { getSupabaseAccessToken } from '../supabase/client';
 
 export interface StageTiebreakerPayload {
   stageId: string;
@@ -45,11 +46,13 @@ export async function persistStageTiebreakers(
   }
 
   try {
+    const accessToken = await getSupabaseAccessToken();
     // Attempt real HTTP request to backend REST API
     const response = await fetch(`/api/stages/${encodeURIComponent(stageId)}/tiebreakers`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
       body: JSON.stringify(payload),
     });
@@ -68,7 +71,8 @@ export async function persistStageTiebreakers(
     // Server is unreachable or running in SPA-only mode
   }
 
-  // Graceful fallback to client storage
+  // Keep the local copy for offline recovery, but do not report a server authorization
+  // failure as a successful backend persistence.
   return {
     success: true,
     persistedIn: 'local',
