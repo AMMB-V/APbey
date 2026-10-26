@@ -1,4 +1,4 @@
-# APbey Arena
+﻿# APbey Arena
 
 Plataforma web para organizar y operar torneos de Beyblade X. La aplicación combina una interfaz React/TypeScript, un motor local de generación y avance de torneos, un backend Express para operaciones auxiliares y una integración opcional con Supabase.
 
@@ -17,7 +17,7 @@ La aplicación cuenta con vistas funcionales para:
 
 **Importante:** la implementación actual no debe considerarse lista para producción multiusuario. La autenticación y los roles todavía dependen en parte del cliente, las rutas mutantes de Express no tienen autorización robusta y Vercel está configurado como despliegue estático de Vite, no como despliegue del backend.
 
-El login ya valida credenciales con Supabase Auth cuando está configurado y el backend valida Bearer tokens para sus mutaciones protegidas. La persistencia JSON, las invitaciones y la autorización completa por torneo siguen en transición; consultar `AUDITORIA_PLAN_ACCION.md` antes de desplegar.
+El login y el canje de invitaciones validan Supabase Auth cuando está configurado; el backend valida Bearer tokens para sus mutaciones protegidas. La persistencia JSON y la autorización completa por torneo siguen en transición; consultar `AUDITORIA_PLAN_ACCION.md` antes de desplegar.
 
 ## Relación con los documentos de diseño iniciales
 

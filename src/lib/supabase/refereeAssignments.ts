@@ -185,7 +185,7 @@ export async function persistRefereeAssignments(
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        ...(accessToken ? { Authorization: 'Bearer ' + accessToken } : {}),
       },
       body: JSON.stringify({
         ...payload,
@@ -211,10 +211,10 @@ export async function persistRefereeAssignments(
 
   // 4. Local fallback
   return {
-    success: true,
+    success: false,
     persistedIn: 'local',
     timestamp,
-    message: 'Asignaciones guardadas en la caché local del navegador.',
+    message: 'No se pudieron persistir las asignaciones en un backend autorizado. La copia local queda disponible para recuperación offline.',
     recordsUpdated: Object.keys(groupAssignments).length,
     sqlStatements,
   };

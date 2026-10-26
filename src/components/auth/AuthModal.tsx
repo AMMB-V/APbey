@@ -24,6 +24,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [inviteCode, setInviteCode] = useState(initialCode);
   const [displayName, setDisplayName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
+  const [invitePassword, setInvitePassword] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -86,7 +87,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const res = await loginWithInvitation(
         inviteCode.trim(),
         displayName.trim(),
-        inviteEmail.trim()
+        inviteEmail.trim(),
+        invitePassword
       );
       if (res.success) {
         setSuccessMsg(res.message);
@@ -262,13 +264,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             <div className="space-y-1">
               <label className="text-xs font-semibold text-[var(--acero)] block">
-                Correo Electrónico (Opcional)
+                Correo Electrónico
               </label>
               <input
                 type="email"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="carlos.juez@arena.com"
+                required
+                className="w-full text-xs font-medium border border-[var(--costura)] rounded-[var(--r-control)] px-3 py-2 bg-[var(--grafito)] text-[var(--hueso)] placeholder-[var(--costura)] focus:outline-hidden focus:border-[var(--acero)]"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-[var(--acero)] block">
+                Contraseña (mínimo 8 caracteres)
+              </label>
+              <input
+                type="password"
+                value={invitePassword}
+                onChange={(e) => setInvitePassword(e.target.value)}
+                minLength={8}
+                required
                 className="w-full text-xs font-medium border border-[var(--costura)] rounded-[var(--r-control)] px-3 py-2 bg-[var(--grafito)] text-[var(--hueso)] placeholder-[var(--costura)] focus:outline-hidden focus:border-[var(--acero)]"
               />
             </div>

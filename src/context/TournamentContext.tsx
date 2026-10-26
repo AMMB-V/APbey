@@ -80,7 +80,7 @@ interface TournamentContextType {
   switchRole: (role: UserRole) => void;
   users: UserProfile[];
   login: (email: string, password?: string) => Promise<{ success: boolean; message: string; user?: UserProfile }>;
-  loginWithInvitation: (code: string, displayName: string, email?: string) => Promise<{ success: boolean; message: string; user?: UserProfile }>;
+  loginWithInvitation: (code: string, displayName: string, email?: string, password?: string) => Promise<{ success: boolean; message: string; user?: UserProfile }>;
   logout: () => void;
   showAuthModal: boolean;
   setShowAuthModal: (show: boolean) => void;
@@ -407,13 +407,74 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const loginWithInvitation = async (
     code: string,
     displayName: string,
-    email?: string
+    email?: string,
+    password?: string
   ): Promise<{ success: boolean; message: string; user?: UserProfile }> => {
-    return {
-      success: false,
-      message: 'El canje de invitaciones debe completar Supabase Auth antes de asignar un rol.',
-    };
+    const cleanCode = code.trim().toUpperCase();
+    const cleanName = displayName.trim();
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanCode || cleanName.length < 2 || !cleanEmail || !password || password.length < 8) {
+      return {
+        success: false,
+        message: 'Código, nombre, correo y una contraseña de al menos 8 caracteres son obligatorios.',
+      };
+    }
 
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      return {
+        success: false,
+        message: 'Configura Supabase Auth antes de canjear una invitación.',
+      };
+    }
+
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password,
+    });
+    if (signUpError || !authData.user) {
+      return {
+        success: false,
+        message: signUpError?.message || 'No se pudo crear la cuenta invitada.',
+      };
+    }
+    if (!authData.session) {
+      return {
+        success: false,
+        message: 'Cuenta creada. Confirma tu correo y vuelve a iniciar sesión para activar la invitación.',
+      };
+    }
+
+    const { data: claimData, error: claimError } = await supabase.rpc('claim_invitation', {
+      p_code: cleanCode,
+      p_display_name: cleanName,
+      p_email: cleanEmail,
+    });
+    if (claimError || !claimData?.[0]) {
+      await supabase.auth.signOut();
+      return {
+        success: false,
+        message: claimError?.message || 'La invitación no pudo validarse o ya fue utilizada.',
+      };
+    }
+
+    const profile = claimData[0];
+    const authenticatedUser: UserProfile = {
+      id: authData.user.id,
+      displayName: profile.display_name,
+      email: cleanEmail,
+      role: profile.role as UserRole,
+      createdAt: new Date().toISOString(),
+    };
+    setCurrentUser(authenticatedUser);
+    setCurrentRole(authenticatedUser.role);
+    localStorage.setItem(SESSION_USER_KEY, JSON.stringify(authenticatedUser));
+    logAudit('invitations', cleanCode, 'update', `Invitación canjeada como ${authenticatedUser.role}.`);
+    return {
+      success: true,
+      message: `¡Bienvenido! Acceso concedido como ${authenticatedUser.role === 'referee' ? 'Árbitro' : 'Organizador'}.`,
+      user: authenticatedUser,
+    };
   };
 
   const logout = () => {

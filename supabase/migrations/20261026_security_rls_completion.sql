@@ -1,5 +1,5 @@
 -- Completa las políticas RLS del esquema inicial.
--- audit_log es la tabla canónica; audit_logs queda fuera de nuevas escrituras.
+-- audit_log es la tabla canónica de auditoría.
 
 alter table tournament_finish_points enable row level security;
 alter table tournament_referees enable row level security;
@@ -176,3 +176,60 @@ create policy audit_log_authenticated_insert on audit_log
   for insert with check (
     auth.uid() is not null and actor = auth.uid()
   );
+
+-- Canjea una invitación después de crear la cuenta con Supabase Auth.
+-- La operación bloquea la invitación para evitar doble uso concurrente.
+create or replace function claim_invitation(
+  p_code text,
+  p_display_name text,
+  p_email text
+)
+returns table (role user_role, display_name text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  invitation_row invitations;
+  authenticated_email text := lower(coalesce(auth.jwt() ->> 'email', ''));
+begin
+  if auth.uid() is null then
+    raise exception 'authentication_required';
+  end if;
+
+  if length(trim(p_display_name)) < 2 or length(trim(p_display_name)) > 100 then
+    raise exception 'invalid_display_name';
+  end if;
+
+  if lower(trim(p_email)) <> authenticated_email then
+    raise exception 'email_mismatch';
+  end if;
+
+  select *
+    into invitation_row
+    from invitations
+   where upper(code) = upper(trim(p_code))
+     and lower(email) = authenticated_email
+     and status = 'pending'
+   for update;
+
+  if not found then
+    raise exception 'invitation_invalid_or_used';
+  end if;
+
+  update invitations
+     set status = 'accepted'
+   where id = invitation_row.id;
+
+  insert into profiles (id, display_name, role)
+  values (auth.uid(), trim(p_display_name), invitation_row.role)
+  on conflict (id) do update
+    set display_name = excluded.display_name,
+        role = excluded.role;
+
+  return query select invitation_row.role, trim(p_display_name);
+end;
+$$;
+
+revoke all on function claim_invitation(text, text, text) from public;
+grant execute on function claim_invitation(text, text, text) to authenticated;
