@@ -95,6 +95,7 @@ interface TournamentContextType {
   createTournament: (data: Partial<Tournament>, stageType: StageType, stageConfig: StageConfig) => Tournament;
   updateTournament: (id: string, updates: Partial<Tournament>) => void;
   duplicateTournament: (id: string) => Tournament;
+  deleteTournament: (id: string) => void;
 
   // Stages & Brackets
   stages: Stage[];
@@ -1292,6 +1293,22 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setActiveTournamentId(newId);
     logAudit('tournaments', newId, 'insert', `Torneo duplicado a partir de ${source.name}.`);
     return duplicated;
+  };
+
+  const deleteTournament = (id: string) => {
+    if (tournaments.length <= 1) {
+      return;
+    }
+    const filtered = tournaments.filter(t => t.id !== id);
+    setTournaments(filtered);
+    if (activeTournamentId === id) {
+      setActiveTournamentId(filtered[0].id);
+    }
+    setStages(prev => prev.filter(s => s.tournamentId !== id));
+    setMatches(prev => prev.filter(m => m.tournamentId !== id));
+    setParticipants(prev => prev.filter(p => p.tournamentId !== id));
+    saveState({ tournaments: filtered });
+    logAudit('tournaments', id, 'delete', 'Torneo eliminado.');
   };
 
   // Invitations

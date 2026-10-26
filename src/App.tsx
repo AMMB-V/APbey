@@ -93,7 +93,7 @@ function TournamentApp() {
       )}
 
       {/* Main Container */}
-      <main className="grow max-w-7xl w-full mx-auto px-3 sm:px-6 py-5">
+      <main className="grow max-w-full md:max-w-5xl w-full mx-auto px-3 sm:px-6 py-5">
         {/* Tournament Bar Indicator */}
         <div className="mb-4 flex flex-wrap items-center justify-between text-xs text-[var(--acero)] bg-[var(--chasis)] border border-[var(--costura)] px-4 py-2 rounded-[var(--r-control)] shadow-xs gap-3">
           <div className="flex items-center gap-2">
