@@ -52,7 +52,7 @@ export async function persistStageTiebreakers(
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        ...(accessToken ? { Authorization: 'Bearer ' + accessToken } : {}),
       },
       body: JSON.stringify(payload),
     });
@@ -71,13 +71,11 @@ export async function persistStageTiebreakers(
     // Server is unreachable or running in SPA-only mode
   }
 
-  // Keep the local copy for offline recovery, but do not report a server authorization
-  // failure as a successful backend persistence.
   return {
-    success: true,
+    success: false,
     persistedIn: 'local',
     timestamp,
-    message: 'Reglas de desempate sincronizadas localmente y en caché del sistema.',
+    message: 'No se pudo persistir la configuración en el backend. La copia local queda disponible para recuperación offline.',
   };
 }
 

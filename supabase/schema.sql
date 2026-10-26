@@ -402,4 +402,4 @@ $$;
 
 -- Realtime publication updates
 alter publication supabase_realtime add table invitations;
-alter publication supabase_realtime add table audit_logs;
+alter publication supabase_realtime add table audit_log;

@@ -69,6 +69,8 @@ La respuesta funcional es conservar el alcance del PDF como contrato del MVP, us
 - Se generó `package-lock.json`, se añadió `npm run test` con Vitest y se incorporaron dos regresiones del generador Single Elimination.
 - Se añadió `supabase/migrations/20261026_security_rls_completion.sql` para completar políticas RLS de tablas relacionales y fijar `audit_log` como tabla canónica de nuevas escrituras.
 - Se eliminó el bloque duplicado `audit_logs` de los esquemas mantenidos en el repositorio; las nuevas migraciones usan `audit_log`.
+- El canje de invitaciones dejó de crear perfiles locales: ahora crea la cuenta con Supabase Auth y ejecuta el RPC transaccional `claim_invitation`, que bloquea el código, valida correo y asigna el rol desde la base de datos.
+- Las persistencias locales ya no devuelven éxito cuando el backend autorizado no confirmó la escritura.
 
 Estos cambios son deliberadamente acotados: no se implementó una migración incompleta a Next.js ni autenticación ficticia para aparentar cumplimiento.
 
@@ -93,10 +95,10 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 | Bracket, zoom, pan y gestos | Parcial/no aplicado | `BracketViewer.tsx` | Añadir pointer events, arrastre, pinch/zoom y layout escalable. |
 | Overlays, API pública y streaming | No aplicado | `server.ts` no expone esas rutas | Crear API versionada de sólo lectura y SSE/webhooks firmados. |
 | RBAC frontend | Parcial | `Header.tsx`, `App.tsx` | Mantenerlo como UX, no como control de seguridad. |
-| RBAC backend | No aplicado | `server.ts` no usa middleware de sesión/roles | Integrar Supabase Auth/JWT y autorización por torneo/match. |
-| RLS | Parcial | `supabase/schema.sql` | Completar políticas para participantes, etapas, grupos, batallas, faltas, asignaciones y auditoría. |
-| Auditoría | Parcial | `audit_log`/`audit_logs`, contexto y servicios Supabase | Unificar tabla, actor autenticado y persistencia remota obligatoria. |
-| CI y pruebas | Parcial | `.github/workflows/ci.yml`, `package.json` | Añadir script `test`, suite del motor, API, RLS, integración, E2E y accesibilidad. |
+| RBAC backend | Parcial | `server.ts` middleware Supabase Auth/RBAC | Añadir autorización por torneo/match y eliminar almacenamiento JSON productivo. |
+| RLS | Parcial avanzado | `supabase/migrations/20261026_security_rls_completion.sql` | Ejecutar contra una instancia real y revisar políticas de UPDATE/DELETE y RPC. |
+| Auditoría | Parcial avanzado | `audit_log`, migración de unificación y RPC de invitaciones | Persistir actor autenticado en todas las mutaciones y completar auditoría de correcciones. |
+| CI y pruebas | Parcial avanzado | `.github/workflows/ci.yml`, `package.json`, Vitest | Añadir pruebas API, RLS, integración, E2E y accesibilidad. |
 | Migración de memoria a SQL | Parcial | `TournamentContext.tsx`, `supabaseService.ts` | Convertir Supabase en fuente de verdad y controlar conflictos/versiones. |
 
 ## Hallazgos críticos
@@ -108,7 +110,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 3. El reclamo de invitaciones usa leer-modificar-escribir sobre JSON y puede aceptar dos reclamaciones concurrentes.
 4. La autorización del frontend sólo oculta vistas; no protege recursos.
 
-**Avance de esta iteración:** el login ya valida contraseña mediante Supabase Auth, la restauración de sesión obtiene el rol desde `profiles`, `switchRole` dejó de modificar privilegios y las mutaciones Express aceptan sólo Bearer tokens con roles permitidos cuando Supabase está configurado. Esto reduce el riesgo de escalamiento desde el cliente, pero no cierra todavía la migración completa a persistencia cloud ni el flujo seguro de invitaciones.
+**Avance de esta iteración:** el login valida contraseña mediante Supabase Auth, la restauración obtiene el rol desde `profiles`, las invitaciones usan `claim_invitation` y las mutaciones Express exigen autenticación y roles permitidos cuando el backend está configurado. La autorización por torneo y la migración total a persistencia cloud siguen pendientes.
 
 **Decisión requerida para la siguiente fase:** Supabase Auth + RLS como autoridad, o un servicio backend con JWT. No mantener roles confiables en localStorage.
 
