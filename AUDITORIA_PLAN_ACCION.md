@@ -68,6 +68,7 @@ La respuesta funcional es conservar el alcance del PDF como contrato del MVP, us
 - Las llamadas cliente al backend adjuntan el access token disponible.
 - Se generó `package-lock.json`, se añadió `npm run test` con Vitest y se incorporaron dos regresiones del generador Single Elimination.
 - Se añadió `supabase/migrations/20261026_security_rls_completion.sql` para completar políticas RLS de tablas relacionales y fijar `audit_log` como tabla canónica de nuevas escrituras.
+- Se eliminó el bloque duplicado `audit_logs` de los esquemas mantenidos en el repositorio; las nuevas migraciones usan `audit_log`.
 
 Estos cambios son deliberadamente acotados: no se implementó una migración incompleta a Next.js ni autenticación ficticia para aparentar cumplimiento.
 

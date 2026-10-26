@@ -344,26 +344,6 @@ create policy "Invitaciones canje propio" on invitations for update
   with check (is_admin() or status in ('accepted', 'revoked'));
 
 -- ====================================================================
--- TABLA AUDIT_LOGS
--- ====================================================================
-create table if not exists audit_logs (
-  id text primary key,
-  table_name text not null,
-  record_id text not null,
-  action text not null,
-  actor text not null,
-  note text,
-  old_data jsonb,
-  new_data jsonb,
-  created_at timestamptz not null default now()
-);
-
-alter table audit_logs enable row level security;
-create policy "Audit logs admin lectura" on audit_logs for select using (is_admin());
-create policy "Audit logs autenticados insercion" on audit_logs for insert
-  with check (auth.uid() is not null and actor = auth.uid()::text);
-
--- ====================================================================
 -- FUNCION TRANSACCIONAL: record_penalty
 -- ====================================================================
 create or replace function record_penalty(
