@@ -21,6 +21,8 @@ import { persistStageTiebreakers } from '../lib/storage/backendPersistence';
 import {
   syncTournamentToSupabase,
   loadTournamentsFromSupabase,
+  subscribeToTournamentRealtime,
+  persistBattleToSupabase,
 } from '../lib/supabase/supabaseService';
 import {
   getStoredSupabaseConfig,

@@ -6,13 +6,14 @@ import {
   Shuffle,
   CheckCheck,
   Trash2,
-  CheckCircle2,
   ShieldCheck,
   ArrowUp,
   ArrowDown,
   FileSpreadsheet,
+  Download,
+  Printer,
+  Sparkles,
 } from 'lucide-react';
-import { Participant } from '../../types/tournament';
 
 export const ParticipantManager: React.FC = () => {
   const {
@@ -78,61 +79,108 @@ export const ParticipantManager: React.FC = () => {
     reorderParticipants(activeTournament.id, copy);
   };
 
+  const exportToCSV = () => {
+    if (tParticipants.length === 0) return;
+    const headers = ['Siembra', 'Nombre', 'CheckIn', 'BeyCheck', 'Combo 1', 'Combo 2', 'Combo 3'];
+    const rows = tParticipants.map((p) => [
+      p.seed,
+      `"${p.displayName.replace(/"/g, '""')}"`,
+      p.checkedIn ? 'SI' : 'NO',
+      p.inspected ? 'SI' : 'NO',
+      `"${(p.deckCombos?.[0] || '').replace(/"/g, '""')}"`,
+      `"${(p.deckCombos?.[1] || '').replace(/"/g, '""')}"`,
+      `"${(p.deckCombos?.[2] || '').replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `bladers_${activeTournament?.slug || 'torneo'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6 text-[var(--hueso)]">
       {/* Top Banner */}
-      <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-[var(--chasis)] rounded-[var(--r-card)] border border-[var(--costura)] p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold text-neutral-900 tracking-tight">
-              Gestión de Bladers & Siembra (Seeding)
+            <h2 className="text-lg font-bold text-[var(--hueso)] tracking-tight font-display">
+              Gestión de Bladers, Decks 3on3 & Siembra (Seeding)
             </h2>
-            <span className="text-xs px-2 py-0.5 rounded font-mono font-bold bg-neutral-100 text-neutral-800">
+            <span className="text-xs px-2 py-0.5 rounded-[var(--r-chip)] font-mono font-bold bg-[var(--grafito)] text-[var(--hueso)] border border-[var(--costura)]">
               {tParticipants.length} {activeTournament?.maxParticipants ? `/ ${activeTournament.maxParticipants}` : ''} Jugadores
             </span>
           </div>
-          <div className="flex items-center gap-3 text-xs text-neutral-500 mt-1">
-            <span>Check-in: <strong className="text-neutral-800 font-mono">{checkedInCount}/{tParticipants.length}</strong></span>
+          <div className="flex items-center gap-3 text-xs text-[var(--acero)] mt-1">
+            <span>Check-in: <strong className="text-[var(--hueso)] font-mono">{checkedInCount}/{tParticipants.length}</strong></span>
             <span>·</span>
-            <span>Bey Check verificado: <strong className="text-neutral-800 font-mono">{inspectedCount}/{tParticipants.length}</strong></span>
+            <span>Bey Check verificado: <strong className="text-[var(--hueso)] font-mono">{inspectedCount}/{tParticipants.length}</strong></span>
           </div>
         </div>
 
         {/* Global Participant Actions */}
-        {currentRole !== 'public' && (
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => checkInAll(activeTournament!.id)}
-              className="px-3 py-1.5 text-xs font-semibold rounded-md bg-neutral-100 hover:bg-neutral-200 text-neutral-800 transition-colors flex items-center gap-1.5"
-            >
-              <CheckCheck className="w-3.5 h-3.5" />
-              Check-in a Todos
-            </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={exportToCSV}
+            className="btn btn--secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5"
+            title="Exportar lista de participantes a CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Exportar CSV
+          </button>
 
-            <button
-              onClick={() => randomizeParticipants(activeTournament!.id)}
-              className="px-3 py-1.5 text-xs font-semibold rounded-md bg-neutral-100 hover:bg-neutral-200 text-neutral-800 transition-colors flex items-center gap-1.5"
-            >
-              <Shuffle className="w-3.5 h-3.5" />
-              Siembra Aleatoria
-            </button>
+          <button
+            onClick={handlePrint}
+            className="btn btn--secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5"
+            title="Imprimir planilla de check-in para mesa"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            Imprimir
+          </button>
 
-            <button
-              onClick={() => setShowBulkModal(true)}
-              className="px-3 py-1.5 text-xs font-semibold rounded-md bg-neutral-900 hover:bg-neutral-800 text-white transition-colors flex items-center gap-1.5"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              Importar en Bloque (Walk-in)
-            </button>
-          </div>
-        )}
+          {currentRole !== 'public' && (
+            <>
+              <button
+                onClick={() => checkInAll(activeTournament!.id)}
+                className="btn btn--secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5"
+              >
+                <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                Check-in a Todos
+              </button>
+
+              <button
+                onClick={() => randomizeParticipants(activeTournament!.id)}
+                className="btn btn--secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5"
+              >
+                <Shuffle className="w-3.5 h-3.5" />
+                Siembra Aleatoria
+              </button>
+
+              <button
+                onClick={() => setShowBulkModal(true)}
+                className="btn btn--primary text-xs px-3 py-1.5 flex items-center gap-1.5"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                Importar en Bloque (Walk-in)
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Quick Add Form */}
       {currentRole !== 'public' && (
         <form
           onSubmit={handleAddSingle}
-          className="bg-white rounded-xl border border-neutral-200 p-4 shadow-2xs flex flex-col sm:flex-row items-center gap-3"
+          className="bg-[var(--chasis)] rounded-[var(--r-card)] border border-[var(--costura)] p-4 shadow-xs flex flex-col sm:flex-row items-center gap-3"
         >
           <div className="grow w-full sm:w-auto">
             <input
@@ -141,23 +189,23 @@ export const ParticipantManager: React.FC = () => {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               required
-              className="w-full text-xs font-medium border border-neutral-300 rounded-lg px-3 py-2 bg-neutral-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-neutral-900"
+              className="w-full text-xs font-medium border border-[var(--costura)] rounded-[var(--r-control)] px-3 py-2 bg-[var(--grafito)] text-[var(--hueso)] focus:outline-hidden focus:border-[var(--cobalto)]"
             />
           </div>
 
           <div className="grow w-full sm:w-auto">
             <input
               type="text"
-              placeholder="Deck Combos (ej. Dran Sword 3-60F, Hells Scythe 4-60B)"
+              placeholder="Deck Combos 3on3 (ej. Dran Sword 3-60F, Wizard Rod 9-60B, Phoenix Wing 5-60P)"
               value={newCombos}
               onChange={(e) => setNewCombos(e.target.value)}
-              className="w-full text-xs font-medium border border-neutral-300 rounded-lg px-3 py-2 bg-neutral-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-neutral-900 font-mono"
+              className="w-full text-xs font-medium border border-[var(--costura)] rounded-[var(--r-control)] px-3 py-2 bg-[var(--grafito)] text-[var(--hueso)] focus:outline-hidden focus:border-[var(--cobalto)] font-mono"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full sm:w-auto px-4 py-2 text-xs font-bold text-white bg-neutral-900 hover:bg-neutral-800 rounded-lg transition-colors flex items-center justify-center gap-1.5 shrink-0"
+            className="w-full sm:w-auto btn btn--primary text-xs px-4 py-2 flex items-center justify-center gap-1.5 shrink-0"
           >
             <UserPlus className="w-3.5 h-3.5" />
             Añadir Blader
@@ -166,14 +214,14 @@ export const ParticipantManager: React.FC = () => {
       )}
 
       {/* Participants Table with Reordering */}
-      <div className="bg-white rounded-xl border border-neutral-200 shadow-2xs overflow-hidden">
+      <div className="bg-[var(--chasis)] rounded-[var(--r-card)] border border-[var(--costura)] shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
-            <thead className="text-[11px] uppercase font-bold text-neutral-500 bg-neutral-50 border-b border-neutral-200">
+          <table className="tabla">
+            <thead>
               <tr>
                 <th className="py-2.5 px-3 w-16 text-center">Siembra</th>
                 <th className="py-2.5 px-4">Blader / Participante</th>
-                <th className="py-2.5 px-4">Deck Registrado</th>
+                <th className="py-2.5 px-4">Deck Registrado (3on3)</th>
                 <th className="py-2.5 px-3 text-center">Check-In</th>
                 <th className="py-2.5 px-3 text-center">Bey Check</th>
                 {currentRole !== 'public' && (
@@ -181,26 +229,26 @@ export const ParticipantManager: React.FC = () => {
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-100">
+            <tbody>
               {tParticipants.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-xs text-neutral-400">
-                    No hay bladers registrados en este torneo. Añade participantes arriba.
+                  <td colSpan={6} className="py-8 text-center text-xs text-[var(--acero)]">
+                    No hay bladers registrados en este torneo. Añade participantes arriba o impórtalos en bloque.
                   </td>
                 </tr>
               ) : (
                 tParticipants.map((p, idx) => (
-                  <tr key={p.id} className="hover:bg-neutral-50/80 transition-colors">
+                  <tr key={p.id}>
                     {/* Seed & Order buttons */}
-                    <td className="py-2.5 px-3 text-center font-mono font-bold text-neutral-700">
+                    <td className="py-2.5 px-3 text-center font-mono font-bold">
                       <div className="flex items-center justify-center gap-1">
                         {currentRole !== 'public' && (
                           <div className="flex flex-col gap-0.5">
                             <button
                               onClick={() => moveSeed(idx, 'up')}
                               disabled={idx === 0}
-                              className={`p-0.5 rounded hover:bg-neutral-200 ${
-                                idx === 0 ? 'opacity-20 cursor-not-allowed' : 'text-neutral-600'
+                              className={`p-0.5 rounded hover:bg-[var(--grafito)] ${
+                                idx === 0 ? 'opacity-20 cursor-not-allowed' : 'text-[var(--acero)] hover:text-white'
                               }`}
                               title="Subir siembra"
                             >
@@ -209,8 +257,8 @@ export const ParticipantManager: React.FC = () => {
                             <button
                               onClick={() => moveSeed(idx, 'down')}
                               disabled={idx === tParticipants.length - 1}
-                              className={`p-0.5 rounded hover:bg-neutral-200 ${
-                                idx === tParticipants.length - 1 ? 'opacity-20 cursor-not-allowed' : 'text-neutral-600'
+                              className={`p-0.5 rounded hover:bg-[var(--grafito)] ${
+                                idx === tParticipants.length - 1 ? 'opacity-20 cursor-not-allowed' : 'text-[var(--acero)] hover:text-white'
                               }`}
                               title="Bajar siembra"
                             >
@@ -218,27 +266,27 @@ export const ParticipantManager: React.FC = () => {
                             </button>
                           </div>
                         )}
-                        <span className="w-5 text-right font-mono">#{p.seed}</span>
+                        <span className="w-5 text-right font-mono text-[var(--cobalto)]">#{p.seed}</span>
                       </div>
                     </td>
 
                     {/* Name */}
-                    <td className="py-2.5 px-4 font-semibold text-neutral-900">
+                    <td className="py-2.5 px-4 font-semibold text-[var(--hueso)]">
                       {p.displayName}
                     </td>
 
                     {/* Combos */}
-                    <td className="py-2.5 px-4 text-neutral-600 font-mono text-[11px]">
+                    <td className="py-2.5 px-4 font-mono text-[11px]">
                       {p.deckCombos && p.deckCombos.length > 0 ? (
-                        <div className="space-y-0.5">
+                        <div className="flex flex-wrap gap-1">
                           {p.deckCombos.map((c, i) => (
-                            <span key={i} className="inline-block bg-neutral-100 px-1.5 py-0.2 rounded mr-1.5">
-                              {c}
+                            <span key={i} className="inline-block bg-[var(--grafito)] border border-[var(--costura)] text-[var(--hueso)] px-1.5 py-0.5 rounded-[var(--r-chip)]">
+                              ⚡ {c}
                             </span>
                           ))}
                         </div>
                       ) : (
-                        <span className="text-neutral-400 italic">Sin combos registrados</span>
+                        <span className="text-[var(--acero)] italic">Sin combos registrados (1on1 o pendiente)</span>
                       )}
                     </td>
 
@@ -247,10 +295,10 @@ export const ParticipantManager: React.FC = () => {
                       <button
                         onClick={() => toggleCheckIn(p.id)}
                         disabled={currentRole === 'public'}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold transition-colors ${
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[var(--r-chip)] text-[11px] font-semibold transition-colors ${
                           p.checkedIn
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+                            ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-700/50'
+                            : 'bg-[var(--grafito)] text-[var(--acero)] hover:text-white border border-[var(--costura)]'
                         }`}
                       >
                         {p.checkedIn ? 'Confirmado' : 'Pendiente'}
@@ -262,13 +310,13 @@ export const ParticipantManager: React.FC = () => {
                       <button
                         onClick={() => toggleInspected(p.id)}
                         disabled={currentRole === 'public'}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold transition-colors ${
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[var(--r-chip)] text-[11px] font-semibold transition-colors ${
                           p.inspected
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+                            ? 'bg-blue-950/60 text-blue-300 border border-blue-700/50'
+                            : 'bg-[var(--grafito)] text-[var(--acero)] hover:text-white border border-[var(--costura)]'
                         }`}
                       >
-                        <ShieldCheck className="w-3 h-3" />
+                        <ShieldCheck className="w-3 h-3 text-[var(--cobalto)]" />
                         {p.inspected ? 'Aprobado' : 'Sin revisar'}
                       </button>
                     </td>
@@ -278,7 +326,7 @@ export const ParticipantManager: React.FC = () => {
                       <td className="py-2.5 px-3 text-right">
                         <button
                           onClick={() => removeParticipant(p.id)}
-                          className="p-1 rounded text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          className="p-1.5 rounded-[var(--r-control)] text-[var(--acero)] hover:text-rose-400 hover:bg-[var(--grafito)] transition-colors"
                           title="Eliminar participante"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -295,14 +343,14 @@ export const ParticipantManager: React.FC = () => {
 
       {/* Bulk Import Modal */}
       {showBulkModal && (
-        <div className="fixed inset-0 z-50 bg-neutral-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-5 border border-neutral-200 animate-in zoom-in-95">
-            <h3 className="font-bold text-neutral-900 text-base flex items-center gap-2">
-              <FileSpreadsheet className="w-5 h-5 text-neutral-700" />
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[var(--chasis)] rounded-[var(--r-card)] shadow-2xl max-w-lg w-full p-5 border border-[var(--costura)] animate-in zoom-in-95 text-[var(--hueso)]">
+            <h3 className="font-bold text-[var(--hueso)] text-base flex items-center gap-2 font-display">
+              <FileSpreadsheet className="w-5 h-5 text-[var(--cobalto)]" />
               Importación Masiva de Participantes (Walk-in)
             </h3>
-            <p className="text-xs text-neutral-500 mt-1">
-              Pega una lista de nombres de bladers, uno por línea. Se añadirán en orden y se les asignará siembra secuencial.
+            <p className="text-xs text-[var(--acero)] mt-1">
+              Pega una lista de nombres de bladers, uno por línea. Se añadirán en orden y se les asignará siembra secuencial automáticamente.
             </p>
 
             <form onSubmit={handleBulkSubmit} className="mt-4 space-y-4">
@@ -311,21 +359,21 @@ export const ParticipantManager: React.FC = () => {
                 value={bulkText}
                 onChange={(e) => setBulkText(e.target.value)}
                 placeholder={"Kamen X\nChrome Ryugu\nBird Kazami\nMulti Nanairo\nKing Manju\nMeiko Maiden"}
-                className="w-full text-xs font-mono p-3 border border-neutral-300 rounded-lg bg-neutral-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                className="w-full text-xs font-mono p-3 border border-[var(--costura)] rounded-[var(--r-control)] bg-[var(--grafito)] text-[var(--hueso)] focus:outline-hidden focus:border-[var(--cobalto)]"
                 required
               />
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-200">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--costura)]">
                 <button
                   type="button"
                   onClick={() => setShowBulkModal(false)}
-                  className="px-3.5 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-100 rounded"
+                  className="btn btn--secondary text-xs px-3.5 py-1.5"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 text-xs font-bold text-white bg-neutral-900 hover:bg-neutral-800 rounded shadow-xs"
+                  className="btn btn--primary text-xs px-4 py-1.5"
                 >
                   Importar Bladers
                 </button>

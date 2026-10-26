@@ -296,3 +296,112 @@ export async function loadTournamentsFromSupabase(): Promise<{
     return null;
   }
 }
+
+/**
+ * Realtime Subscription for Live Scoring and Stadium Displays.
+ * Listens to postgres_changes on matches and battles tables.
+ */
+export function subscribeToTournamentRealtime(
+  tournamentId: string,
+  callbacks: {
+    onMatchUpdate?: (match: Partial<Match>) => void;
+    onBattleInsert?: (battle: Battle) => void;
+  }
+): () => void {
+  const supabase = getSupabaseClient();
+  if (!supabase) return () => {};
+
+  const channel = supabase
+    .channel(`live_tournament_${tournamentId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'matches',
+        filter: `tournament_id=eq.${tournamentId}`,
+      },
+      (payload) => {
+        const m = payload.new as Record<string, unknown>;
+        if (callbacks.onMatchUpdate) {
+          callbacks.onMatchUpdate({
+            id: String(m.id),
+            score1: Number(m.score1) || 0,
+            score2: Number(m.score2) || 0,
+            sets1: Number(m.sets1) || 0,
+            sets2: Number(m.sets2) || 0,
+            status: m.status as Match['status'],
+            winnerId: (m.winner_id as string) || undefined,
+            refereeId: (m.referee_id as string) || undefined,
+          });
+        }
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'battles',
+      },
+      (payload) => {
+        const b = payload.new as Record<string, unknown>;
+        if (callbacks.onBattleInsert) {
+          callbacks.onBattleInsert({
+            id: String(b.id),
+            matchId: String(b.match_id),
+            battleNumber: Number(b.battle_number),
+            setNumber: Number(b.set_number) || 1,
+            scorerId: (b.scorer_id as string) || null,
+            finish: (b.finish as any) || null,
+            points: Number(b.points) || 0,
+            voided: Boolean(b.voided),
+            recordedBy: String(b.recorded_by || ''),
+            createdAt: String(b.created_at || new Date().toISOString()),
+          });
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+/**
+ * Persists an individual battle directly to Supabase when online.
+ */
+export async function persistBattleToSupabase(battle: Battle, match: Match): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+
+  try {
+    // 1. Insert battle
+    await supabase.from('battles').upsert({
+      id: battle.id,
+      match_id: battle.matchId,
+      battle_number: battle.battleNumber,
+      set_number: battle.setNumber || 1,
+      scorer_id: battle.scorerId || null,
+      finish: battle.finish || null,
+      points: battle.points || 0,
+      voided: battle.voided || false,
+      recorded_by: battle.recordedBy || null,
+      created_at: battle.createdAt,
+    });
+
+    // 2. Update match state
+    await supabase.from('matches').update({
+      score1: match.score1,
+      score2: match.score2,
+      sets1: match.sets1,
+      sets2: match.sets2,
+      status: match.status,
+      winner_id: match.winnerId || null,
+      finished_at: match.finishedAt || null,
+    }).eq('id', match.id);
+  } catch (err) {
+    console.warn('[Supabase Realtime] No se pudo emitir mutación directa:', err);
+  }
+}
