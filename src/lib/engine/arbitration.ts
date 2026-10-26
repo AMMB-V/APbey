@@ -226,7 +226,8 @@ export function undoLastBattle(
   match: Match,
   stage: Stage,
   battles: Battle[],
-  penalties: Penalty[]
+  penalties: Penalty[],
+  tournament?: Tournament
 ): { updatedMatch: Match; removedBattleId: string } {
   const matchBattles = battles.filter(b => b.matchId === match.id && !b.voided);
   if (matchBattles.length === 0) {
@@ -246,6 +247,7 @@ export function undoLastBattle(
   let status: Match['status'] = remainingBattles.length > 0 || matchPenalties.length > 0 ? 'in_progress' : 'pending';
 
   const setsNeeded = Math.floor(stage.bestOf / 2) + 1;
+  const matchTargetPoints = tournament ? getMatchPointsToWin(match, stage, tournament) : (stage.pointsToWin || 4);
 
   for (const b of remainingBattles) {
     if (b.scorerId && b.finish) {
@@ -255,7 +257,7 @@ export function undoLastBattle(
         score2 += b.points;
       }
 
-      if (Math.max(score1, score2) >= stage.pointsToWin) {
+      if (Math.max(score1, score2) >= matchTargetPoints) {
         if (score1 > score2) sets1++;
         else sets2++;
 
@@ -277,7 +279,7 @@ export function undoLastBattle(
       if (p.awardedTo === match.participant1Id) score1 += p.pointsAwarded;
       else if (p.awardedTo === match.participant2Id) score2 += p.pointsAwarded;
 
-      if (Math.max(score1, score2) >= stage.pointsToWin) {
+      if (Math.max(score1, score2) >= matchTargetPoints) {
         if (score1 > score2) sets1++;
         else sets2++;
 

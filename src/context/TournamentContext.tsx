@@ -19,6 +19,15 @@ import {
 } from '../types/tournament';
 import { persistStageTiebreakers } from '../lib/storage/backendPersistence';
 import {
+  syncTournamentToSupabase,
+  loadTournamentsFromSupabase,
+} from '../lib/supabase/supabaseService';
+import {
+  getStoredSupabaseConfig,
+  saveSupabaseConfig,
+  testSupabaseConnection,
+} from '../lib/supabase/client';
+import {
   applyBattle,
   applyPenalty,
   undoLastBattle,
@@ -50,7 +59,18 @@ import {
   INITIAL_TOURNAMENTS,
 } from '../lib/storage/mockData';
 
+export interface SupabaseSyncInfo {
+  isConfigured: boolean;
+  isConnected: boolean;
+  lastSync: string | null;
+  message: string;
+}
+
 interface TournamentContextType {
+  // Supabase State and Actions
+  supabaseSyncInfo: SupabaseSyncInfo;
+  syncCurrentTournamentToSupabase: () => Promise<{ success: boolean; message: string }>;
+  updateSupabaseKeys: (url: string, anonKey: string) => Promise<{ success: boolean; message: string }>;
   // Current user & role
   currentUser: UserProfile;
   currentRole: UserRole;
@@ -123,6 +143,20 @@ interface TournamentContextType {
 const STORAGE_KEY = 'bey_tournament_arena_v1';
 
 const TournamentContext = createContext<TournamentContextType | null>(null);
+
+function sanitizeStr(str: string): string {
+  if (!str) return '';
+  return str.replace(/[<>'"&]/g, (char) => {
+    switch (char) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      case "'": return '&#39;';
+      case '&': return '&amp;';
+      default: return char;
+    }
+  }).trim();
+}
 
 export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Load persisted state or fallback to initial mock data
@@ -247,7 +281,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const newP: Participant = {
       id: `p_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       tournamentId,
-      displayName: displayName.trim(),
+      displayName: sanitizeStr(displayName),
       seed: newSeed,
       checkedIn: true,
       inspected: false,
@@ -894,7 +928,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!stage) return;
 
     try {
-      const { updatedMatch, removedBattleId } = undoLastBattle(match, stage, battles, penalties);
+      const tourney = tournaments.find(t => t.id === match.tournamentId);
+      const { updatedMatch, removedBattleId } = undoLastBattle(match, stage, battles, penalties, tourney);
       const nextMatches = matches.map(m => m.id === matchId ? updatedMatch : m);
       const nextBattles = battles.filter(b => b.id !== removedBattleId);
 
@@ -1111,6 +1146,47 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return updated;
     });
     logAudit('profiles', userId, 'update', `Rol de usuario cambiado a ${newRole}.`);
+  };
+
+  
+  const syncCurrentTournamentToSupabase = async (): Promise<{ success: boolean; message: string }> => {
+    if (!activeTournament) {
+      return { success: false, message: 'No hay torneo activo para sincronizar.' };
+    }
+    const result = await syncTournamentToSupabase(
+      activeTournament,
+      stages,
+      groups,
+      rounds,
+      matches,
+      participants,
+      battles,
+      penalties
+    );
+    setSupabaseSyncInfo(prev => ({
+      ...prev,
+      isConnected: result.success,
+      lastSync: result.success ? new Date().toLocaleTimeString() : prev.lastSync,
+      message: result.message,
+    }));
+    logAudit('system', activeTournament.id, 'update', result.message);
+    return result;
+  };
+
+  const updateSupabaseKeys = async (url: string, anonKey: string): Promise<{ success: boolean; message: string }> => {
+    saveSupabaseConfig(url, anonKey);
+    const test = await testSupabaseConnection(url, anonKey);
+    setSupabaseSyncInfo({
+      isConfigured: Boolean(anonKey),
+      isConnected: test.success,
+      lastSync: test.success ? new Date().toLocaleTimeString() : null,
+      message: test.message,
+    });
+    if (test.success && activeTournament) {
+      // Auto-sync after successful connection
+      await syncCurrentTournamentToSupabase();
+    }
+    return test;
   };
 
   const resetAllData = () => {
