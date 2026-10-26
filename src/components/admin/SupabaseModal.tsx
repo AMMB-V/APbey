@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTournament } from '../../context/TournamentContext';
-import { getStoredSupabaseConfig, DEFAULT_SUPABASE_URL } from '../../lib/supabase/client';
+import { getStoredSupabaseConfig } from '../../lib/supabase/client';
 import { SUPABASE_MIGRATION_SQL } from '../../lib/supabase/schema';
 import {
   Database,
@@ -24,7 +24,7 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
   const { supabaseSyncInfo, syncCurrentTournamentToSupabase, updateSupabaseKeys, activeTournament } = useTournament();
 
   const currentCfg = getStoredSupabaseConfig();
-  const [url, setUrl] = useState<string>(currentCfg.url || DEFAULT_SUPABASE_URL);
+  const [url, setUrl] = useState<string>(currentCfg.url);
   const [anonKey, setAnonKey] = useState<string>(currentCfg.anonKey || '');
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
@@ -155,7 +155,7 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
                 className="w-full bg-[var(--grafito)] border border-[var(--costura)] rounded-[var(--r-control)] px-3.5 py-2.5 text-sm text-[var(--hueso)] focus:outline-hidden focus:border-[var(--cobalto)] font-mono"
               />
               <span className="text-[11px] text-[var(--acero)]">
-                Tu instancia registrada de Supabase: <code className="text-emerald-400">{DEFAULT_SUPABASE_URL}</code>
+                Configura aquí la URL de tu instancia de Supabase y su clave anónima pública.
               </span>
             </div>
 
@@ -187,7 +187,7 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
 
             <div className="flex items-center justify-between pt-2">
               <a
-                href="https://supabase.com/dashboard/project/inkxdmjxhzdssfzjjtaw/settings/api"
+                href="https://supabase.com/dashboard"
                 target="_blank"
                 rel="noreferrer"
                 className="text-xs text-[var(--cobalto)] hover:underline inline-flex items-center gap-1.5 font-medium"
@@ -221,20 +221,6 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    const rlsGrantSql = `-- Solución inmediata para Error 42501 (permission denied for table tournaments):\nGRANT USAGE ON SCHEMA public TO anon, authenticated;\nGRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;\nGRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;\nALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated;\nALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated;`;
-                    navigator.clipboard.writeText(rlsGrantSql);
-                    setFeedback({ type: 'info', text: '¡Script de Permisos RLS (Solución a Error 42501) copiado! Pégalo y ejecútalo en el SQL Editor de Supabase.' });
-                    setTimeout(() => setFeedback(null), 6000);
-                  }}
-                  className="btn btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5 text-amber-300 border-amber-800/60 hover:bg-amber-950/30"
-                  title="Soluciona el error [42501] permission denied for table tournaments"
-                >
-                  <Shield className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Fix Error 42501</span>
-                </button>
-
                 <button
                   onClick={handleCopySql}
                   className="btn btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5"

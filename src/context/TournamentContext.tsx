@@ -335,18 +335,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   ): Promise<{ success: boolean; message: string; user?: UserProfile }> => {
     const cleanEmail = email.trim().toLowerCase();
 
-    // Check pre-registered profiles or master admin
-    let matchedUser = users.find(u => u.email.toLowerCase() === cleanEmail);
-    if (!matchedUser && (cleanEmail === 'admin@beybladex.org' || cleanEmail === 'admin@apbey.com')) {
-      matchedUser = {
-        id: 'user_admin',
-        displayName: 'Administrador Principal',
-        email: cleanEmail,
-        role: 'admin',
-        createdAt: new Date().toISOString(),
-      };
-      setUsers(prev => [...prev.filter(u => u.id !== 'user_admin'), matchedUser!]);
+    if (!password?.trim()) {
+      return { success: false, message: 'Ingresa tu contraseña.' };
     }
+
+    // Check pre-registered profiles. Production authentication is handled by Supabase.
+    let matchedUser = users.find(u => u.email.toLowerCase() === cleanEmail);
 
     if (matchedUser) {
       setCurrentUser(matchedUser);
@@ -856,6 +850,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     finish: FinishType | null,
     note?: string
   ) => {
+    if (!currentUser || !['referee', 'organizer', 'admin'].includes(currentRole)) {
+      throw new Error('No tienes permisos para registrar batallas.');
+    }
     const match = matches.find(m => m.id === matchId);
     if (!match) return;
     const stage = stages.find(s => s.id === match.stageId);
@@ -930,6 +927,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     isFoul: boolean = true,
     reason?: string
   ) => {
+    if (!currentUser || !['referee', 'organizer', 'admin'].includes(currentRole)) {
+      throw new Error('No tienes permisos para registrar penalizaciones.');
+    }
     const match = matches.find(m => m.id === matchId);
     if (!match) return;
     const stage = stages.find(s => s.id === match.stageId);
@@ -1066,6 +1066,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Claim match as referee (self-selection)
   const claimMatchAsReferee = (matchId: string) => {
+    if (!currentUser || !['referee', 'organizer', 'admin'].includes(currentRole)) {
+      throw new Error('No tienes permisos para asumir un match.');
+    }
     assignReferee(matchId, currentUser.id);
   };
 

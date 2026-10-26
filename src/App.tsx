@@ -14,7 +14,13 @@ import { AuthModal } from './components/auth/AuthModal';
 import { Layers, Volume2, Shield, Lock, KeyRound, LogIn } from 'lucide-react';
 
 function TournamentApp() {
-  const [activeTab, setActiveTab] = useState<MainTabType>('bracket');
+  const [activeTab, setActiveTab] = useState<MainTabType>(() => {
+    if (typeof window === 'undefined') return 'bracket';
+    const saved = window.localStorage.getItem('apbey_active_tab');
+    return saved && ['torneos', 'bracket', 'referee', 'participants', 'wizard', 'admin', 'docs'].includes(saved)
+      ? saved as MainTabType
+      : 'bracket';
+  });
   const [selectedRefereeMatchId, setSelectedRefereeMatchId] = useState<string | undefined>(undefined);
 
   const {
@@ -48,6 +54,10 @@ function TournamentApp() {
   }, [tournamentStages, activeStageId]);
 
   const currentStage = tournamentStages.find((s) => s.id === activeStageId) || tournamentStages[0];
+
+  React.useEffect(() => {
+    window.localStorage.setItem('apbey_active_tab', activeTab);
+  }, [activeTab]);
 
   const handleOpenMatchInReferee = (matchId: string) => {
     setSelectedRefereeMatchId(matchId);

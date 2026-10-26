@@ -332,9 +332,11 @@ create table if not exists invitations (
 );
 
 alter table invitations enable row level security;
-create policy "Invitaciones publicas o autenticadas lectura" on invitations for select using (true);
-create policy "Invitaciones admin insert" on invitations for insert with check (true);
-create policy "Invitaciones actualizacion status" on invitations for update using (true);
+create policy "Invitaciones admin lectura" on invitations for select using (is_admin());
+create policy "Invitaciones admin insercion" on invitations for insert with check (is_admin() and invited_by = auth.uid()::text);
+create policy "Invitaciones canje propio" on invitations for update
+  using (is_admin() or (auth.uid() is not null and lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''))))
+  with check (is_admin() or status in ('accepted', 'revoked'));
 
 -- ====================================================================
 -- TABLA AUDIT_LOGS
@@ -352,30 +354,32 @@ create table if not exists audit_logs (
 );
 
 alter table audit_logs enable row level security;
-create policy "Audit logs lectura" on audit_logs for select using (true);
-create policy "Audit logs insercion" on audit_logs for insert with check (true);
+create policy "Audit logs admin lectura" on audit_logs for select using (is_admin());
+create policy "Audit logs autenticados insercion" on audit_logs for insert
+  with check (auth.uid() is not null and actor = auth.uid()::text);
 
 -- ====================================================================
 -- FUNCION TRANSACCIONAL: record_penalty
 -- ====================================================================
 create or replace function record_penalty(
-  p_match_id text,
-  p_offender_id text,
+  p_match_id uuid,
+  p_offender_id uuid,
   p_card card_type,
   p_is_foul boolean,
   p_points_awarded int,
-  p_awarded_to text,
+  p_awarded_to uuid,
   p_reason text,
-  p_issued_by text,
+  p_issued_by uuid,
   p_expected_version int
 )
 returns jsonb
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   v_match matches%rowtype;
-  v_penalty_id text;
+  v_penalty_id uuid;
   v_new_version int;
 begin
   select * into v_match from matches where id = p_match_id for update;
@@ -383,18 +387,20 @@ begin
     raise exception 'Match % no existe', p_match_id;
   end if;
 
+  if not (referees_match(v_match.id) or manages_tournament(v_match.tournament_id)) then
+    raise exception 'forbidden';
+  end if;
+
   if v_match.version <> p_expected_version then
     raise exception 'Conflicto de concurrencia: el match fue modificado por otro juez';
   end if;
 
   v_new_version := v_match.version + 1;
-  v_penalty_id := 'penalty_' || p_match_id || '_' || floor(extract(epoch from now()) * 1000)::text;
-
   insert into penalties (
-    id, match_id, participant_id, card, is_foul, points_awarded, awarded_to, reason, issued_by, created_at
+    match_id, participant_id, card, is_foul, points_awarded, awarded_to, reason, issued_by, created_at
   ) values (
-    v_penalty_id, p_match_id, p_offender_id, p_card, p_is_foul, p_points_awarded, p_awarded_to, p_reason, p_issued_by, now()
-  );
+    p_match_id, p_offender_id, p_card, p_is_foul, p_points_awarded, p_awarded_to, p_reason, p_issued_by, now()
+  ) returning id into v_penalty_id;
 
   if p_points_awarded > 0 and p_awarded_to is not null then
     if p_awarded_to = v_match.participant1_id then
