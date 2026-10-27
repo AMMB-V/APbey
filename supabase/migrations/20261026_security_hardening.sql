@@ -12,6 +12,23 @@ alter table public.battles enable row level security;
 alter table public.penalties enable row level security;
 alter table public.audit_log enable row level security;
 
+-- Some existing projects were initialized without this helper function.
+-- Define it before policies that use it so this migration is self-contained.
+create or replace function public.referees_match(m uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.matches
+    where id = m
+      and referee_id = (select auth.uid())
+  );
+$$;
+
 drop policy if exists profiles_read on public.profiles;
 drop policy if exists profiles_admin_read on public.profiles;
 create policy profiles_read on public.profiles
