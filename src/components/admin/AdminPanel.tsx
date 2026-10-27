@@ -43,17 +43,17 @@ export const AdminPanel: React.FC = () => {
   const [showDbModal, setShowDbModal] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  const handleCreateInvite = (e: React.FormEvent) => {
+  const handleCreateInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     try {
-      const inv = createInvitation(
+      const inv = await createInvitation(
         inviteEmail.trim(),
         inviteRole,
         inviteTournamentId || undefined
       );
       setInviteEmail('');
-      setSuccessMsg(`Invitación creada para ${inv.email} con código ${inv.code}`);
+      setSuccessMsg(`Invitación guardada para ${inv.email} con código ${inv.code}`);
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (error) {
       setErrorMsg(error instanceof Error ? error.message : 'No se pudo crear la invitación.');
@@ -365,7 +365,11 @@ export const AdminPanel: React.FC = () => {
                       <Mail className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => revokeInvitation(inv.id)}
+                        onClick={() => {
+                          void revokeInvitation(inv.id).catch((error: unknown) => {
+                            setErrorMsg(error instanceof Error ? error.message : 'No se pudo revocar la invitación.');
+                          });
+                        }}
                         className="p-1 rounded text-[var(--acero)] hover:text-rose-400"
                         title="Revocar invitación"
                       >

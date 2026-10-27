@@ -136,7 +136,7 @@ where id = 'UUID_DEL_USUARIO';
 
 La aplicación permite actualizar nombre, correo y contraseña mediante Supabase Auth. Los cambios de correo pueden requerir confirmación en la nueva dirección. Nunca pegues credenciales reales en `README.md`, `.env`, commits o tickets.
 
-Las invitaciones actualmente generan un código y enlace de registro, pero no envían correo SMTP automáticamente. El panel permite preparar un mensaje `mailto:`; para entrega transaccional se requiere configurar Supabase Auth SMTP o una Edge Function/backend con proveedor de correo.
+Con Supabase configurado y una sesión admin activa, las invitaciones se cargan, crean y revocan en `public.invitations` con RLS. Sin configuración de Supabase, el panel conserva un modo local de demostración. Las invitaciones generan un código y enlace de registro, pero no envían correo SMTP automáticamente: el panel permite preparar un mensaje `mailto:`; para entrega transaccional se requiere configurar Supabase Auth SMTP o una Edge Function/backend con proveedor de correo.
 
 No usar la autenticación de interfaz actual como control de seguridad. Las operaciones de escritura deben pasar por Supabase Auth/RLS o por un backend con sesión, autorización por torneo y validación de payloads. También se requieren rate limiting, límites de body, headers de seguridad, logs estructurados y protección contra reclamaciones concurrentes de invitaciones.
 
