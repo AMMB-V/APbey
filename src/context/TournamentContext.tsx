@@ -81,6 +81,7 @@ interface TournamentContextType {
   users: UserProfile[];
   login: (email: string, password?: string) => Promise<{ success: boolean; message: string; user?: UserProfile }>;
   loginWithInvitation: (code: string, displayName: string, email?: string, password?: string) => Promise<{ success: boolean; message: string; user?: UserProfile }>;
+  updateProfile: (updates: { displayName: string; email: string; password?: string }) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   showAuthModal: boolean;
   setShowAuthModal: (show: boolean) => void;
@@ -418,6 +419,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         success: false,
         message: 'Código, nombre, correo y una contraseña de al menos 8 caracteres son obligatorios.',
       };
+
     }
 
     const supabase = getSupabaseClient();
@@ -475,6 +477,63 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       message: `¡Bienvenido! Acceso concedido como ${authenticatedUser.role === 'referee' ? 'Árbitro' : 'Organizador'}.`,
       user: authenticatedUser,
     };
+  };
+
+  const updateProfile = async (updates: {
+    displayName: string;
+    email: string;
+    password?: string;
+  }): Promise<{ success: boolean; message: string }> => {
+    if (!currentUser) {
+      return { success: false, message: 'Debes iniciar sesión para actualizar tu perfil.' };
+    }
+
+    const displayName = updates.displayName.trim();
+    const email = updates.email.trim().toLowerCase();
+    const password = updates.password?.trim() || '';
+    if (displayName.length < 2 || displayName.length > 100) {
+      return { success: false, message: 'El nombre debe tener entre 2 y 100 caracteres.' };
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { success: false, message: 'Introduce un correo electrónico válido.' };
+    }
+    if (password && password.length < 8) {
+      return { success: false, message: 'La nueva contraseña debe tener al menos 8 caracteres.' };
+    }
+
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      return { success: false, message: 'Configura Supabase Auth antes de actualizar el perfil.' };
+    }
+
+    const authUpdates: { email?: string; password?: string } = {};
+    if (email !== currentUser.email) authUpdates.email = email;
+    if (password) authUpdates.password = password;
+
+    if (Object.keys(authUpdates).length > 0) {
+      const { error } = await supabase.auth.updateUser(authUpdates);
+      if (error) {
+        return { success: false, message: error.message || 'No se pudo actualizar la cuenta de acceso.' };
+      }
+    }
+
+    const { error: profileError } = await supabase.rpc('update_my_profile', {
+      p_display_name: displayName,
+    });
+    if (profileError) {
+      return { success: false, message: profileError.message || 'No se pudo actualizar el perfil público.' };
+    }
+
+    const updatedUser = { ...currentUser, displayName, email };
+    setCurrentUser(updatedUser);
+    setUsers((previous) => previous.map((user) => user.id === currentUser.id ? updatedUser : user));
+    try {
+      localStorage.setItem(SESSION_USER_KEY, JSON.stringify(updatedUser));
+    } catch {}
+
+    const emailNotice = authUpdates.email ? ' Revisa tu correo para confirmar el cambio de dirección.' : '';
+    logAudit('profiles', currentUser.id, 'update', 'Perfil de usuario actualizado.');
+    return { success: true, message: `Perfil actualizado correctamente.${emailNotice}` };
   };
 
   const logout = () => {
@@ -1666,6 +1725,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         updateSupabaseKeys,
         login,
         loginWithInvitation,
+        updateProfile,
         logout,
         showAuthModal,
         setShowAuthModal,

@@ -119,6 +119,23 @@ Antes de producción deben resolverse:
 
 ## Seguridad y operación
 
+### Cuenta de administrador
+
+No se incluyen credenciales de administrador en el repositorio ni se generan contraseñas compartidas. Para crear el primer administrador de forma segura:
+
+1. Crea el usuario desde **Supabase Dashboard → Authentication → Users**.
+2. Confirma su correo y ejecuta el SQL siguiente sustituyendo el UUID real:
+
+```sql
+update public.profiles
+set role = 'admin'
+where id = 'UUID_DEL_USUARIO';
+```
+
+3. Inicia sesión en la aplicación con la contraseña definida en Supabase y cambia los datos desde **Mi perfil y seguridad**.
+
+La aplicación permite actualizar nombre, correo y contraseña mediante Supabase Auth. Los cambios de correo pueden requerir confirmación en la nueva dirección. Nunca pegues credenciales reales en `README.md`, `.env`, commits o tickets.
+
 No usar la autenticación de interfaz actual como control de seguridad. Las operaciones de escritura deben pasar por Supabase Auth/RLS o por un backend con sesión, autorización por torneo y validación de payloads. También se requieren rate limiting, límites de body, headers de seguridad, logs estructurados y protección contra reclamaciones concurrentes de invitaciones.
 
 No se deben commitear `node_modules`, `dist`, cachés de Vite/TypeScript, logs ni variables de entorno. Las exclusiones están centralizadas en `.gitignore`.
