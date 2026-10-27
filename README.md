@@ -123,7 +123,7 @@ Antes de producción deben resolverse:
 
 No se incluyen credenciales de administrador en el repositorio ni se generan contraseñas compartidas. Para crear el primer administrador de forma segura:
 
-1. Crea el usuario desde **Supabase Dashboard → Authentication → Users**.
+1. Crea el usuario `alexmaurimeneses@gmail.com` desde **Supabase Dashboard → Authentication → Users**.
 2. Confirma su correo y ejecuta el SQL siguiente sustituyendo el UUID real:
 
 ```sql
@@ -135,6 +135,12 @@ where id = 'UUID_DEL_USUARIO';
 3. Inicia sesión en la aplicación con la contraseña definida en Supabase y cambia los datos desde **Mi perfil y seguridad**.
 
 La aplicación permite actualizar nombre, correo y contraseña mediante Supabase Auth. Los cambios de correo pueden requerir confirmación en la nueva dirección. Nunca pegues credenciales reales en `README.md`, `.env`, commits o tickets.
+
+Con Supabase configurado y una sesión admin activa, las invitaciones se cargan, crean y revocan en `public.invitations` con RLS. Sin configuración de Supabase, el panel conserva un modo local de demostración. Las invitaciones generan un código y enlace de registro, pero no envían correo SMTP automáticamente: el panel permite preparar un mensaje `mailto:`; para entrega transaccional se requiere configurar Supabase Auth SMTP o una Edge Function/backend con proveedor de correo.
+
+La integración preparada para Resend usa la Edge Function `send-invitation`. Antes de desplegarla, aplica `supabase/migrations/20261026_invitation_email_delivery.sql` y configura los secretos `RESEND_API_KEY`, `INVITATION_FROM_EMAIL` y `APP_URL` en Supabase Functions. Un resultado `sent` confirma que Resend aceptó el mensaje, no que llegó a la bandeja de entrada; la entrega final debe comprobarse con el panel de Resend y una cuenta de prueba.
+
+La migración `supabase/migrations/20261026_security_hardening.sql` corrige las tablas con RLS sin políticas, consolida políticas permisivas duplicadas, restringe la ejecución directa de funciones internas y añade índices para claves foráneas. Debe aplicarse en el proyecto Supabase conectado antes de producción. La protección contra contraseñas filtradas se habilita desde **Authentication → Password Security** en el Dashboard.
 
 No usar la autenticación de interfaz actual como control de seguridad. Las operaciones de escritura deben pasar por Supabase Auth/RLS o por un backend con sesión, autorización por torneo y validación de payloads. También se requieren rate limiting, límites de body, headers de seguridad, logs estructurados y protección contra reclamaciones concurrentes de invitaciones.
 

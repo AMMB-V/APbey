@@ -16,7 +16,7 @@ export const INITIAL_PROFILES: UserProfile[] = [
   {
     id: 'user_admin',
     displayName: 'Alex Mauri (Admin)',
-    email: 'admin@beybladex.org',
+    email: 'alexmaurimeneses@gmail.com',
     role: 'admin',
     createdAt: '2026-01-10T10:00:00Z',
   },

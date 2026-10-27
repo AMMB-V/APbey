@@ -70,6 +70,9 @@ La respuesta funcional es conservar el alcance del PDF como contrato del MVP, us
 - Se añadió `supabase/migrations/20261026_security_rls_completion.sql` para completar políticas RLS de tablas relacionales y fijar `audit_log` como tabla canónica de nuevas escrituras.
 - Se eliminó el bloque duplicado `audit_logs` de los esquemas mantenidos en el repositorio; las nuevas migraciones usan `audit_log`.
 - El canje de invitaciones dejó de crear perfiles locales: ahora crea la cuenta con Supabase Auth y ejecuta el RPC transaccional `claim_invitation`, que bloquea el código, valida correo y asigna el rol desde la base de datos.
+- Las invitaciones ya se persisten en `public.invitations` cuando existe una sesión admin con Supabase configurado; el modo local sólo queda como fallback de demostración. La invitación por correo aún no es transaccional: el panel genera código/enlace y prepara un `mailto:`; falta configurar SMTP o una función backend para enviar y registrar la entrega.
+- Se añadió la Edge Function `send-invitation` para Resend y la migración de estado de entrega. Queda pendiente desplegar la función, configurar el dominio/remitente y validar una entrega real; `sent` sólo significa aceptación por Resend.
+- El auditor de Supabase detectó RLS sin políticas en siete tablas, funciones `SECURITY DEFINER` expuestas y claves foráneas sin índices. Se añadió `supabase/migrations/20261026_security_hardening.sql` para corregir esas brechas de forma idempotente. La migración debe aplicarse en Supabase y luego deben repetirse los advisors; la protección contra contraseñas filtradas se activa desde el Dashboard.
 - Las persistencias locales ya no devuelven éxito cuando el backend autorizado no confirmó la escritura.
 
 Estos cambios son deliberadamente acotados: no se implementó una migración incompleta a Next.js ni autenticación ficticia para aparentar cumplimiento.

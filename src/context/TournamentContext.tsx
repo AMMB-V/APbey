@@ -148,8 +148,8 @@ interface TournamentContextType {
   setShowStadiumModal: (show: boolean) => void;
 
   // Admin actions
-  createInvitation: (email: string, role: 'organizer' | 'referee', tournamentId?: string) => Invitation;
-  revokeInvitation: (id: string) => void;
+  createInvitation: (email: string, role: 'organizer' | 'referee', tournamentId?: string) => Promise<Invitation>;
+  revokeInvitation: (id: string) => Promise<void>;
   changeUserRole: (userId: string, newRole: UserRole) => void;
 
   // Reset
@@ -229,6 +229,27 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setCurrentUser(authenticatedUser);
       setCurrentRole(authenticatedUser.role);
       localStorage.setItem(SESSION_USER_KEY, JSON.stringify(authenticatedUser));
+
+      if (authenticatedUser.role === 'admin') {
+        const { data: invitationRows, error: invitationsError } = await supabase
+          .from('invitations')
+          .select('id, email, role, tournament_id, status, invited_by, created_at, code')
+          .order('created_at', { ascending: false });
+
+        if (!invitationsError && invitationRows) {
+          setInvitations(invitationRows.map((row) => ({
+            id: row.id,
+            email: row.email,
+            role: row.role as Invitation['role'],
+            tournamentId: row.tournament_id || undefined,
+            status: row.status as Invitation['status'],
+            invitedBy: row.invited_by,
+            createdAt: row.created_at,
+            code: row.code,
+            emailStatus: 'not_sent' as const,
+          })));
+        }
+      }
     };
 
     void restoreAuthenticatedSession();
@@ -1537,7 +1558,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // Invitations
-  const createInvitation = (email: string, role: 'organizer' | 'referee', tournamentId?: string): Invitation => {
+  const createInvitation = async (email: string, role: 'organizer' | 'referee', tournamentId?: string): Promise<Invitation> => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
       throw new Error('Introduce un correo electrónico válido.');
@@ -1558,7 +1579,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } while (invitations.some((inv) => inv.code === code));
 
     const inv: Invitation = {
-      id: `inv_${Date.now()}`,
+      id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       email: normalizedEmail,
       role,
       tournamentId,
@@ -1568,19 +1589,87 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       code,
     };
 
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('invitations')
+        .insert({
+          id: inv.id,
+          email: inv.email,
+          role: inv.role,
+          tournament_id: inv.tournamentId || null,
+          status: inv.status,
+          invited_by: inv.invitedBy,
+          created_at: inv.createdAt,
+          code: inv.code,
+        })
+        .select('id, email, role, tournament_id, status, invited_by, created_at, code')
+        .single();
+
+      if (error || !data) {
+        throw new Error(error?.message || 'Supabase no devolvió la invitación creada.');
+      }
+
+      let persistedInvitation: Invitation = {
+        id: data.id,
+        email: data.email,
+        role: data.role as Invitation['role'],
+        tournamentId: data.tournament_id || undefined,
+        status: data.status as Invitation['status'],
+        invitedBy: data.invited_by,
+        createdAt: data.created_at,
+        code: data.code,
+        emailStatus: 'not_sent',
+      };
+      setInvitations(prev => [persistedInvitation, ...prev.filter(existing => existing.id !== persistedInvitation.id)]);
+      logAudit('invitations', persistedInvitation.id, 'insert', `Invitación para rol ${role} creada para ${email}. Código: ${persistedInvitation.code}`);
+
+      const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-invitation', {
+        body: {
+          id: persistedInvitation.id,
+          email: persistedInvitation.email,
+          code: persistedInvitation.code,
+        },
+      });
+      const emailStatus = !emailError && emailResult?.sent === true ? 'sent' : 'failed';
+      persistedInvitation = { ...persistedInvitation, emailStatus };
+      setInvitations(prev => prev.map(existing =>
+        existing.id === persistedInvitation.id ? persistedInvitation : existing
+      ));
+
+      if (emailStatus === 'failed') {
+        console.warn('[Invitations] La invitación se guardó, pero el correo no fue enviado:', emailError?.message || emailResult?.error || 'servicio no configurado');
+      }
+      return persistedInvitation;
+    }
+
     setInvitations(prev => {
       const updated = [inv, ...prev];
       saveState({ invitations: updated });
       return updated;
     });
 
-    logAudit('invitations', inv.id, 'insert', `Invitación para rol ${role} enviada a ${email}. Código: ${inv.code}`);
+    logAudit('invitations', inv.id, 'insert', `Invitación para rol ${role} creada para ${email}. Código: ${inv.code}`);
     return inv;
   };
 
-  const revokeInvitation = (id: string) => {
+  const revokeInvitation = async (id: string): Promise<void> => {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { error } = await supabase
+        .from('invitations')
+        .update({ status: 'revoked' })
+        .eq('id', id);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+    }
+
     setInvitations(prev => {
-      const updated = prev.filter(inv => inv.id !== id);
+      const updated = supabase
+        ? prev.map(inv => inv.id === id ? { ...inv, status: 'revoked' as const } : inv)
+        : prev.filter(inv => inv.id !== id);
       saveState({ invitations: updated });
       return updated;
     });

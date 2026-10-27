@@ -43,17 +43,21 @@ export const AdminPanel: React.FC = () => {
   const [showDbModal, setShowDbModal] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  const handleCreateInvite = (e: React.FormEvent) => {
+  const handleCreateInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     try {
-      const inv = createInvitation(
+      const inv = await createInvitation(
         inviteEmail.trim(),
         inviteRole,
         inviteTournamentId || undefined
       );
       setInviteEmail('');
-      setSuccessMsg(`Invitación creada para ${inv.email} con código ${inv.code}`);
+      setSuccessMsg(
+        inv.emailStatus === 'sent'
+          ? `Invitación guardada y aceptada por el proveedor de correo para ${inv.email}.`
+          : `Invitación guardada, pero el correo aún no fue enviado a ${inv.email}.`
+      );
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (error) {
       setErrorMsg(error instanceof Error ? error.message : 'No se pudo crear la invitación.');
@@ -64,6 +68,15 @@ export const AdminPanel: React.FC = () => {
     navigator.clipboard.writeText(text);
     setCopiedCode(text);
     setTimeout(() => setCopiedCode(null), 2500);
+  };
+
+  const prepareInvitationEmail = (email: string, code: string) => {
+    const inviteUrl = `${window.location.origin}?invite=${encodeURIComponent(code)}`;
+    const subject = encodeURIComponent('Invitación a Beyblade X Arena');
+    const body = encodeURIComponent(
+      `Has sido invitado a Beyblade X Arena.\n\nCódigo de invitación: ${code}\nEnlace de registro: ${inviteUrl}\n\nUsa el mismo correo al registrarte.`
+    );
+    window.location.href = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`;
   };
 
   const handleManualSync = async () => {
@@ -205,6 +218,9 @@ export const AdminPanel: React.FC = () => {
               <span>{errorMsg}</span>
             </div>
           )}
+          <div className="p-3 bg-amber-950/30 border border-amber-800/60 rounded-[var(--r-control)] text-xs text-amber-200">
+            <strong>Entrega por correo:</strong> el sistema genera códigos y enlaces seguros, pero el envío automático SMTP aún no está configurado. Usa el botón de correo para abrir tu cliente y enviar la invitación.
+          </div>
 
           {/* Grid: Invite Form + User List */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -345,7 +361,19 @@ export const AdminPanel: React.FC = () => {
                         <ExternalLink className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => revokeInvitation(inv.id)}
+                      onClick={() => prepareInvitationEmail(inv.email, inv.code)}
+                      className="p-1 rounded text-[var(--acero)] hover:text-amber-300"
+                      title="Preparar correo de invitación"
+                      aria-label={`Preparar correo para ${inv.email}`}
+                      >
+                      <Mail className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          void revokeInvitation(inv.id).catch((error: unknown) => {
+                            setErrorMsg(error instanceof Error ? error.message : 'No se pudo revocar la invitación.');
+                          });
+                        }}
                         className="p-1 rounded text-[var(--acero)] hover:text-rose-400"
                         title="Revocar invitación"
                       >
