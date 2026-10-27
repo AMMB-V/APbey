@@ -43,6 +43,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // New Tournament form state
   const [newName, setNewName] = useState('');
@@ -58,10 +59,24 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
 
   const canManage = currentRole === 'organizer' || currentRole === 'admin';
 
+  const resetCreationDefaults = () => {
+    setNewVenue('Arena Beyblade');
+    setNewCountry('PA');
+    setNewMaxParticipants(16);
+    setNewEntryFee(0);
+    setNewPointsGroup(4);
+    setNewPointsPlayoffs(5);
+    setNewPointsFinal(7);
+    setNewFormat('group_stage');
+  };
+
   // Handle template selection to pre-fill parameters
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplateId(templateId);
-    if (!templateId) return;
+    if (!templateId) {
+      resetCreationDefaults();
+      return;
+    }
     const template = tournaments.find((t) => t.id === templateId);
     if (template) {
       setNewVenue(template.venueName || 'Arena Beyblade');
@@ -91,7 +106,19 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
 
   const handleCreateSubmit = (e: React.FormEvent, targetView: 'participants' | 'bracket' = 'participants') => {
     e.preventDefault();
-    if (!newName.trim()) return;
+    setFormError(null);
+    if (newName.trim().length < 3) {
+      setFormError('El nombre del torneo debe tener al menos 3 caracteres.');
+      return;
+    }
+    if (newMaxParticipants < 4 || newMaxParticipants > 128) {
+      setFormError('El cupo debe estar entre 4 y 128 bladers.');
+      return;
+    }
+    if ([newPointsGroup, newPointsPlayoffs, newPointsFinal].some((value) => !Number.isInteger(value) || value < 1)) {
+      setFormError('Los puntos para ganar deben ser números enteros mayores que cero.');
+      return;
+    }
 
     const templateSource = selectedTemplateId ? tournaments.find(t => t.id === selectedTemplateId) : undefined;
     const templateStage = selectedTemplateId ? stages.find(s => s.tournamentId === selectedTemplateId) : undefined;
@@ -420,7 +447,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
 
       {/* Modal: Crear Nuevo Torneo */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in" role="dialog" aria-modal="true" aria-labelledby="create-tournament-title">
           <div className="w-full max-w-xl bg-[var(--chasis)] border border-[var(--costura)] rounded-[var(--r-card)] shadow-2xl overflow-hidden flex flex-col text-[var(--hueso)] max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="p-5 border-b border-[var(--costura)] flex items-center justify-between bg-[var(--grafito)] sticky top-0">
@@ -429,7 +456,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                   🏆
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold tracking-tight text-[var(--hueso)] font-display">
+                  <h2 id="create-tournament-title" className="text-sm font-bold tracking-tight text-[var(--hueso)] font-display">
                     Crear Nuevo Torneo de Beyblade X
                   </h2>
                   <p className="text-[11px] text-[var(--acero)]">
@@ -444,6 +471,12 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {formError && (
+              <div role="alert" className="mx-6 mt-4 p-3 bg-rose-950/40 border border-rose-700 rounded-[var(--r-control)] text-xs font-semibold text-rose-300">
+                {formError}
+              </div>
+            )}
 
             {/* Form */}
             <form onSubmit={(e) => handleCreateSubmit(e, 'participants')} className="p-6 space-y-4">
@@ -465,7 +498,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                   ))}
                 </select>
                 <p className="text-[10px] text-[var(--acero)]">
-                  Copia automáticamente formato de etapas, metas de puntos y reglas de desempate de un torneo previo.
+                  Copia formato, metas y reglas de desempate. No copia participantes, combates ni árbitros asignados.
                 </p>
               </div>
 

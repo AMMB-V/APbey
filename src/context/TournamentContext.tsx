@@ -1343,7 +1343,15 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     stageConfig: StageConfig
   ): Tournament => {
     const tId = `tourney_${Date.now()}`;
-    const slug = (data.name || 'torneo').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const baseSlug = (data.name || 'torneo')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'torneo';
+    const slug = tournaments.some((t) => t.slug === baseSlug)
+      ? `${baseSlug}-${Date.now().toString().slice(-6)}`
+      : baseSlug;
 
     const newTournament: Tournament = {
       id: tId,
@@ -1356,8 +1364,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       maxParticipants: data.maxParticipants || 16,
       checkInRequired: data.checkInRequired || false,
       entryFee: data.entryFee || 0,
-      foulPoints: data.foulPoints !== undefined ? data.foulPoints : 1, // Falta: 1 punto al rival
-      foulsPerPoint: data.foulsPerPoint || 3, // El punto se otorga tras 3 faltas acumuladas
+      foulPoints: data.foulPoints ?? 1, // Falta: 1 punto al rival
+      foulsPerPoint: data.foulsPerPoint ?? 3, // El punto se otorga tras 3 faltas acumuladas
       venueName: data.venueName || 'Arena Beyblade',
       venueAddress: data.venueAddress || '',
       country: data.country || 'PA',
@@ -1369,10 +1377,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         burst: 2,
         xtreme: 3,
       },
-      assignedReferees: ['user_ref_1', 'user_ref_2'],
-      pointsToWinGroup: data.pointsToWinGroup || 4,
-      pointsToWinPlayoffs: data.pointsToWinPlayoffs || 5,
-      pointsToWinFinal: data.pointsToWinFinal || 7,
+      assignedReferees: [],
+      pointsToWinGroup: data.pointsToWinGroup ?? 4,
+      pointsToWinPlayoffs: data.pointsToWinPlayoffs ?? 5,
+      pointsToWinFinal: data.pointsToWinFinal ?? 7,
     };
 
     const initialStage: Stage = {
@@ -1420,10 +1428,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const duplicated: Tournament = {
       ...source,
       id: newId,
-      name: `${source.name} (Copia)`,
+      name: `${source.name} (Plantilla)`,
       slug: `${source.slug}-copia-${Date.now().toString().slice(-4)}`,
       status: 'draft',
       createdAt: new Date().toISOString(),
+      assignedReferees: [],
     };
 
     // Duplicate stages
@@ -1470,15 +1479,34 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Invitations
   const createInvitation = (email: string, role: 'organizer' | 'referee', tournamentId?: string): Invitation => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      throw new Error('Introduce un correo electrónico válido.');
+    }
+    const duplicate = invitations.find((inv) =>
+      inv.status === 'pending' &&
+      inv.email === normalizedEmail &&
+      inv.role === role &&
+      inv.tournamentId === tournamentId
+    );
+    if (duplicate) {
+      throw new Error('Ya existe una invitación pendiente para ese correo, rol y torneo.');
+    }
+
+    let code = '';
+    do {
+      code = `BEY-${role.slice(0, 3).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    } while (invitations.some((inv) => inv.code === code));
+
     const inv: Invitation = {
       id: `inv_${Date.now()}`,
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       role,
       tournamentId,
       status: 'pending',
       invitedBy: currentUser?.id || 'user_admin',
       createdAt: new Date().toISOString(),
-      code: `BEY-${role.slice(0, 3).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      code,
     };
 
     setInvitations(prev => {
