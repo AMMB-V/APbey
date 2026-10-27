@@ -123,7 +123,7 @@ Antes de producción deben resolverse:
 
 No se incluyen credenciales de administrador en el repositorio ni se generan contraseñas compartidas. Para crear el primer administrador de forma segura:
 
-1. Crea el usuario desde **Supabase Dashboard → Authentication → Users**.
+1. Crea el usuario `alexmaurimeneses@gmail.com` desde **Supabase Dashboard → Authentication → Users**.
 2. Confirma su correo y ejecuta el SQL siguiente sustituyendo el UUID real:
 
 ```sql
@@ -135,6 +135,8 @@ where id = 'UUID_DEL_USUARIO';
 3. Inicia sesión en la aplicación con la contraseña definida en Supabase y cambia los datos desde **Mi perfil y seguridad**.
 
 La aplicación permite actualizar nombre, correo y contraseña mediante Supabase Auth. Los cambios de correo pueden requerir confirmación en la nueva dirección. Nunca pegues credenciales reales en `README.md`, `.env`, commits o tickets.
+
+Las invitaciones actualmente generan un código y enlace de registro, pero no envían correo SMTP automáticamente. El panel permite preparar un mensaje `mailto:`; para entrega transaccional se requiere configurar Supabase Auth SMTP o una Edge Function/backend con proveedor de correo.
 
 No usar la autenticación de interfaz actual como control de seguridad. Las operaciones de escritura deben pasar por Supabase Auth/RLS o por un backend con sesión, autorización por torneo y validación de payloads. También se requieren rate limiting, límites de body, headers de seguridad, logs estructurados y protección contra reclamaciones concurrentes de invitaciones.
 

@@ -66,6 +66,15 @@ export const AdminPanel: React.FC = () => {
     setTimeout(() => setCopiedCode(null), 2500);
   };
 
+  const prepareInvitationEmail = (email: string, code: string) => {
+    const inviteUrl = `${window.location.origin}?invite=${encodeURIComponent(code)}`;
+    const subject = encodeURIComponent('Invitación a Beyblade X Arena');
+    const body = encodeURIComponent(
+      `Has sido invitado a Beyblade X Arena.\n\nCódigo de invitación: ${code}\nEnlace de registro: ${inviteUrl}\n\nUsa el mismo correo al registrarte.`
+    );
+    window.location.href = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`;
+  };
+
   const handleManualSync = async () => {
     setIsSyncing(true);
     const res = await syncCurrentTournamentToSupabase();
@@ -205,6 +214,9 @@ export const AdminPanel: React.FC = () => {
               <span>{errorMsg}</span>
             </div>
           )}
+          <div className="p-3 bg-amber-950/30 border border-amber-800/60 rounded-[var(--r-control)] text-xs text-amber-200">
+            <strong>Entrega por correo:</strong> el sistema genera códigos y enlaces seguros, pero el envío automático SMTP aún no está configurado. Usa el botón de correo para abrir tu cliente y enviar la invitación.
+          </div>
 
           {/* Grid: Invite Form + User List */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -343,6 +355,14 @@ export const AdminPanel: React.FC = () => {
                         title="Copiar enlace directo de invitación"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                      onClick={() => prepareInvitationEmail(inv.email, inv.code)}
+                      className="p-1 rounded text-[var(--acero)] hover:text-amber-300"
+                      title="Preparar correo de invitación"
+                      aria-label={`Preparar correo para ${inv.email}`}
+                      >
+                      <Mail className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => revokeInvitation(inv.id)}
