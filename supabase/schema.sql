@@ -328,13 +328,18 @@ create table if not exists invitations (
   status text not null default 'pending' check (status in ('pending', 'accepted', 'revoked')),
   invited_by text not null,
   code text unique not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  email_status text not null default 'not_sent' check (email_status in ('not_sent', 'sent', 'failed')),
+  email_message_id text,
+  email_error text,
+  email_sent_at timestamptz
 );
 
 alter table invitations enable row level security;
-create policy "Invitaciones admin lectura" on invitations for select using (is_admin());
-create policy "Invitaciones admin insercion" on invitations for insert with check (is_admin() and invited_by = auth.uid()::text);
-create policy "Invitaciones canje propio" on invitations for update
+create policy invitations_admin_read on invitations for select to authenticated using (is_admin());
+create policy invitations_admin_insert on invitations for insert to authenticated
+  with check (is_admin() and invited_by = auth.uid()::text);
+create policy invitations_update on invitations for update to authenticated
   using (is_admin() or (auth.uid() is not null and lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''))))
   with check (is_admin() or status in ('accepted', 'revoked'));
 

@@ -227,7 +227,7 @@ drop policy if exists invitations_admin_update on public.invitations;
 drop policy if exists invitations_claim_update on public.invitations;
 drop policy if exists "Invitaciones canje propio" on public.invitations;
 create policy invitations_update on public.invitations
-  for update
+  for update to authenticated
   using (
     is_admin()
     or (
