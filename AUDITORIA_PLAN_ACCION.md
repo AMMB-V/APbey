@@ -8,7 +8,7 @@ Alcance: frontend, backend, motor de torneos, persistencia, Supabase, despliegue
 
 El plan adjunto **no está aplicado en su totalidad**, ni en frontend ni en backend. Hay una base funcional sólida para brackets, grupos, arbitraje, participantes, configuración y visualización, pero los controles necesarios para producción multiusuario todavía no están completos.
 
-La mayor parte de la brecha no es visual: los roles del frontend no constituyen autorización, las rutas mutantes restantes de Express aún dependen de JSON auxiliar y la configuración de Vercel no publica el backend Express. También faltan automatizaciones y superficies completas del plan: Double Elimination real, reabrir combate, check-in automático con expiración, auto-drop/re-siembra, API de overlays, SSE/webhooks y pruebas automatizadas.
+La mayor parte de la brecha no es visual: los roles del frontend no constituyen autorización por sí solos, las rutas mutantes restantes de Express aún dependen de JSON auxiliar y la configuración de Vercel no publica el backend Express. También faltan automatizaciones y superficies completas del plan: Double Elimination real, reabrir combate, check-in automático con expiración, auto-drop/re-siembra, API de overlays, SSE/webhooks y pruebas automatizadas.
 
 ## Respuestas a los documentos iniciales
 

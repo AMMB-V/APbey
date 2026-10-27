@@ -64,10 +64,11 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
         </div>
 
         {/* Zone 2: Navigation Links (User-Focused & Role Segmented) */}
-        <nav className="hidden md:flex items-center gap-1 hide-scrollbar">
+        <nav aria-label="Navegación principal" className="hidden md:flex items-center gap-1 hide-scrollbar">
           {/* Torneos Hub: Visible to everyone */}
           <button
             onClick={() => setActiveTab('torneos')}
+            aria-current={activeTab === 'torneos' ? 'page' : undefined}
             className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--r-control)] transition-colors flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'torneos'
                 ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
@@ -81,6 +82,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
           {/* Brackets: Visible to everyone */}
           <button
             onClick={() => setActiveTab('bracket')}
+            aria-current={activeTab === 'bracket' ? 'page' : undefined}
             className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--r-control)] transition-colors flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'bracket'
                 ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
@@ -95,6 +97,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
           {(currentRole === 'referee' || currentRole === 'organizer' || currentRole === 'admin') && (
             <button
               onClick={() => setActiveTab('referee')}
+              aria-current={activeTab === 'referee' ? 'page' : undefined}
               className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--r-control)] transition-colors flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'referee'
                   ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
@@ -110,6 +113,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
           {(currentRole === 'organizer' || currentRole === 'admin') && (
             <button
               onClick={() => setActiveTab('participants')}
+              aria-current={activeTab === 'participants' ? 'page' : undefined}
               className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--r-control)] transition-colors flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'participants'
                   ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
@@ -125,6 +129,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
           {(currentRole === 'organizer' || currentRole === 'admin') && (
             <button
               onClick={() => setActiveTab('wizard')}
+              aria-current={activeTab === 'wizard' ? 'page' : undefined}
               className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--r-control)] transition-colors flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'wizard'
                   ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
@@ -140,6 +145,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
           {currentRole === 'admin' && (
             <button
               onClick={() => setActiveTab('admin')}
+              aria-current={activeTab === 'admin' ? 'page' : undefined}
               className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--r-control)] transition-colors flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'admin'
                   ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
@@ -227,9 +233,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
       </div>
 
       {/* Mobile Sub-bar */}
-      <div className="flex md:hidden overflow-x-auto border-t border-[var(--costura)] px-3 py-1.5 gap-1 scrollbar-none bg-[var(--grafito)]">
+      <nav aria-label="Navegación móvil" className="flex md:hidden overflow-x-auto border-t border-[var(--costura)] px-3 py-1.5 gap-1 scrollbar-none bg-[var(--grafito)]">
         <button
           onClick={() => setActiveTab('torneos')}
+          aria-current={activeTab === 'torneos' ? 'page' : undefined}
           className={`px-2.5 py-1 text-xs font-medium rounded shrink-0 ${
             activeTab === 'torneos' ? 'bg-[var(--hueso)] text-[var(--tinta)] font-bold' : 'text-[var(--acero)]'
           }`}
@@ -239,6 +246,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
 
         <button
           onClick={() => setActiveTab('bracket')}
+          aria-current={activeTab === 'bracket' ? 'page' : undefined}
           className={`px-2.5 py-1 text-xs font-medium rounded shrink-0 ${
             activeTab === 'bracket' ? 'bg-[var(--hueso)] text-[var(--tinta)] font-bold' : 'text-[var(--acero)]'
           }`}
@@ -249,6 +257,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
         {(currentRole === 'referee' || currentRole === 'organizer' || currentRole === 'admin') && (
           <button
             onClick={() => setActiveTab('referee')}
+            aria-current={activeTab === 'referee' ? 'page' : undefined}
             className={`px-2.5 py-1 text-xs font-medium rounded shrink-0 ${
               activeTab === 'referee' ? 'bg-[var(--hueso)] text-[var(--tinta)] font-bold' : 'text-[var(--acero)]'
             }`}
@@ -260,6 +269,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
         {(currentRole === 'organizer' || currentRole === 'admin') && (
           <button
             onClick={() => setActiveTab('participants')}
+            aria-current={activeTab === 'participants' ? 'page' : undefined}
             className={`px-2.5 py-1 text-xs font-medium rounded shrink-0 ${
               activeTab === 'participants' ? 'bg-[var(--hueso)] text-[var(--tinta)] font-bold' : 'text-[var(--acero)]'
             }`}
@@ -271,6 +281,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
         {(currentRole === 'organizer' || currentRole === 'admin') && (
           <button
             onClick={() => setActiveTab('wizard')}
+            aria-current={activeTab === 'wizard' ? 'page' : undefined}
             className={`px-2.5 py-1 text-xs font-medium rounded shrink-0 ${
               activeTab === 'wizard' ? 'bg-[var(--hueso)] text-[var(--tinta)] font-bold' : 'text-[var(--acero)]'
             }`}
@@ -282,6 +293,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
         {currentRole === 'admin' && (
           <button
             onClick={() => setActiveTab('admin')}
+            aria-current={activeTab === 'admin' ? 'page' : undefined}
             className={`px-2.5 py-1 text-xs font-medium rounded shrink-0 ${
               activeTab === 'admin' ? 'bg-[var(--hueso)] text-[var(--tinta)] font-bold' : 'text-[var(--acero)]'
             }`}
@@ -296,7 +308,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
         >
           Estadio
         </button>
-      </div>
+      </nav>
     </header>
   );
 };
