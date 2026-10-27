@@ -11,7 +11,6 @@ const __dirname = path.dirname(__filename);
 const DATA_DIR = path.resolve(__dirname, 'data');
 const STAGE_CONFIGS_FILE = path.resolve(DATA_DIR, 'stage_configs.json');
 const REFEREE_ASSIGNMENTS_FILE = path.resolve(DATA_DIR, 'referee_assignments.json');
-const INVITATIONS_FILE = path.resolve(DATA_DIR, 'invitations.json');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -59,28 +58,6 @@ function writeStoredAssignments(data: Record<string, unknown>): void {
     fs.renameSync(temporaryFile, REFEREE_ASSIGNMENTS_FILE);
   } catch (err) {
     console.error('Error writing referee_assignments.json:', err);
-  }
-}
-
-function readStoredInvitations(): Record<string, Record<string, unknown>> {
-  try {
-    if (fs.existsSync(INVITATIONS_FILE)) {
-      const content = fs.readFileSync(INVITATIONS_FILE, 'utf-8');
-      return JSON.parse(content);
-    }
-  } catch (err) {
-    console.error('Error reading invitations.json:', err);
-  }
-  return {};
-}
-
-function writeStoredInvitations(data: Record<string, Record<string, unknown>>): void {
-  try {
-    const temporaryFile = `${INVITATIONS_FILE}.tmp`;
-    fs.writeFileSync(temporaryFile, JSON.stringify(data, null, 2), 'utf-8');
-    fs.renameSync(temporaryFile, INVITATIONS_FILE);
-  } catch (err) {
-    console.error('Error writing invitations.json:', err);
   }
 }
 
@@ -262,60 +239,6 @@ async function startServer() {
     });
   });
 
-
-  // GET Validate Invitation code
-  app.get('/api/invitations/validate/:code', (req, res) => {
-    const { code } = req.params;
-    const cleanCode = (code || '').trim().toUpperCase();
-    const invitation = readStoredInvitations()[cleanCode];
-
-    if (!cleanCode || !invitation || invitation.status !== 'pending') {
-      return res.status(404).json({
-        valid: false,
-        message: 'Código de invitación inválido, revocado o ya utilizado.',
-      });
-    }
-
-    res.json({
-      valid: true,
-      code: cleanCode,
-      role: invitation.role,
-      message: `Invitación válida para rol ${String(invitation.role)}.`,
-    });
-  });
-
-  app.post('/api/invitations/:code/claim', (req, res) => {
-    const cleanCode = (req.params.code || '').trim().toUpperCase();
-    const displayName = typeof req.body?.displayName === 'string' ? req.body.displayName.trim() : '';
-    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-    const invitations = readStoredInvitations();
-    const invitation = invitations[cleanCode];
-
-    if (!invitation || invitation.status !== 'pending') {
-      return res.status(404).json({ success: false, message: 'Invitación inválida o ya utilizada.' });
-    }
-    if (displayName.length < 2 || displayName.length > 100) {
-      return res.status(400).json({ success: false, message: 'El nombre debe tener entre 2 y 100 caracteres.' });
-    }
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ success: false, message: 'Correo electrónico inválido.' });
-    }
-
-    invitation.status = 'accepted';
-    invitation.acceptedAt = new Date().toISOString();
-    invitation.displayName = displayName;
-    if (email) invitation.acceptedEmail = email;
-    invitations[cleanCode] = invitation;
-    writeStoredInvitations(invitations);
-
-    res.json({
-      success: true,
-      code: cleanCode,
-      role: invitation.role,
-      displayName,
-      email: email || invitation.email,
-    });
-  });
 
   // GET Tournaments list
   app.get('/api/tournaments', (_req, res) => {

@@ -1,4 +1,4 @@
-﻿# APbey Arena
+# APbey Arena
 
 Plataforma web para organizar y operar torneos de Beyblade X. La aplicación combina una interfaz React/TypeScript, un motor local de generación y avance de torneos, un backend Express para operaciones auxiliares y una integración opcional con Supabase.
 
@@ -15,9 +15,9 @@ La aplicación cuenta con vistas funcionales para:
 - autenticación de interfaz mediante roles;
 - configuración de puntuación, desempates y persistencia opcional en Supabase.
 
-**Importante:** la implementación actual no debe considerarse lista para producción multiusuario. La autenticación y los roles todavía dependen en parte del cliente, las rutas mutantes de Express no tienen autorización robusta y Vercel está configurado como despliegue estático de Vite, no como despliegue del backend.
+**Importante:** la implementación actual no debe considerarse lista para producción multiusuario. Supabase Auth y RLS son la autoridad prevista; persisten archivos JSON auxiliares, autorización incompleta por torneo y un despliegue Vercel estático que no publica el backend Express.
 
-El login y el canje de invitaciones validan Supabase Auth cuando está configurado; el backend valida Bearer tokens para sus mutaciones protegidas. La persistencia JSON y la autorización completa por torneo siguen en transición; consultar `AUDITORIA_PLAN_ACCION.md` antes de desplegar.
+El login y el canje de invitaciones usan Supabase Auth cuando está configurado; el backend valida access tokens para sus mutaciones protegidas. La persistencia JSON y la autorización completa por torneo siguen en transición; consultar `AUDITORIA_PLAN_ACCION.md` antes de desplegar.
 
 ## Relación con los documentos de diseño iniciales
 
@@ -38,7 +38,7 @@ React 19 + TypeScript + Vite
 └── supabase/                           Esquema, RLS y funciones transaccionales
 
 Express + tsx
-└── server.ts                            API auxiliar, invitaciones y JSON local
+└── server.ts                            API auxiliar y persistencia temporal JSON
 ```
 
 La persistencia actual es híbrida:
