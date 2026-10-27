@@ -8,7 +8,7 @@ Alcance: frontend, backend, motor de torneos, persistencia, Supabase, despliegue
 
 El plan adjunto **no está aplicado en su totalidad**, ni en frontend ni en backend. Hay una base funcional sólida para brackets, grupos, arbitraje, participantes, configuración y visualización, pero los controles necesarios para producción multiusuario todavía no están completos.
 
-La mayor parte de la brecha no es visual: los roles del frontend no constituyen autorización, las rutas mutantes de Express no validan sesión ni permisos, la persistencia JSON no es adecuada para serverless, y la configuración de Vercel no publica el backend Express. También faltan automatizaciones y superficies completas del plan: Double Elimination real, reabrir combate, check-in automático con expiración, auto-drop/re-siembra, API de overlays, SSE/webhooks y pruebas automatizadas.
+La mayor parte de la brecha no es visual: los roles del frontend no constituyen autorización por sí solos, las rutas mutantes restantes de Express aún dependen de JSON auxiliar y la configuración de Vercel no publica el backend Express. También faltan automatizaciones y superficies completas del plan: Double Elimination real, reabrir combate, check-in automático con expiración, auto-drop/re-siembra, API de overlays, SSE/webhooks y pruebas automatizadas.
 
 ## Respuestas a los documentos iniciales
 
@@ -21,7 +21,7 @@ El archivo define una arquitectura objetivo de **Next.js 15 + App Router + Serve
 | Next.js App Router | No aplicado; existe Vite/React y `server.ts` | Es una migración arquitectónica pendiente, no una funcionalidad ausente que deba mezclarse gradualmente sin diseño. |
 | Server Actions para mutaciones | No aplicado; se usan contexto, Supabase client y Express | Las mutaciones críticas deben salir del cliente confiable antes de cualquier migración visual. |
 | Zod para cada entrada | No aplicado | Es requisito P0/P1 para contratos API y formularios. |
-| Supabase Auth como única identidad | No aplicado; hay sesión/roles locales | Debe ser la autoridad única; eliminar la confianza en `localStorage`. |
+| Supabase Auth como única identidad | Parcial avanzado; flujo activo usa Supabase Auth y perfil cloud | Completar eliminación de confianza en estado local y probar confirmación de correo. |
 | RLS en todas las tablas | Parcial | Hay RLS y funciones, pero faltan políticas y existe duplicidad de auditoría. |
 | Motor puro sin I/O | Mayormente aplicado | `src/lib/engine` está separado; faltan cobertura y algunos formatos/reglas completas. |
 | Vitest y Playwright | No aplicado | CI declara `test`, pero `package.json` no define script ni se encontraron suites. |
@@ -105,14 +105,14 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 
 ### P0 — Seguridad y autorización
 
-1. `src/context/TournamentContext.tsx` permite que la sesión y el rol dependan de estado cliente/localStorage. Un usuario puede manipularlos desde DevTools.
-2. Las rutas mutantes de `server.ts` para etapas, invitaciones y asignaciones no exigen autenticación ni rol.
-3. El reclamo de invitaciones usa leer-modificar-escribir sobre JSON y puede aceptar dos reclamaciones concurrentes.
+1. `src/context/TournamentContext.tsx` conserva estado de sesión en cliente para UX; la autoridad efectiva debe seguir siendo Supabase Auth/RLS.
+2. Las rutas mutantes restantes de `server.ts` todavía dependen de archivos JSON y requieren completar autorización por recurso.
+3. El canje de invitaciones ya no usa leer-modificar-escribir sobre JSON: el flujo activo usa el RPC transaccional `claim_invitation`.
 4. La autorización del frontend sólo oculta vistas; no protege recursos.
 
-**Avance de esta iteración:** el login valida contraseña mediante Supabase Auth, la restauración obtiene el rol desde `profiles`, las invitaciones usan `claim_invitation` y las mutaciones Express exigen autenticación y roles permitidos cuando el backend está configurado. La autorización por torneo y la migración total a persistencia cloud siguen pendientes.
+**Avance de esta iteración:** el login valida contraseña mediante Supabase Auth, la restauración obtiene el rol desde `profiles`, las invitaciones usan `claim_invitation` y se retiraron las rutas legacy de invitaciones basadas en JSON. Las mutaciones Express exigen autenticación y roles permitidos cuando el backend está configurado, pero la autorización por torneo y la migración total a persistencia cloud siguen pendientes.
 
-**Decisión requerida para la siguiente fase:** Supabase Auth + RLS como autoridad, o un servicio backend con JWT. No mantener roles confiables en localStorage.
+**Decisión adoptada:** Supabase Auth + RLS es la autoridad; no se deben mantener roles confiables en localStorage.
 
 ### P0 — Despliegue y persistencia
 

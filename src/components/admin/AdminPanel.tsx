@@ -39,20 +39,25 @@ export const AdminPanel: React.FC = () => {
   const [inviteTournamentId, setInviteTournamentId] = useState<string>('');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showDbModal, setShowDbModal] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   const handleCreateInvite = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteEmail.trim()) return;
-    const inv = createInvitation(
-      inviteEmail.trim(),
-      inviteRole,
-      inviteTournamentId || undefined
-    );
-    setInviteEmail('');
-    setSuccessMsg(`Invitación creada para ${inv.email} con código ${inv.code}`);
-    setTimeout(() => setSuccessMsg(null), 4000);
+    setErrorMsg(null);
+    try {
+      const inv = createInvitation(
+        inviteEmail.trim(),
+        inviteRole,
+        inviteTournamentId || undefined
+      );
+      setInviteEmail('');
+      setSuccessMsg(`Invitación creada para ${inv.email} con código ${inv.code}`);
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'No se pudo crear la invitación.');
+    }
   };
 
   const copyToClipboard = (text: string) => {
@@ -194,6 +199,12 @@ export const AdminPanel: React.FC = () => {
               <span>{successMsg}</span>
             </div>
           )}
+          {errorMsg && (
+            <div role="alert" className="p-3 bg-rose-950/40 border border-rose-700 rounded-[var(--r-control)] text-xs font-semibold text-rose-300 flex items-center gap-2">
+              <span aria-hidden="true">!</span>
+              <span>{errorMsg}</span>
+            </div>
+          )}
 
           {/* Grid: Invite Form + User List */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -325,7 +336,7 @@ export const AdminPanel: React.FC = () => {
                       </button>
                       <button
                         onClick={() => {
-                          const url = `${window.location.origin}?invite=${inv.code}`;
+                          const url = `${window.location.origin}?invite=${encodeURIComponent(inv.code)}`;
                           copyToClipboard(url);
                         }}
                         className="p-1 rounded text-[var(--acero)] hover:text-[var(--cobalto)]"

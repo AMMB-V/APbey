@@ -16,6 +16,10 @@ import { Layers, Volume2, Shield, Lock, KeyRound, LogIn } from 'lucide-react';
 function TournamentApp() {
   const [activeTab, setActiveTab] = useState<MainTabType>(() => {
     if (typeof window === 'undefined') return 'bracket';
+    const requestedView = new URLSearchParams(window.location.search).get('view');
+    if (requestedView && ['torneos', 'bracket', 'referee', 'participants', 'wizard', 'admin', 'docs'].includes(requestedView)) {
+      return requestedView as MainTabType;
+    }
     const saved = window.localStorage.getItem('apbey_active_tab');
     return saved && ['torneos', 'bracket', 'referee', 'participants', 'wizard', 'admin', 'docs'].includes(saved)
       ? saved as MainTabType
@@ -57,7 +61,22 @@ function TournamentApp() {
 
   React.useEffect(() => {
     window.localStorage.setItem('apbey_active_tab', activeTab);
+    const url = new URL(window.location.href);
+    url.searchParams.set('view', activeTab);
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
   }, [activeTab]);
+
+  React.useEffect(() => {
+    const handleBrowserNavigation = () => {
+      const requestedView = new URLSearchParams(window.location.search).get('view');
+      if (requestedView && ['torneos', 'bracket', 'referee', 'participants', 'wizard', 'admin', 'docs'].includes(requestedView)) {
+        setActiveTab(requestedView as MainTabType);
+      }
+    };
+
+    window.addEventListener('popstate', handleBrowserNavigation);
+    return () => window.removeEventListener('popstate', handleBrowserNavigation);
+  }, []);
 
   const handleOpenMatchInReferee = (matchId: string) => {
     setSelectedRefereeMatchId(matchId);
