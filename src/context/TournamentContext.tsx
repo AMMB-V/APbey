@@ -246,6 +246,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             invitedBy: row.invited_by,
             createdAt: row.created_at,
             code: row.code,
+            emailStatus: 'not_sent' as const,
           })));
         }
       }
@@ -1609,7 +1610,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         throw new Error(error?.message || 'Supabase no devolvió la invitación creada.');
       }
 
-      const persistedInvitation: Invitation = {
+      let persistedInvitation: Invitation = {
         id: data.id,
         email: data.email,
         role: data.role as Invitation['role'],
@@ -1618,9 +1619,27 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         invitedBy: data.invited_by,
         createdAt: data.created_at,
         code: data.code,
+        emailStatus: 'not_sent',
       };
       setInvitations(prev => [persistedInvitation, ...prev.filter(existing => existing.id !== persistedInvitation.id)]);
       logAudit('invitations', persistedInvitation.id, 'insert', `Invitación para rol ${role} creada para ${email}. Código: ${persistedInvitation.code}`);
+
+      const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-invitation', {
+        body: {
+          id: persistedInvitation.id,
+          email: persistedInvitation.email,
+          code: persistedInvitation.code,
+        },
+      });
+      const emailStatus = !emailError && emailResult?.sent === true ? 'sent' : 'failed';
+      persistedInvitation = { ...persistedInvitation, emailStatus };
+      setInvitations(prev => prev.map(existing =>
+        existing.id === persistedInvitation.id ? persistedInvitation : existing
+      ));
+
+      if (emailStatus === 'failed') {
+        console.warn('[Invitations] La invitación se guardó, pero el correo no fue enviado:', emailError?.message || emailResult?.error || 'servicio no configurado');
+      }
       return persistedInvitation;
     }
 

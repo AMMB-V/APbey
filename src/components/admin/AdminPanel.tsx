@@ -53,7 +53,11 @@ export const AdminPanel: React.FC = () => {
         inviteTournamentId || undefined
       );
       setInviteEmail('');
-      setSuccessMsg(`Invitación guardada para ${inv.email} con código ${inv.code}`);
+      setSuccessMsg(
+        inv.emailStatus === 'sent'
+          ? `Invitación guardada y aceptada por el proveedor de correo para ${inv.email}.`
+          : `Invitación guardada, pero el correo aún no fue enviado a ${inv.email}.`
+      );
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (error) {
       setErrorMsg(error instanceof Error ? error.message : 'No se pudo crear la invitación.');

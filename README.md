@@ -138,6 +138,8 @@ La aplicación permite actualizar nombre, correo y contraseña mediante Supabase
 
 Con Supabase configurado y una sesión admin activa, las invitaciones se cargan, crean y revocan en `public.invitations` con RLS. Sin configuración de Supabase, el panel conserva un modo local de demostración. Las invitaciones generan un código y enlace de registro, pero no envían correo SMTP automáticamente: el panel permite preparar un mensaje `mailto:`; para entrega transaccional se requiere configurar Supabase Auth SMTP o una Edge Function/backend con proveedor de correo.
 
+La integración preparada para Resend usa la Edge Function `send-invitation`. Antes de desplegarla, aplica `supabase/migrations/20261026_invitation_email_delivery.sql` y configura los secretos `RESEND_API_KEY`, `INVITATION_FROM_EMAIL` y `APP_URL` en Supabase Functions. Un resultado `sent` confirma que Resend aceptó el mensaje, no que llegó a la bandeja de entrada; la entrega final debe comprobarse con el panel de Resend y una cuenta de prueba.
+
 No usar la autenticación de interfaz actual como control de seguridad. Las operaciones de escritura deben pasar por Supabase Auth/RLS o por un backend con sesión, autorización por torneo y validación de payloads. También se requieren rate limiting, límites de body, headers de seguridad, logs estructurados y protección contra reclamaciones concurrentes de invitaciones.
 
 No se deben commitear `node_modules`, `dist`, cachés de Vite/TypeScript, logs ni variables de entorno. Las exclusiones están centralizadas en `.gitignore`.

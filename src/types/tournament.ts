@@ -211,4 +211,5 @@ export interface Invitation {
   invitedBy: string;
   createdAt: string;
   code: string;
+  emailStatus?: 'not_sent' | 'sent' | 'failed';
 }
