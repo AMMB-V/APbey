@@ -132,8 +132,9 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 
 ### P1 — Calidad y accesibilidad
 
-- CI ejecuta `npm run test`, pero `package.json` no define `test`.
-- No se localizaron pruebas `test`/`spec`.
+- El workflow CI anterior era una lista de comandos sin `name`, `on` ni `jobs`, por lo que GitHub no generaba check runs. Se reemplazó por un workflow ejecutable con Node 22, `npm ci`, type-check, tests y build.
+- `package.json` define `npm run test` y existen suites Vitest para arbitraje, desempates y Single Elimination.
+- La cobertura automatizada actual es de 3 archivos y 8 pruebas Vitest; aún faltan integración API, RLS, E2E y accesibilidad.
 - `tsconfig.json` no activa `strict` y permite JS.
 - `index.html` declara idioma inglés pese a una interfaz española.
 - El modal de autenticación y varios controles de icono carecen de semántica ARIA/foco completo.
@@ -182,8 +183,12 @@ Se revisó la estructura, configuración, código fuente, esquema SQL, CI y esta
 La validación de esta iteración sí pasó:
 
 - `npm.cmd run lint`
-- `npm.cmd run test` — 1 archivo, 2 pruebas.
+- `npm.cmd run test` — 3 archivos, 8 pruebas.
 - `npm.cmd run build` — bundle generado; Vite mantiene un aviso de chunk principal superior a 500 kB.
+- `npm.cmd audit --omit=dev` — sin vulnerabilidades de producción detectadas.
+- `git diff --check`
+
+La validación remota del workflow debe repetirse al publicar este cambio; el fallo anterior de GitHub se debía a que el archivo no definía jobs, no a una prueba de aplicación fallida.
 
 Para repetir la validación desde un checkout limpio:
 
