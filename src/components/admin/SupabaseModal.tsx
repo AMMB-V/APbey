@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { useTournament } from '../../context/TournamentContext';
-import { getStoredSupabaseConfig } from '../../lib/supabase/client';
+import {
+  getStoredSupabaseConfig,
+  getSupabaseDashboardUrl,
+  getSupabaseSqlEditorUrl,
+} from '../../lib/supabase/client';
 import { SUPABASE_MIGRATION_SQL } from '../../lib/supabase/schema';
 import {
   Database,
@@ -30,6 +34,8 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [copiedSql, setCopiedSql] = useState<boolean>(false);
+  const dashboardUrl = getSupabaseDashboardUrl(url);
+  const sqlEditorUrl = getSupabaseSqlEditorUrl(url);
 
   if (!isOpen) return null;
 
@@ -150,7 +156,7 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
                 type="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://inkxdmjxhzdssfzjjtaw.supabase.co"
+                placeholder="https://your-project.supabase.co"
                 required
                 className="w-full bg-[var(--grafito)] border border-[var(--costura)] rounded-[var(--r-control)] px-3.5 py-2.5 text-sm text-[var(--hueso)] focus:outline-hidden focus:border-[var(--cobalto)] font-mono"
               />
@@ -187,7 +193,7 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
 
             <div className="flex items-center justify-between pt-2">
               <a
-                href="https://supabase.com/dashboard"
+                href={dashboardUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="text-xs text-[var(--cobalto)] hover:underline inline-flex items-center gap-1.5 font-medium"
@@ -234,7 +240,7 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
             <div className="p-3 bg-[var(--grafito)] border border-[var(--costura)] rounded-lg text-xs font-mono text-[var(--acero)] space-y-1">
               <div className="text-[var(--hueso)] font-bold">-- ¿Aparece "Error de Supabase [42501]" al conectar?</div>
               <div className="text-amber-300">1. Haz clic en el botón amarillo "Fix Error 42501" para copiar los permisos RLS.</div>
-              <div>2. Pégalo en <a href="https://supabase.com/dashboard/project/inkxdmjxhzdssfzjjtaw/sql" target="_blank" rel="noreferrer" className="text-emerald-400 underline">Supabase SQL Editor</a> y presiona <strong>RUN</strong>.</div>
+              <div>2. Pégalo en <a href={sqlEditorUrl} target="_blank" rel="noreferrer" className="text-emerald-400 underline">Supabase SQL Editor</a> y presiona <strong>RUN</strong>.</div>
               <div>3. ¡Listo! Vuelve a presionar "Guardar y Probar Conexión" y conectará de inmediato.</div>
             </div>
           </div>

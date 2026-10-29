@@ -3,6 +3,7 @@ import { useTournament } from '../../context/TournamentContext';
 import { UserRole } from '../../types/tournament';
 import { SupabaseModal } from './SupabaseModal';
 import { RefereeAssignmentView } from './RefereeAssignmentView';
+import { getStoredSupabaseConfig } from '../../lib/supabase/client';
 import {
   ShieldCheck,
   Mail,
@@ -39,6 +40,7 @@ export const AdminPanel: React.FC = () => {
     rankings,
     hallOfFame,
   } = useTournament();
+  const configuredSupabaseUrl = getStoredSupabaseConfig().url;
 
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'organizer' | 'referee'>('referee');
@@ -214,7 +216,9 @@ export const AdminPanel: React.FC = () => {
           <div className={`w-2.5 h-2.5 rounded-full ${supabaseSyncInfo.isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
           <div>
             <div className="text-xs font-bold font-mono">
-              Base de Datos: {supabaseSyncInfo.isConnected ? 'Supabase Conectado (https://inkxdmjxhzdssfzjjtaw.supabase.co)' : 'Modo Local (Sin conexión a Supabase)'}
+              Base de Datos: {supabaseSyncInfo.isConnected
+                ? `Supabase conectado${configuredSupabaseUrl ? ` (${configuredSupabaseUrl})` : ''}`
+                : 'Modo local (sin conexión a Supabase)'}
             </div>
             <div className="text-[11px] text-[var(--acero)]">
               {supabaseSyncInfo.message} {supabaseSyncInfo.lastSync && `· Última sinc: ${supabaseSyncInfo.lastSync}`}

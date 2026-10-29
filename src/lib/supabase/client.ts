@@ -23,6 +23,28 @@ export function saveSupabaseConfig(url: string, anonKey: string): void {
   }
 }
 
+export function getSupabaseDashboardUrl(url: string): string {
+  try {
+    const hostname = new URL(url).hostname;
+    const projectRef = hostname.endsWith('.supabase.co')
+      ? hostname.slice(0, -'.supabase.co'.length)
+      : '';
+
+    return projectRef
+      ? `https://supabase.com/dashboard/project/${projectRef}`
+      : 'https://supabase.com/dashboard';
+  } catch {
+    return 'https://supabase.com/dashboard';
+  }
+}
+
+export function getSupabaseSqlEditorUrl(url: string): string {
+  const dashboardUrl = getSupabaseDashboardUrl(url);
+  return dashboardUrl === 'https://supabase.com/dashboard'
+    ? dashboardUrl
+    : `${dashboardUrl}/sql`;
+}
+
 let supabaseInstance: SupabaseClient | null = null;
 let currentConfigHash = '';
 
