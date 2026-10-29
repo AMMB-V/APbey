@@ -189,6 +189,20 @@ function sanitizeStr(str: string): string {
   }).trim();
 }
 
+async function withTimeout<T>(operation: PromiseLike<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<UserProfile[]>(() => {
     try {
@@ -685,7 +699,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (password) authUpdates.password = password;
 
         if (Object.keys(authUpdates).length > 0) {
-          const { data: authUpdateData, error } = await supabase.auth.updateUser(authUpdates);
+          const { data: authUpdateData, error } = await withTimeout(
+            supabase.auth.updateUser(authUpdates),
+            10000,
+            'La conexión con Supabase tardó demasiado al actualizar la cuenta.'
+          );
           if (error) {
             return {
               success: false,
@@ -697,9 +715,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           }
         }
 
-        const { data: updatedProfile, error: profileError } = await supabase.rpc('update_my_profile', {
-          p_display_name: displayName,
-        });
+        const { data: updatedProfile, error: profileError } = await withTimeout(
+          supabase.rpc('update_my_profile', {
+            p_display_name: displayName,
+          }),
+          10000,
+          'La conexión con Supabase tardó demasiado al guardar el nombre.'
+        );
         if (profileError) {
           return {
             success: false,

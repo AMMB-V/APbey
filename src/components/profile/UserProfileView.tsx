@@ -6,7 +6,7 @@ export const UserProfileView: React.FC = () => {
   const { currentUser, currentRole, logout, updateProfile, matches, participants } = useTournament();
   const [isEditingName, setIsEditingName] = useState(false);
   const [displayName, setDisplayName] = useState(currentUser?.displayName || 'Blader Competidor');
-  const [saveFeedback, setSaveFeedback] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -54,15 +54,26 @@ export const UserProfileView: React.FC = () => {
   const handleSaveName = async () => {
     if (!currentUser || isSaving) return;
     setIsSaving(true);
-    const res = await updateProfile({
-      displayName: displayName.trim(),
-      email: currentUser.email,
-    });
-    setIsSaving(false);
-    if (res.success) {
-      setIsEditingName(false);
-      setSaveFeedback(true);
-      setTimeout(() => setSaveFeedback(false), 3000);
+    setSaveFeedback(null);
+    try {
+      const res = await updateProfile({
+        displayName: displayName.trim(),
+        email: currentUser.email,
+      });
+      if (res.success) {
+        setIsEditingName(false);
+        setSaveFeedback({ type: 'success', message: res.message });
+        setTimeout(() => setSaveFeedback(null), 3000);
+      } else {
+        setSaveFeedback({ type: 'error', message: res.message });
+      }
+    } catch (error) {
+      setSaveFeedback({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'No se pudo guardar el nombre.',
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -151,8 +162,17 @@ export const UserProfileView: React.FC = () => {
         </div>
 
         {saveFeedback && (
-          <div className="p-3 bg-emerald-950/60 border border-emerald-600/80 rounded-xl text-xs font-bold text-emerald-300">
-            ✓ Nombre de usuario guardado y actualizado exitosamente.
+          <div
+            role="status"
+            aria-live="polite"
+            className={`p-3 rounded-xl text-xs font-bold ${
+              saveFeedback.type === 'success'
+                ? 'bg-emerald-950/60 border border-emerald-600/80 text-emerald-300'
+                : 'bg-rose-950/60 border border-rose-600/80 text-rose-300'
+            }`}
+          >
+            {saveFeedback.type === 'success' ? '✓ ' : '⚠ '}
+            {saveFeedback.message}
           </div>
         )}
 
