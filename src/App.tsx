@@ -8,7 +8,6 @@ import { ParticipantManager } from './components/participants/ParticipantManager
 import { TournamentWizard } from './components/tournament/TournamentWizard';
 import { TournamentList } from './components/tournament/TournamentList';
 import { AdminPanel } from './components/admin/AdminPanel';
-import { SoftwareEngineeringGuide } from './components/docs/SoftwareEngineeringGuide';
 import { StadiumDisplay } from './components/stadium/StadiumDisplay';
 import { AuthModal } from './components/auth/AuthModal';
 import { BottomNav } from './components/common/BottomNav';
@@ -17,7 +16,6 @@ import { ScoreboardView } from './components/scoreboard/ScoreboardView';
 import { DeckBuilder } from './components/deck/DeckBuilder';
 import { TierListView } from './components/deck/TierListView';
 import { RankingsView } from './components/rankings/RankingsView';
-import { CommunityView } from './components/community/CommunityView';
 import { UserProfileView } from './components/profile/UserProfileView';
 import { Layers, Volume2, Shield, Lock, KeyRound, LogIn, Trophy } from 'lucide-react';
 
@@ -29,12 +27,10 @@ const VALID_TABS: MainTabType[] = [
   'rankings',
   'deck',
   'tierlist',
-  'comunidad',
   'profile',
   'participants',
   'wizard',
   'admin',
-  'docs',
 ];
 
 const VIEW_TITLES: Record<MainTabType, string> = {
@@ -45,12 +41,10 @@ const VIEW_TITLES: Record<MainTabType, string> = {
   rankings: 'Rankings & Salón de la Fama',
   deck: 'Deck 3on3 Builder',
   tierlist: 'Tier List Competitiva',
-  comunidad: 'Comunidad & Reglas WBO',
   profile: 'Mi Perfil de Blader',
   participants: 'Lista de Bladers',
   wizard: 'Diseñador de Torneos',
   admin: 'Gestión & Árbitros',
-  docs: 'Guía de Software',
 };
 
 function TournamentApp() {
@@ -154,7 +148,7 @@ function TournamentApp() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--grafito)] text-[var(--hueso)] flex flex-col font-sans antialiased selection:bg-[var(--cobalto)] selection:text-[var(--tinta)] pb-16 md:pb-0">
+    <div className="min-h-screen overflow-x-hidden bg-[var(--grafito)] text-[var(--hueso)] flex flex-col font-sans antialiased selection:bg-[var(--cobalto)] selection:text-[var(--tinta)] pb-16 md:pb-0">
       {/* WCAG 2.2 AA Skip to Content Link */}
       <a
         href="#main-content"
@@ -203,7 +197,7 @@ function TournamentApp() {
       )}
 
       {/* Main Container */}
-      <main id="main-content" tabIndex={-1} className="grow max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 outline-hidden">
+      <main id="main-content" tabIndex={-1} className="grow min-w-0 max-w-screen-2xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 outline-hidden">
         {/* Breadcrumbs & Active Tournament Bar */}
         <div className="mb-4 flex flex-wrap items-center justify-between text-xs text-[var(--acero)] bg-[var(--chasis)] border border-[var(--costura)] px-4 py-2 rounded-2xl shadow-xs gap-3">
           <div className="flex items-center gap-2">
@@ -314,7 +308,6 @@ function TournamentApp() {
         {(activeTab === 'marcador' || activeTab === 'referee') && (
           <ScoreboardView
             initialMatchId={selectedRefereeMatchId}
-            onOpenMatchInReferee={(matchId) => setSelectedRefereeMatchId(matchId)}
           />
         )}
 
@@ -327,23 +320,18 @@ function TournamentApp() {
         {/* View 5: Tier List Competitiva */}
         {activeTab === 'tierlist' && <TierListView />}
 
-        {/* View 6: Comunidad & Reglas WBO */}
-        {activeTab === 'comunidad' && <CommunityView />}
-
-        {/* View 7: Perfil de Blader */}
+        {/* View 6: Perfil de Blader */}
         {activeTab === 'profile' && <UserProfileView />}
 
-        {/* View 8: Participantes Torneo */}
+        {/* View 7: Participantes Torneo */}
         {activeTab === 'participants' && <ParticipantManager />}
 
-        {/* View 9: Diseñador de Torneos (Staff) */}
+        {/* View 8: Diseñador de Torneos (Staff) */}
         {activeTab === 'wizard' && <TournamentWizard />}
 
-        {/* View 10: Admin Panel (Personal & Accesos) */}
+        {/* View 9: Admin Panel (Personal & Accesos) */}
         {activeTab === 'admin' && <AdminPanel />}
 
-        {/* View 11: Guía de Ingeniería de Software */}
-        {activeTab === 'docs' && <SoftwareEngineeringGuide />}
       </main>
 
       {/* Mobile Fixed 5-Item Bottom Navigation */}
