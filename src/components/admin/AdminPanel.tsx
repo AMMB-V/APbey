@@ -49,6 +49,7 @@ export const AdminPanel: React.FC = () => {
   const [showDbModal, setShowDbModal] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isImportingRankings, setIsImportingRankings] = useState(false);
+  const activeInvitations = invitations.filter((invitation) => invitation.status === 'pending');
   const [emailModalData, setEmailModalData] = useState<{
     isOpen: boolean;
     email: string;
@@ -385,16 +386,16 @@ export const AdminPanel: React.FC = () => {
           {/* Pending Invitations List */}
           <div className="pt-4 border-t border-[var(--costura)] space-y-2">
             <div className="text-xs font-bold text-[var(--acero)] uppercase tracking-wider">
-              Invitaciones Activas ({invitations.length})
+              Invitaciones Activas ({activeInvitations.length})
             </div>
 
-            {invitations.length === 0 ? (
+            {activeInvitations.length === 0 ? (
               <div className="text-xs text-[var(--acero)] py-2">
                 No hay invitaciones pendientes.
               </div>
             ) : (
               <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                {invitations.map((inv) => (
+                {activeInvitations.map((inv) => (
                   <div
                     key={inv.id}
                     className="p-2.5 bg-[var(--grafito)] rounded-[var(--r-control)] border border-[var(--costura)] flex items-center justify-between text-xs"
@@ -449,7 +450,8 @@ export const AdminPanel: React.FC = () => {
                           });
                         }}
                         className="p-1 rounded text-[var(--acero)] hover:text-rose-400"
-                        title="Revocar invitación"
+                        title="Eliminar invitación"
+                        aria-label={`Eliminar invitación de ${inv.email}`}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
