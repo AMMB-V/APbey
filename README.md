@@ -17,7 +17,7 @@ La aplicación cuenta con vistas funcionales para:
 
 **Importante:** la implementación actual no debe considerarse lista para producción multiusuario. Supabase Auth y RLS son la autoridad prevista; persisten archivos JSON auxiliares, autorización incompleta por torneo y un despliegue Vercel estático que no publica el backend Express.
 
-El login y el canje de invitaciones usan Supabase Auth cuando está configurado; el backend valida access tokens para sus mutaciones protegidas. La persistencia JSON y la autorización completa por torneo siguen en transición; consultar `AUDITORIA_PLAN_ACCION.md` antes de desplegar.
+El login y el canje de invitaciones usan Supabase Auth cuando está configurado; el backend valida access tokens para sus mutaciones protegidas. La persistencia JSON y la autorización completa por torneo siguen en transición; Consultar `AUDITORIA_PLAN_ACCION.md` y `PLAN_ACCION_PRODUCCION.md` antes de desplegar.
 
 ## Relación con los documentos de diseño iniciales
 
@@ -155,6 +155,7 @@ No se deben commitear `node_modules`, `dist`, cachés de Vite/TypeScript, logs n
 ## Documentación del estado
 
 - `AUDITORIA_PLAN_ACCION.md`: auditoría completa, cobertura del plan adjunto, riesgos y hoja de ruta priorizada.
+- `PLAN_ACCION_PRODUCCION.md`: plan operativo por fases, backlog, criterios de aceptación y puertas de salida para producción.
 - `supabase/schema.sql`: modelo de datos y políticas actuales.
 - `.github/workflows/ci.yml`: validaciones declaradas por CI.
 - `src/components/docs/SoftwareEngineeringGuide.tsx`: guía visible dentro de la aplicación.

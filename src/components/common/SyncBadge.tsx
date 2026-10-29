@@ -3,10 +3,12 @@ import { CloudCheck, CloudOff, RefreshCw } from 'lucide-react';
 
 interface SyncBadgeProps {
   pendingCount?: number;
+  isConnected?: boolean;
+  message?: string;
   className?: string;
 }
 
-export const SyncBadge: React.FC<SyncBadgeProps> = ({ pendingCount = 0, className = '' }) => {
+export const SyncBadge: React.FC<SyncBadgeProps> = ({ pendingCount = 0, isConnected, message, className = '' }) => {
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   useEffect(() => {
@@ -46,6 +48,20 @@ export const SyncBadge: React.FC<SyncBadgeProps> = ({ pendingCount = 0, classNam
       >
         <RefreshCw className="w-3.5 h-3.5 text-amber-400 animate-spin shrink-0" aria-hidden="true" />
         <span>Pendiente ({pendingCount})</span>
+      </div>
+    );
+  }
+
+  if (isConnected === false) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        title={message || 'Supabase no está conectado; los cambios no están sincronizados.'}
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-950/80 text-amber-300 border border-amber-800/80 shadow-xs ${className}`}
+      >
+        <CloudOff className="w-3.5 h-3.5 text-amber-400 shrink-0" aria-hidden="true" />
+        <span>No sincronizado</span>
       </div>
     );
   }
