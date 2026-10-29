@@ -256,8 +256,9 @@ create policy invitations_update on public.invitations
     is_admin() or status in ('accepted', 'revoked')
   );
 
--- Keep public tournament reads possible through can_read_tournament, but prevent
+-- Keep public tournament reads possible through the table policies, but prevent
 -- direct RPC probing of internal authorization helpers and mutating functions.
+revoke all on function can_read_tournament(uuid) from public, anon, authenticated;
 revoke all on function is_admin() from anon, authenticated;
 revoke all on function is_organizer() from anon, authenticated;
 revoke all on function manages_tournament(uuid) from anon, authenticated;
@@ -266,10 +267,6 @@ revoke all on function record_battle(uuid, uuid, finish_type, integer) from anon
 revoke all on function record_penalty(uuid, uuid, card_type, boolean, integer, uuid, text, uuid, integer) from anon, authenticated;
 revoke all on function seed_finish_points() from anon, authenticated;
 
-grant execute on function is_admin() to authenticated;
-grant execute on function is_organizer() to authenticated;
-grant execute on function manages_tournament(uuid) to authenticated;
-grant execute on function referees_match(uuid) to authenticated;
 grant execute on function record_battle(uuid, uuid, finish_type, integer) to authenticated;
 grant execute on function record_penalty(uuid, uuid, card_type, boolean, integer, uuid, text, uuid, integer) to authenticated;
 grant execute on function seed_finish_points() to authenticated;
