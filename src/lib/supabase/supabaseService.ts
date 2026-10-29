@@ -383,6 +383,7 @@ export function subscribeToTournamentRealtime(
   callbacks: {
     onMatchUpdate?: (match: Partial<Match>) => void;
     onBattleInsert?: (battle: Battle) => void;
+    onStatusChange?: (status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED') => void;
   }
 ): () => void {
   const supabase = getSupabaseClient();
@@ -439,7 +440,16 @@ export function subscribeToTournamentRealtime(
         }
       }
     )
-    .subscribe();
+    .subscribe((status) => {
+      if (
+        status === 'SUBSCRIBED' ||
+        status === 'CHANNEL_ERROR' ||
+        status === 'TIMED_OUT' ||
+        status === 'CLOSED'
+      ) {
+        callbacks.onStatusChange?.(status);
+      }
+    });
 
   return () => {
     supabase.removeChannel(channel);
@@ -449,36 +459,40 @@ export function subscribeToTournamentRealtime(
 /**
  * Persists an individual battle directly to Supabase when online.
  */
-export async function persistBattleToSupabase(battle: Battle, match: Match): Promise<void> {
+export async function persistBattleToSupabase(
+  battle: Battle,
+  match: Match,
+  expectedVersion = Math.max(1, match.version - 1)
+): Promise<{ success: boolean; message: string }> {
   const supabase = getSupabaseClient();
-  if (!supabase) return;
+  if (!supabase) {
+    return { success: false, message: 'Supabase no está configurado.' };
+  }
 
   try {
-    // 1. Insert battle
-    await supabase.from('battles').upsert({
-      id: battle.id,
-      match_id: battle.matchId,
-      battle_number: battle.battleNumber,
-      set_number: battle.setNumber || 1,
-      scorer_id: battle.scorerId || null,
-      finish: battle.finish || null,
-      points: battle.points || 0,
-      voided: battle.voided || false,
-      recorded_by: battle.recordedBy || null,
-      created_at: battle.createdAt,
-    });
+    if (!battle.scorerId || !battle.finish) {
+      return {
+        success: false,
+        message: 'El RPC transaccional actual sólo admite batallas con finish y anotador.',
+      };
+    }
 
-    // 2. Update match state
-    await supabase.from('matches').update({
-      score1: match.score1,
-      score2: match.score2,
-      sets1: match.sets1,
-      sets2: match.sets2,
-      status: match.status,
-      winner_id: match.winnerId || null,
-      finished_at: match.finishedAt || null,
-    }).eq('id', match.id);
+    const { error } = await supabase.rpc('record_battle', {
+      p_match: battle.matchId,
+      p_scorer: battle.scorerId,
+      p_finish: battle.finish,
+      p_expected_version: expectedVersion,
+    });
+    if (error) {
+      const message = error.message.includes('version_conflict')
+        ? 'El match cambió en otra sesión. Recarga el torneo antes de registrar otra batalla.'
+        : `No se pudo registrar la batalla de forma transaccional: ${error.message}`;
+      return { success: false, message };
+    }
+    return { success: true, message: 'Batalla registrada transaccionalmente en Supabase.' };
   } catch (err) {
+    const message = err instanceof Error ? err.message : 'Error desconocido de sincronización.';
     console.warn('[Supabase Realtime] No se pudo emitir mutación directa:', err);
+    return { success: false, message };
   }
 }

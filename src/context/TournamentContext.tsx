@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import {
   AuditLog,
   Battle,
@@ -293,6 +293,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [activeStationAlert, setActiveStationAlert] = useState<{ matchId: string; message: string; timestamp: number } | null>(null);
   const [showStadiumModal, setShowStadiumModal] = useState<boolean>(false);
+  const matchesRef = useRef<Match[]>([]);
   const [supabaseSyncInfo, setSupabaseSyncInfo] = useState<SupabaseSyncInfo>(() => {
     const config = getStoredSupabaseConfig();
     return {
@@ -318,6 +319,62 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
     checkInitialConnection();
   }, []);
+
+  useEffect(() => {
+    matchesRef.current = matches;
+  }, [matches]);
+
+  useEffect(() => {
+    if (!activeTournamentId || !supabaseSyncInfo.isConfigured) return;
+
+    const unsubscribe = subscribeToTournamentRealtime(activeTournamentId, {
+      onMatchUpdate: (incomingMatch) => {
+        if (!incomingMatch.id) return;
+        setMatches((current) => current.map((match) => (
+          match.id === incomingMatch.id ? { ...match, ...incomingMatch } : match
+        )));
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConnected: true,
+          lastSync: new Date().toLocaleTimeString(),
+          message: 'Actualización realtime recibida.',
+        }));
+      },
+      onBattleInsert: (incomingBattle) => {
+        const relatedMatch = matchesRef.current.find((match) => match.id === incomingBattle.matchId);
+        if (!relatedMatch || relatedMatch.tournamentId !== activeTournamentId) return;
+        setBattles((current) => (
+          current.some((battle) => battle.id === incomingBattle.id)
+            ? current
+            : [
+              ...current.filter((battle) => !(
+                battle.matchId === incomingBattle.matchId &&
+                battle.battleNumber === incomingBattle.battleNumber
+              )),
+              incomingBattle,
+            ]
+        ));
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConnected: true,
+          lastSync: new Date().toLocaleTimeString(),
+          message: 'Actualización realtime recibida.',
+        }));
+      },
+      onStatusChange: (status) => {
+        const connected = status === 'SUBSCRIBED';
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConnected: connected,
+          message: connected
+            ? 'Sincronización realtime activa.'
+            : `Canal realtime: ${status.toLowerCase()}.`,
+        }));
+      },
+    });
+
+    return unsubscribe;
+  }, [activeTournamentId, supabaseSyncInfo.isConfigured]);
 
   // Sync to localStorage
   useEffect(() => {
@@ -1042,6 +1099,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const tournament = tournaments.find(t => t.id === match.tournamentId);
     if (!stage || !tournament) return;
 
+    const previousMatches = matches;
+    const previousBattles = battles;
+    const hadRemoteConfig = supabaseSyncInfo.isConfigured;
     const { updatedMatch, newBattle } = applyBattle(
       match,
       stage,
@@ -1092,6 +1152,20 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const updated = [...prev, newBattle];
       saveState({ matches: nextMatches, battles: updated });
       return updated;
+    });
+
+    void persistBattleToSupabase(newBattle, updatedMatch, match.version).then((result) => {
+      setSupabaseSyncInfo((previous) => ({
+        ...previous,
+        isConnected: result.success,
+        lastSync: result.success ? new Date().toLocaleTimeString() : previous.lastSync,
+        message: result.message,
+      }));
+      if (hadRemoteConfig && !result.success) {
+        setMatches(previousMatches);
+        setBattles(previousBattles);
+        saveState({ matches: previousMatches, battles: previousBattles });
+      }
     });
 
     logAudit(

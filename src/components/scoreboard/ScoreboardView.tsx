@@ -20,6 +20,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
     currentRole,
     currentUser,
     openAuthModal,
+    supabaseSyncInfo,
   } = useTournament();
 
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -130,7 +131,10 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <SyncBadge />
+          <SyncBadge
+            isConnected={supabaseSyncInfo.isConfigured ? supabaseSyncInfo.isConnected : undefined}
+            message={supabaseSyncInfo.message}
+          />
           <button
             type="button"
             onClick={() => setSoundEnabled((value) => !value)}
