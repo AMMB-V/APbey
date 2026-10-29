@@ -1673,16 +1673,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       config: stageConfig,
     };
 
-    setTournaments(prev => {
-      const updated = [newTournament, ...prev];
-      saveState({ tournaments: updated });
-      return updated;
-    });
-
-    setStages(prev => {
-      const updated = [...prev, initialStage];
-      saveState({ stages: updated });
-      return updated;
+    const updatedTournaments = [newTournament, ...tournaments];
+    const updatedStages = [...stages, initialStage];
+    setTournaments(updatedTournaments);
+    setStages(updatedStages);
+    saveState({
+      tournaments: updatedTournaments,
+      stages: updatedStages,
     });
 
     setActiveTournamentId(tId);
@@ -1721,16 +1718,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       status: 'pending' as const,
     }));
 
-    setTournaments(prev => {
-      const updated = [duplicated, ...prev];
-      saveState({ tournaments: updated });
-      return updated;
-    });
-
-    setStages(prev => {
-      const updated = [...prev, ...newStages];
-      saveState({ stages: updated });
-      return updated;
+    const updatedTournaments = [duplicated, ...tournaments];
+    const updatedStages = [...stages, ...newStages];
+    setTournaments(updatedTournaments);
+    setStages(updatedStages);
+    saveState({
+      tournaments: updatedTournaments,
+      stages: updatedStages,
     });
 
     setActiveTournamentId(newId);
