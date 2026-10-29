@@ -20,9 +20,9 @@ export const UserProfileView: React.FC = () => {
       }
     }
     return [
-      { blade: 'Phoenix Wing', ratchet: '9-60', bit: 'Point (P)' },
-      { blade: 'Hells Scythe', ratchet: '3-60', bit: 'Ball (B)' },
-      { blade: 'Wizard Arrow', ratchet: '4-60', bit: 'Flat (F)' },
+      { blade: '', ratchet: '', bit: '' },
+      { blade: '', ratchet: '', bit: '' },
+      { blade: '', ratchet: '', bit: '' },
     ];
   })();
 

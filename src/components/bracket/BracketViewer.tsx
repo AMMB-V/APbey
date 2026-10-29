@@ -35,6 +35,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
     assignReferee,
     assignStationToMatch,
     callMatchToStation,
+    startStage,
   } = useTournament();
 
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
@@ -154,6 +155,18 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
             <Printer className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Imprimir Cuadro</span>
           </button>
+          {(currentRole === 'organizer' || currentRole === 'admin') && stage.status === 'pending' && (
+            <button
+              type="button"
+              onClick={() => startStage(stage.id)}
+              disabled={participants.filter((participant) => participant.tournamentId === stage.tournamentId).length < 2}
+              className="btn btn--primary text-xs px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Generar la llave y habilitar el arbitraje"
+            >
+              <Radio className="w-3.5 h-3.5" />
+              Iniciar eliminación
+            </button>
+          )}
         </div>
       </div>
 

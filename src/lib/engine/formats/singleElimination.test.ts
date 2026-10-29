@@ -44,4 +44,19 @@ describe('generateSingleElimination', () => {
     expect(result.rounds.some((round) => round.name === 'Tercer Lugar')).toBe(true);
     expect(result.matches.some((match) => match.id.includes('_3rd'))).toBe(true);
   });
+
+  it('propagates byes through later rounds for non-power-of-two brackets', () => {
+    const result = generateSingleElimination(
+      'tournament-1',
+      'stage-1',
+      [1, 2, 3, 4, 5].map((seed) => participant(`p${seed}`, seed))
+    );
+
+    const roundTwo = result.matches.filter((match) => match.roundId === 'stage-1_r_2');
+    const roundThree = result.matches.filter((match) => match.roundId === 'stage-1_r_3');
+
+    expect(roundTwo.some((match) => match.participant1Id === 'p1')).toBe(true);
+    expect(roundTwo.some((match) => match.participant1Id === 'p2' || match.participant2Id === 'p2')).toBe(true);
+    expect(roundThree.every((match) => match.status === 'pending')).toBe(true);
+  });
 });

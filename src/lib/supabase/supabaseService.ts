@@ -10,12 +10,88 @@ import {
   Penalty,
   UserProfile,
 } from '../../types/tournament';
+import { BladerRanking, HallOfFameEntry } from '../../types/rankings';
 
 export interface SupabaseSyncState {
   isConfigured: boolean;
   isConnected: boolean;
   lastSyncTime: string | null;
   error: string | null;
+}
+
+export interface RankingData {
+  rankings: BladerRanking[];
+  hallOfFame: HallOfFameEntry[];
+}
+
+export async function syncRankingsToSupabase(data: RankingData): Promise<{ success: boolean; message: string }> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { success: true, message: 'Rankings guardados localmente; Supabase no está configurado.' };
+
+  const { error: rankingDeleteError } = await supabase.from('ranking_entries').delete().neq('id', '');
+  if (rankingDeleteError) return { success: false, message: `No se pudo reemplazar Rankings: ${rankingDeleteError.message}` };
+  const { error: hallDeleteError } = await supabase.from('hall_of_fame_entries').delete().neq('id', '');
+  if (hallDeleteError) return { success: false, message: `No se pudo reemplazar el Salón de la Fama: ${hallDeleteError.message}` };
+
+  if (data.rankings.length > 0) {
+    const { error } = await supabase.from('ranking_entries').insert(data.rankings.map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      points: entry.points,
+      elo: entry.elo,
+      wins: entry.wins,
+      losses: entry.losses,
+      tournaments_won: entry.tournamentsWon,
+      favorite_combo: entry.favoriteCombo || null,
+    })));
+    if (error) return { success: false, message: `No se pudo guardar Rankings: ${error.message}` };
+  }
+
+  if (data.hallOfFame.length > 0) {
+    const { error } = await supabase.from('hall_of_fame_entries').insert(data.hallOfFame.map((entry) => ({
+      id: entry.id,
+      tournament_title: entry.tournamentTitle,
+      champion: entry.champion,
+      runner_up: entry.runnerUp || null,
+      date: entry.date || null,
+      winning_combo: entry.winningCombo || null,
+      participants_count: entry.participantsCount || null,
+    })));
+    if (error) return { success: false, message: `No se pudo guardar el Salón de la Fama: ${error.message}` };
+  }
+
+  return { success: true, message: 'Rankings sincronizados con Supabase.' };
+}
+
+export async function loadRankingsFromSupabase(): Promise<RankingData | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+  const [{ data: rankingRows, error: rankingsError }, { data: hallRows, error: hallError }] = await Promise.all([
+    supabase.from('ranking_entries').select('*').order('points', { ascending: false }),
+    supabase.from('hall_of_fame_entries').select('*').order('date', { ascending: false }),
+  ]);
+  if (rankingsError || hallError) return null;
+  return {
+    rankings: (rankingRows || []).map((row) => ({
+      id: String(row.id),
+      name: String(row.name),
+      points: Number(row.points) || 0,
+      elo: Number(row.elo) || 0,
+      wins: Number(row.wins) || 0,
+      losses: Number(row.losses) || 0,
+      tournamentsWon: Number(row.tournaments_won) || 0,
+      favoriteCombo: row.favorite_combo ? String(row.favorite_combo) : undefined,
+    })),
+    hallOfFame: (hallRows || []).map((row) => ({
+      id: String(row.id),
+      tournamentTitle: String(row.tournament_title || ''),
+      champion: String(row.champion || ''),
+      runnerUp: row.runner_up ? String(row.runner_up) : undefined,
+      date: row.date ? String(row.date) : '',
+      winningCombo: row.winning_combo ? String(row.winning_combo) : undefined,
+      participantsCount: row.participants_count ? Number(row.participants_count) : undefined,
+    })),
+  };
 }
 
 /**

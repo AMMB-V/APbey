@@ -84,15 +84,19 @@ export const Header: React.FC<HeaderProps> = ({
           className="flex items-center gap-2.5 shrink-0 cursor-pointer group"
           title="Ir al inicio de torneos"
         >
-          <div className="w-8 h-8 rounded-lg bg-[var(--grafito)] border border-[var(--costura)] group-hover:border-[var(--acero)] text-[var(--hueso)] flex items-center justify-center font-bold text-sm tracking-wider shadow-xs transition-colors">
-            ⚡X
+          <div className="w-9 h-9 flex items-center justify-center shrink-0">
+            <img
+              src="/apbey-logo.png"
+              alt="APbey"
+              className="max-w-full max-h-full object-contain"
+            />
           </div>
           <div>
             <div className="text-sm sm:text-base font-black text-[var(--hueso)] tracking-tight leading-none font-display">
-              BEYBLADE X ARENA
+              APBEY
             </div>
             <div className="text-[10px] text-[var(--acero)] font-medium mt-0.5 hidden xs:block">
-              Torneos Oficiales WBO
+              Torneos oficiales de Beyblade X
             </div>
           </div>
         </div>

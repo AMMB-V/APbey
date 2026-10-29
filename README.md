@@ -109,6 +109,12 @@ La siguiente evolución recomendada es migrar a rutas URL reales con guards visu
 
 El esquema principal está en `supabase/schema.sql` y las migraciones en `supabase/migrations/`. Incluye torneos, etapas, grupos, matches, batallas, penalizaciones, perfiles, invitaciones, auditoría, RLS y la función transaccional `record_battle`.
 
+### Publicación de Rankings
+
+Los Rankings y el Salón de la Fama no contienen datos de demostración. Un administrador puede abrir **Gestionar → Importar Rankings** y adjuntar un libro `.xlsx`. La hoja `Rankings` acepta `name`, `points`, `elo`, `wins`, `losses`, `tournamentsWon` y `favoriteCombo` (también se aceptan encabezados equivalentes en español); la hoja opcional `HallOfFame` acepta `tournamentTitle`, `champion`, `runnerUp`, `date`, `winningCombo` y `participantsCount`.
+
+La importación reemplaza la publicación anterior, la deja disponible de inmediato en la interfaz y, cuando Supabase está configurado, la sincroniza con `ranking_entries` y `hall_of_fame_entries` protegidas por RLS. Antes de producción debe aplicarse `supabase/migrations/20261029_rankings_import.sql` y verificarse que la cuenta tenga rol `admin`. Sin Supabase configurado, la aplicación conserva una copia local explícita para previsualización, no una fuente multiusuario.
+
 Antes de producción deben resolverse:
 
 - la duplicidad entre `audit_log` y `audit_logs`;
