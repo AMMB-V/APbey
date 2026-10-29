@@ -451,19 +451,25 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const hydrateFromSupabase = async () => {
       const remote = await loadTournamentsFromSupabase();
-      if (!active || !remote) return;
-
-      if (remote.tournaments.length > 0) {
-        setTournaments(remote.tournaments);
-        setActiveTournamentId((current) => (
-          remote.tournaments.some((tournament) => tournament.id === current)
-            ? current
-            : remote.tournaments[0].id
-        ));
+      if (!active) return;
+      if (!remote) {
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConnected: false,
+          message: 'No se pudieron cargar los datos de torneos desde Supabase.',
+        }));
+        return;
       }
-      if (remote.stages.length > 0) setStages(remote.stages);
-      if (remote.matches.length > 0) setMatches(remote.matches);
-      if (remote.participants.length > 0) setParticipants(remote.participants);
+
+      setTournaments(remote.tournaments);
+      setStages(remote.stages);
+      setMatches(remote.matches);
+      setParticipants(remote.participants);
+      setActiveTournamentId((current) => (
+        remote.tournaments.some((tournament) => tournament.id === current)
+          ? current
+          : remote.tournaments[0]?.id || ''
+      ));
       setSupabaseSyncInfo((previous) => ({
         ...previous,
         isConnected: true,

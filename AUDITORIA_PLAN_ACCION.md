@@ -102,7 +102,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 | RLS | Parcial avanzado | `supabase/migrations/20261026_security_rls_completion.sql` | Ejecutar contra una instancia real y revisar políticas de UPDATE/DELETE y RPC. |
 | Auditoría | Parcial avanzado | `audit_log`, migración de unificación y RPC de invitaciones | Persistir actor autenticado en todas las mutaciones y completar auditoría de correcciones. |
 | CI y pruebas | Parcial avanzado | `.github/workflows/ci.yml`, `package.json`, Vitest | Añadir pruebas API, RLS, integración, E2E y accesibilidad. |
-| Migración de memoria a SQL | Parcial | `TournamentContext.tsx`, `supabaseService.ts` | La hidratación inicial de torneos, etapas, matches y participantes desde Supabase ya está conectada; faltan entidades restantes, mutaciones cloud completas y control de conflictos/versiones. |
+| Migración de memoria a SQL | Parcial | `TournamentContext.tsx`, `supabaseService.ts` | La hidratación inicial de torneos, etapas, matches y participantes desde Supabase ya está conectada y respeta colecciones vacías como estado válido; faltan entidades restantes, mutaciones cloud completas y control de conflictos/versiones. |
 
 ## Hallazgos críticos
 
