@@ -122,7 +122,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 1. `vercel.json` reescribe todas las rutas a `index.html`; no despliega `server.ts`.
 2. El backend ya no usa `data/*.json`; el despliegue debe publicar Express o separar la API.
 3. Las mutaciones críticas de batalla y penalización revierten el estado optimista si Supabase rechaza la operación.
-4. El estado local sólo se restaura en modo sin Supabase; con Supabase configurado, un fallo de hidratación limpia los datos de demostración para no presentar un falso snapshot remoto.
+4. El estado local sólo se restaura en modo sin Supabase; con Supabase configurado, un fallo de hidratación limpia los datos de demostración para no presentar un falso snapshot remoto. Las escrituras de estado crítico y caché de rankings también quedan bloqueadas en ese modo.
 
 ### P1 — Modelo de datos y consistencia
 
@@ -132,6 +132,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 - El estado monolítico de `TournamentContext.tsx` mezcla autenticación, dominio, UI y persistencia.
 - La sincronización completa de torneos ahora propaga los errores de tablas relacionadas en lugar de devolver éxito después de una persistencia parcial.
 - La selección del torneo activo se restaura únicamente si existe en el snapshot remoto; el wizard reinicia sus campos al cambiar de torneo o etapa para evitar configuraciones cruzadas entre dispositivos.
+- `saveState` y la caché local de rankings sólo funcionan sin cliente Supabase; con Supabase configurado no se guarda una copia local que pueda sobrescribir el snapshot remoto.
 
 ### P1 — Calidad y accesibilidad
 
@@ -210,7 +211,7 @@ npm run test
 |---|---|---|---|
 | Alta | Rankings | La publicación de Rankings y Salón de la Fama debía reemplazar dos tablas con varias llamadas desde el cliente. | Corregido: `publish_rankings(jsonb, jsonb)` valida al administrador y reemplaza ambas tablas dentro de una única transacción de PostgreSQL; el importador rechaza extensiones, tamaños, números inválidos y IDs duplicados antes de publicar. |
 | Alta | Persistencia | `syncTournamentToSupabase` podía devolver éxito aunque fallara una tabla relacionada. | Corregido: los errores de participantes, etapas, grupos, rondas, matches y batallas ahora abortan la sincronización. |
-| Alta | Consistencia multiusuario | La hidratación omitía grupos, rondas, batallas y penalizaciones, y podía conservar mocks cuando fallaba Supabase. | Corregido: snapshot completo, espera de sesión Auth, aplicación atómica y limpieza explícita ante error remoto. |
+| Alta | Consistencia multiusuario | La hidratación omitía grupos, rondas, batallas y penalizaciones, y podía conservar mocks cuando fallaba Supabase. | Corregido: snapshot completo, espera de sesión Auth, aplicación atómica, limpieza explícita ante error remoto y bloqueo de persistencia crítica local cuando Supabase está configurado. |
 | Media | Consistencia multiusuario | `recordPenalty` sólo modificaba estado local y el wizard conservaba campos del torneo anterior. | Corregido: RPC `record_penalty` con rollback por conflicto/fallo y reinicialización completa del formulario. |
 | Media | Calidad | El middleware de autenticación contiene un mensaje de error malformado aunque el código HTTP sea correcto. | Pendiente de limpieza antes del despliegue. |
 
