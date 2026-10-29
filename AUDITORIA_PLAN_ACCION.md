@@ -90,7 +90,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 | Penalizaciones y Best-of-N | Parcial | `RefereeConsole.tsx`, `supabase/schema.sql` | Persistir remotamente, cerrar sets correctamente y validar árbitro asignado. |
 | Undo y reabrir combate | Parcial/no aplicado | `TournamentContext.tsx`; acción `reopen` sólo tipada | Crear endpoint, permisos, recomputación, auditoría y control de concurrencia. |
 | Mesas, convocatoria y Stadium Display | Parcial | `TournamentContext.tsx`, `App.tsx`, `StadiumDisplay.tsx` | Persistir estación, emitir eventos desde backend y mostrar desconexión. |
-| Realtime | Parcial | `src/lib/supabase/supabaseService.ts` | Integrar suscripciones en el contexto, filtrar por torneo y limpiar canales. |
+| Realtime | Parcial avanzado | `src/lib/supabase/supabaseService.ts` | El contexto recibe matches, batallas y penalizaciones del torneo activo y limpia el canal al desmontar; faltan pruebas multi-cliente y resolución avanzada de conflictos. |
 | Check-in manual | Completo | `TournamentContext.tsx`, `ParticipantManager.tsx` | Mantener cobertura. |
 | Check-in móvil, temporizador, auto-drop y re-siembra | No aplicado | No existe flujo/scheduler operativo | Implementar ventana temporal, job transaccional y regeneración segura. |
 | Decks 3on3 y Bey Check | Parcial | `types/tournament.ts`, vistas de participantes/bracket | Crear entidad, persistencia, validación de tres combos e historial de inspección. |

@@ -491,6 +491,7 @@ export function subscribeToTournamentRealtime(
   callbacks: {
     onMatchUpdate?: (match: Partial<Match>) => void;
     onBattleInsert?: (battle: Battle) => void;
+    onPenaltyInsert?: (penalty: Penalty) => void;
     onStatusChange?: (status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED') => void;
   }
 ): () => void {
@@ -544,6 +545,32 @@ export function subscribeToTournamentRealtime(
             voided: Boolean(b.voided),
             recordedBy: String(b.recorded_by || ''),
             createdAt: String(b.created_at || new Date().toISOString()),
+          });
+        }
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'penalties',
+      },
+      (payload) => {
+        const p = payload.new as Record<string, unknown>;
+        if (callbacks.onPenaltyInsert) {
+          callbacks.onPenaltyInsert({
+            id: String(p.id),
+            matchId: String(p.match_id),
+            battleId: (p.battle_id as string) || undefined,
+            participantId: String(p.participant_id),
+            card: p.card as Penalty['card'],
+            isFoul: Boolean(p.is_foul),
+            pointsAwarded: Number(p.points_awarded) || 0,
+            awardedTo: (p.awarded_to as string) || undefined,
+            reason: (p.reason as string) || undefined,
+            issuedBy: String(p.issued_by),
+            createdAt: String(p.created_at || new Date().toISOString()),
           });
         }
       }

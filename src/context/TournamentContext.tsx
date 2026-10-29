@@ -417,6 +417,21 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           message: 'Actualización realtime recibida.',
         }));
       },
+      onPenaltyInsert: (incomingPenalty) => {
+        const relatedMatch = matchesRef.current.find((match) => match.id === incomingPenalty.matchId);
+        if (!relatedMatch || relatedMatch.tournamentId !== activeTournamentId) return;
+        setPenalties((current) => (
+          current.some((penalty) => penalty.id === incomingPenalty.id)
+            ? current
+            : [...current, incomingPenalty]
+        ));
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConnected: true,
+          lastSync: new Date().toLocaleTimeString(),
+          message: 'Penalización recibida por realtime.',
+        }));
+      },
       onStatusChange: (status) => {
         const connected = status === 'SUBSCRIBED';
         setSupabaseSyncInfo((previous) => ({
