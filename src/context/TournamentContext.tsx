@@ -1775,23 +1775,28 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const revokeInvitation = async (id: string): Promise<void> => {
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('invitations')
         .update({ status: 'revoked' })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('status', 'pending')
+        .select('id')
+        .maybeSingle();
 
       if (error) {
         throw new Error(error.message);
       }
+      if (!data) {
+        throw new Error('La invitación no existe o ya fue revocada.');
+      }
     }
 
     setInvitations(prev => {
-      const updated = supabase
-        ? prev.map(inv => inv.id === id ? { ...inv, status: 'revoked' as const } : inv)
-        : prev.filter(inv => inv.id !== id);
+      const updated = prev.filter(inv => inv.id !== id);
       saveState({ invitations: updated });
       return updated;
     });
+    logAudit('invitations', id, 'delete', 'Invitación revocada y retirada de las invitaciones activas.');
   };
 
   const changeUserRole = (userId: string, newRole: UserRole) => {
