@@ -107,7 +107,7 @@ export const StadiumDisplay: React.FC<StadiumDisplayProps> = ({ onClose }) => {
               <span className="text-xs text-neutral-400 font-mono">WBO RULESET</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white mt-0.5">
-              {activeTournament?.name || 'Torneo Beyblade X'}
+              {activeTournament?.name || 'Sin torneo seleccionado'}
             </h1>
           </div>
         </div>

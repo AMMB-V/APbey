@@ -241,12 +241,23 @@ function TournamentApp() {
         <div className="mb-4 flex flex-wrap items-center justify-between text-xs text-[var(--acero)] bg-[var(--chasis)] border border-[var(--costura)] px-4 py-2 rounded-2xl shadow-xs gap-3">
           <div className="flex items-center gap-2">
             <Trophy className="w-4 h-4 text-amber-400 shrink-0" aria-hidden="true" />
-            <span className="font-semibold text-[var(--hueso)]">Torneo:</span>
-            <span className="font-bold text-[var(--hueso)]">{activeTournament?.name || 'Torneo Beyblade X'}</span>
-            <span className="hidden sm:inline">·</span>
-            <span className="hidden sm:inline text-[var(--acero)]">
-              {activeTournament?.venueName || 'Arena Central'} ({activeTournament?.country || 'PA'})
-            </span>
+            {activeTournament ? (
+              <>
+                <span className="font-semibold text-[var(--hueso)]">Torneo:</span>
+                <span className="font-bold text-[var(--hueso)]">{activeTournament.name}</span>
+                <span className="hidden sm:inline">·</span>
+                <span className="hidden sm:inline text-[var(--acero)]">
+                  {activeTournament.venueName || 'Sede no definida'} ({activeTournament.country || 'PA'})
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="font-semibold text-[var(--hueso)]">Torneo:</span>
+                <span className="font-bold text-[var(--acero)]">Sin torneo seleccionado</span>
+                <span className="hidden sm:inline">·</span>
+                <span className="hidden sm:inline text-[var(--acero)]">Selecciona o crea un torneo para comenzar</span>
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
