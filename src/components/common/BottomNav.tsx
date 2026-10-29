@@ -7,9 +7,7 @@ import {
   MoreHorizontal,
   Shield,
   Award,
-  Users,
   Wrench,
-  BookOpen,
   Tv,
   X,
   UserCheck,
@@ -177,19 +175,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 </div>
               </button>
 
-              {/* Comunidad */}
-              <button
-                type="button"
-                onClick={() => handleSelect('comunidad')}
-                className="p-3.5 rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] text-left flex items-start gap-3 hover:border-[var(--acero)] min-h-[56px]"
-              >
-                <Users className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs font-bold">Comunidad</div>
-                  <div className="text-[10px] text-[var(--acero)]">Reglas y clubes</div>
-                </div>
-              </button>
-
               {/* Participantes */}
               <button
                 type="button"
@@ -216,19 +201,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 <div>
                   <div className="text-xs font-bold">En Vivo (Estadio)</div>
                   <div className="text-[10px] text-[var(--acero)]">Modo proyector</div>
-                </div>
-              </button>
-
-              {/* Guía Técnica */}
-              <button
-                type="button"
-                onClick={() => handleSelect('docs')}
-                className="p-3.5 rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] text-left flex items-start gap-3 hover:border-[var(--acero)] min-h-[56px]"
-              >
-                <BookOpen className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs font-bold">Guía Software</div>
-                  <div className="text-[10px] text-[var(--acero)]">Arquitectura & docs</div>
                 </div>
               </button>
 

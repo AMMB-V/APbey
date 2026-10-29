@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Trophy, Shield, Layers, TrendingUp, Users, Radio, Wrench, X, BookOpen } from 'lucide-react';
+import { Search, Trophy, Shield, Layers, TrendingUp, Radio, Wrench, X } from 'lucide-react';
 import { useTournament } from '../../context/TournamentContext';
 
 interface CommandPaletteProps {
@@ -35,12 +35,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const baseItems = [
     { id: 'torneos', title: 'Torneos', category: 'Navegación', icon: <Trophy className="w-4 h-4 text-amber-400" /> },
     { id: 'bracket', title: 'Bracket & Grupos', category: 'Navegación', icon: <Trophy className="w-4 h-4 text-blue-400" /> },
-    { id: 'marcador', title: 'Marcador (Libre y Oficial)', category: 'Herramientas', icon: <Radio className="w-4 h-4 text-emerald-400" /> },
+    { id: 'marcador', title: 'Marcador oficial', category: 'Herramientas', icon: <Radio className="w-4 h-4 text-emerald-400" /> },
     { id: 'rankings', title: 'Rankings WBO & Salón de la Fama', category: 'Estadísticas', icon: <TrendingUp className="w-4 h-4 text-purple-400" /> },
     { id: 'deck', title: 'Deck 3on3 Builder', category: 'Herramientas', icon: <Layers className="w-4 h-4 text-cyan-400" /> },
     { id: 'tierlist', title: 'Tier List Competitiva', category: 'Herramientas', icon: <Shield className="w-4 h-4 text-rose-400" /> },
-    { id: 'comunidad', title: 'Comunidad & Reglas WBO', category: 'Información', icon: <Users className="w-4 h-4 text-teal-400" /> },
-    { id: 'docs', title: 'Guía de Ingeniería de Software', category: 'Documentación', icon: <BookOpen className="w-4 h-4 text-slate-400" /> },
   ];
 
   if (currentRole === 'admin' || currentRole === 'organizer' || currentRole === 'referee') {

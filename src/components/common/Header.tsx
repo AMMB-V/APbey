@@ -30,12 +30,10 @@ export type MainTabType =
   | 'rankings'
   | 'deck'
   | 'tierlist'
-  | 'comunidad'
   | 'profile'
   | 'participants'
   | 'wizard'
-  | 'admin'
-  | 'docs';
+  | 'admin';
 
 interface HeaderProps {
   activeTab: MainTabType;
@@ -49,9 +47,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCommandPalette,
 }) => {
   const {
-    tournaments,
-    activeTournamentId,
-    setActiveTournamentId,
     currentUser,
     currentRole,
     logout,
@@ -76,7 +71,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="border-b border-[var(--costura)] bg-[var(--chasis)] sticky top-0 z-30 shadow-md text-[var(--hueso)] w-full">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-2 sm:gap-4">
+      <div className="min-w-0 max-w-screen-2xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-2 sm:gap-4">
         
         {/* Zone 1: Wordmark & Brand */}
         <div
@@ -84,25 +79,17 @@ export const Header: React.FC<HeaderProps> = ({
           className="flex items-center gap-2.5 shrink-0 cursor-pointer group"
           title="Ir al inicio de torneos"
         >
-          <div className="w-9 h-9 flex items-center justify-center shrink-0">
+          <div className="w-[116px] h-8 flex items-center justify-start shrink-0">
             <img
               src="/apbey-logo.png"
               alt="APbey"
-              className="max-w-full max-h-full object-contain"
+              className="w-full h-auto object-contain"
             />
-          </div>
-          <div>
-            <div className="text-sm sm:text-base font-black text-[var(--hueso)] tracking-tight leading-none font-display">
-              APBEY
-            </div>
-            <div className="text-[10px] text-[var(--acero)] font-medium mt-0.5 hidden xs:block">
-              Torneos oficiales de Beyblade X
-            </div>
           </div>
         </div>
 
         {/* Zone 2: Desktop 7-Group Navigation (Hick's Law: grouped cleanly) */}
-        <nav aria-label="Navegación principal" className="hidden lg:flex items-center gap-1">
+        <nav aria-label="Navegación principal" className="hidden lg:flex min-w-0 items-center gap-1 overflow-x-auto">
           {/* 1. Torneos */}
           <button
             type="button"
@@ -221,22 +208,7 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* 6. Comunidad */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('comunidad')}
-            aria-current={activeTab === 'comunidad' ? 'page' : undefined}
-            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
-              activeTab === 'comunidad'
-                ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
-                : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5 text-teal-400" />
-            <span>Comunidad & Reglas</span>
-          </button>
-
-          {/* 7. Gestionar (Solo para Staff) */}
+          {/* 6. Gestionar (Solo para Staff) */}
           {isStaff && (
             <button
               type="button"
@@ -282,24 +254,6 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Tv className="w-4 h-4" />
           </button>
-
-          {/* Active Tournament Switcher if multiple */}
-          {tournaments.length > 1 && (
-            <div className="hidden xl:block">
-              <select
-                value={activeTournamentId}
-                onChange={(e) => setActiveTournamentId(e.target.value)}
-                className="text-xs font-bold border border-[var(--costura)] rounded-xl px-2.5 py-1.5 bg-[var(--grafito)] text-[var(--hueso)] focus:outline-hidden max-w-[140px] truncate min-h-[38px]"
-                title="Cambiar torneo activo"
-              >
-                {tournaments.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
 
           {/* User Account Button / Login */}
           {currentRole === 'public' || !currentUser ? (
