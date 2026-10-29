@@ -122,6 +122,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 1. `vercel.json` reescribe todas las rutas a `index.html`; no despliega `server.ts`.
 2. `data/*.json` no ofrece persistencia compartida ni fiable en serverless.
 3. La aplicación puede mostrar éxito local mientras una sincronización remota falla parcialmente.
+4. El backend auxiliar todavía persiste configuraciones en JSON local; ahora informa errores de escritura, pero sigue sin ser una fuente de verdad apta para producción multiusuario.
 
 ### P1 — Modelo de datos y consistencia
 
@@ -129,12 +130,14 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 - El frontend todavía conserva IDs legibles/locales en el fallback y en entidades heredadas, mientras varias columnas SQL esperan UUID.
 - Hay RLS habilitado sin políticas completas.
 - El estado monolítico de `TournamentContext.tsx` mezcla autenticación, dominio, UI y persistencia.
+- La sincronización completa de torneos ahora propaga los errores de tablas relacionadas en lugar de devolver éxito después de una persistencia parcial.
 
 ### P1 — Calidad y accesibilidad
 
 - El workflow CI anterior era una lista de comandos sin `name`, `on` ni `jobs`, por lo que GitHub no generaba check runs. Se reemplazó por un workflow ejecutable con Node 22, `npm ci`, type-check, tests y build.
 - `package.json` define `npm run test` y existen suites Vitest para arbitraje, desempates y Single Elimination.
 - La cobertura automatizada actual es de 3 archivos y 8 pruebas Vitest; aún faltan integración API, RLS, E2E y accesibilidad.
+- El middleware de autenticación del backend contiene un mensaje de error malformado; no cambia el código HTTP, pero debe corregirse antes del despliegue para evitar respuestas confusas.
 - `tsconfig.json` no activa `strict` y permite JS.
 - `index.html` ya declara `lang="es"`; debe conservarse una revisión de metadatos/SEO porque algunos textos sociales siguen en inglés.
 - El modal de autenticación y varios controles de icono carecen de semántica ARIA/foco completo.
@@ -198,6 +201,18 @@ npm run lint
 npm run build
 npm run test
 ```
+
+## Hallazgos de la auditoría actual
+
+| Severidad | Área | Hallazgo | Estado |
+|---|---|---|---|
+| Alta | Rankings | `syncRankingsToSupabase` elimina la publicación anterior antes de insertar la nueva; un fallo de inserción puede dejar Rankings y Salón de la Fama vacíos o incompletos. | Pendiente: mover la publicación a una operación versionada/transaccional en Supabase. |
+| Alta | Persistencia | `syncTournamentToSupabase` podía devolver éxito aunque fallara una tabla relacionada. | Corregido: los errores de participantes, etapas, grupos, rondas, matches y batallas ahora abortan la sincronización. |
+| Alta | Backend | Las configuraciones de etapas y asignaciones de árbitros todavía se escriben en JSON local; no son persistencia compartida ni adecuada para serverless. | Pendiente: migrar estas entidades a Supabase y eliminar el camino JSON productivo. |
+| Media | Backend | Las rutas mutantes ya informan `500` si la escritura atómica local falla; antes respondían éxito sin comprobar el resultado. | Corregido localmente, sin resolver la limitación arquitectónica del almacenamiento JSON. |
+| Media | Calidad | El middleware de autenticación contiene un mensaje de error malformado aunque el código HTTP sea correcto. | Pendiente de limpieza antes del despliegue. |
+
+La auditoría local del backend confirmó `/api/health` con HTTP 200 y rechazó una mutación sin autenticación cuando el backend no tiene Supabase configurado con HTTP 503. Esto demuestra que el guard existe, pero no sustituye las pruebas con tokens reales, roles y autorización por torneo en staging.
 
 ## Higiene de caché y artefactos
 

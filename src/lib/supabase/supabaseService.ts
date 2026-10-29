@@ -157,7 +157,7 @@ export async function syncTournamentToSupabase(
         status: p.status,
       }));
       const { error: partsError } = await supabase.from('participants').upsert(participantsPayload);
-      if (partsError) console.warn('[Supabase] Warning al guardar participantes:', partsError.message);
+      if (partsError) throw new Error(`Error al sincronizar participantes: ${partsError.message}`);
     }
 
     // 3. Upsert Stages
@@ -176,7 +176,7 @@ export async function syncTournamentToSupabase(
         config: s.config,
       }));
       const { error: stagesError } = await supabase.from('stages').upsert(stagesPayload);
-      if (stagesError) console.warn('[Supabase] Warning al guardar etapas:', stagesError.message);
+      if (stagesError) throw new Error(`Error al sincronizar etapas: ${stagesError.message}`);
     }
 
     // 4. Upsert Groups
@@ -191,7 +191,7 @@ export async function syncTournamentToSupabase(
         referee_id: g.refereeId || null,
       }));
       const { error: groupsError } = await supabase.from('groups').upsert(groupsPayload);
-      if (groupsError) console.warn('[Supabase] Warning al guardar grupos:', groupsError.message);
+      if (groupsError) throw new Error(`Error al sincronizar grupos: ${groupsError.message}`);
     }
 
     // 5. Upsert Rounds
@@ -206,7 +206,7 @@ export async function syncTournamentToSupabase(
         name: r.name || null,
       }));
       const { error: roundsError } = await supabase.from('rounds').upsert(roundsPayload);
-      if (roundsError) console.warn('[Supabase] Warning al guardar rondas:', roundsError.message);
+      if (roundsError) throw new Error(`Error al sincronizar rondas: ${roundsError.message}`);
     }
 
     // 6. Upsert Matches
@@ -234,7 +234,7 @@ export async function syncTournamentToSupabase(
         next_match_loser_id: m.nextMatchLoserId || null,
       }));
       const { error: matchesError } = await supabase.from('matches').upsert(matchesPayload);
-      if (matchesError) console.warn('[Supabase] Warning al guardar matches:', matchesError.message);
+      if (matchesError) throw new Error(`Error al sincronizar matches: ${matchesError.message}`);
     }
 
     // 7. Upsert Battles
@@ -254,7 +254,7 @@ export async function syncTournamentToSupabase(
         created_at: b.createdAt,
       }));
       const { error: battlesError } = await supabase.from('battles').upsert(battlesPayload);
-      if (battlesError) console.warn('[Supabase] Warning al guardar batallas:', battlesError.message);
+      if (battlesError) throw new Error(`Error al sincronizar batallas: ${battlesError.message}`);
     }
 
     return {
