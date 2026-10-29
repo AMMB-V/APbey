@@ -30,13 +30,8 @@ export async function syncRankingsToSupabase(data: RankingData): Promise<{ succe
   const supabase = getSupabaseClient();
   if (!supabase) return { success: true, message: 'Rankings guardados localmente; Supabase no está configurado.' };
 
-  const { error: rankingDeleteError } = await supabase.from('ranking_entries').delete().neq('id', '');
-  if (rankingDeleteError) return { success: false, message: `No se pudo reemplazar Rankings: ${rankingDeleteError.message}` };
-  const { error: hallDeleteError } = await supabase.from('hall_of_fame_entries').delete().neq('id', '');
-  if (hallDeleteError) return { success: false, message: `No se pudo reemplazar el Salón de la Fama: ${hallDeleteError.message}` };
-
-  if (data.rankings.length > 0) {
-    const { error } = await supabase.from('ranking_entries').insert(data.rankings.map((entry) => ({
+  const { error } = await supabase.rpc('publish_rankings', {
+    p_rankings: data.rankings.map((entry) => ({
       id: entry.id,
       name: entry.name,
       points: entry.points,
@@ -45,12 +40,8 @@ export async function syncRankingsToSupabase(data: RankingData): Promise<{ succe
       losses: entry.losses,
       tournaments_won: entry.tournamentsWon,
       favorite_combo: entry.favoriteCombo || null,
-    })));
-    if (error) return { success: false, message: `No se pudo guardar Rankings: ${error.message}` };
-  }
-
-  if (data.hallOfFame.length > 0) {
-    const { error } = await supabase.from('hall_of_fame_entries').insert(data.hallOfFame.map((entry) => ({
+    })),
+    p_hall_of_fame: data.hallOfFame.map((entry) => ({
       id: entry.id,
       tournament_title: entry.tournamentTitle,
       champion: entry.champion,
@@ -58,8 +49,10 @@ export async function syncRankingsToSupabase(data: RankingData): Promise<{ succe
       date: entry.date || null,
       winning_combo: entry.winningCombo || null,
       participants_count: entry.participantsCount || null,
-    })));
-    if (error) return { success: false, message: `No se pudo guardar el Salón de la Fama: ${error.message}` };
+    })),
+  });
+  if (error) {
+    return { success: false, message: `No se pudo publicar Rankings de forma transaccional: ${error.message}` };
   }
 
   return { success: true, message: 'Rankings sincronizados con Supabase.' };

@@ -208,7 +208,7 @@ npm run test
 
 | Severidad | Área | Hallazgo | Estado |
 |---|---|---|---|
-| Alta | Rankings | `syncRankingsToSupabase` elimina la publicación anterior antes de insertar la nueva; un fallo de inserción puede dejar Rankings y Salón de la Fama vacíos o incompletos. | Pendiente: mover la publicación a una operación versionada/transaccional en Supabase. |
+| Alta | Rankings | La publicación de Rankings y Salón de la Fama debía reemplazar dos tablas con varias llamadas desde el cliente. | Corregido: `publish_rankings(jsonb, jsonb)` valida al administrador y reemplaza ambas tablas dentro de una única transacción de PostgreSQL. |
 | Alta | Persistencia | `syncTournamentToSupabase` podía devolver éxito aunque fallara una tabla relacionada. | Corregido: los errores de participantes, etapas, grupos, rondas, matches y batallas ahora abortan la sincronización. |
 | Alta | Consistencia multiusuario | La hidratación omitía grupos, rondas, batallas y penalizaciones, y podía conservar mocks cuando fallaba Supabase. | Corregido: snapshot completo, espera de sesión Auth, aplicación atómica y limpieza explícita ante error remoto. |
 | Media | Consistencia multiusuario | `recordPenalty` sólo modificaba estado local y el wizard conservaba campos del torneo anterior. | Corregido: RPC `record_penalty` con rollback por conflicto/fallo y reinicialización completa del formulario. |
