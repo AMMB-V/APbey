@@ -3,6 +3,7 @@ export type UserRole = 'admin' | 'organizer' | 'referee' | 'blader' | 'public';
 export interface UserProfile {
   id: string;
   displayName: string;
+  avatarUrl?: string;
   email: string;
   role: UserRole;
   createdAt: string;

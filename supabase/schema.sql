@@ -18,6 +18,7 @@ create type participant_status as enum ('registered', 'active', 'eliminated', 'd
 create table profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text not null,
+  avatar_url text,
   role user_role not null default 'referee',
   created_at timestamptz not null default now()
 );

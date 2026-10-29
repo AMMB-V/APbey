@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Radio,
   LogIn,
@@ -53,6 +53,20 @@ export const Header: React.FC<HeaderProps> = ({
 
   const [showProfile, setShowProfile] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const toolsMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!toolsOpen) return;
+
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      if (toolsMenuRef.current && !toolsMenuRef.current.contains(event.target as Node)) {
+        setToolsOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handleOutsidePointerDown);
+    return () => document.removeEventListener('pointerdown', handleOutsidePointerDown);
+  }, [toolsOpen]);
 
   const isStaff = currentRole === 'referee' || currentRole === 'organizer' || currentRole === 'admin';
 
@@ -152,7 +166,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {/* 5. Herramientas Dropdown (Deck 3on3, Tier List, Participantes) */}
-          <div className="relative">
+          <div ref={toolsMenuRef} className="relative">
             <button
               type="button"
               onClick={() => setToolsOpen(!toolsOpen)}
@@ -284,8 +298,12 @@ export const Header: React.FC<HeaderProps> = ({
                 className="flex items-center gap-1.5 px-1 text-left min-h-[34px]"
                 aria-label="Abrir mi perfil"
               >
-                <div className="w-6 h-6 rounded-full bg-[var(--cobalto)] text-[var(--tinta)] flex items-center justify-center text-[10px] font-black shrink-0">
-                  {currentUser.displayName.charAt(0).toUpperCase()}
+                <div className="w-6 h-6 rounded-full bg-[var(--cobalto)] text-[var(--tinta)] flex items-center justify-center text-[10px] font-black shrink-0 overflow-hidden">
+                  {currentUser.avatarUrl ? (
+                    <img src={currentUser.avatarUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    currentUser.displayName.charAt(0).toUpperCase()
+                  )}
                 </div>
                 <span className="text-xs font-bold text-[var(--hueso)] max-w-[90px] truncate hidden md:inline hover:underline">
                   {currentUser.displayName}
