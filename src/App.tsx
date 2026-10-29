@@ -76,6 +76,7 @@ function TournamentApp() {
     currentUser,
     currentRole,
     activeTournament,
+    setActiveTournamentId,
     stages,
     showStadiumModal,
     setShowStadiumModal,
@@ -234,7 +235,8 @@ function TournamentApp() {
         {/* View 0: Hub de Torneos */}
         {activeTab === 'torneos' && (
           <TournamentList
-            onSelectTournament={(_tourneyId, targetTab) => {
+            onSelectTournament={(tourneyId, targetTab) => {
+              setActiveTournamentId(tourneyId);
               setActiveTab((targetTab as MainTabType) || 'bracket');
             }}
           />
