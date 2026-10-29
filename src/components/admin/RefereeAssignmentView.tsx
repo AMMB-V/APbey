@@ -72,7 +72,7 @@ export const RefereeAssignmentView: React.FC = () => {
       if (saved) {
         setSyncStatus({
           success: true,
-          persistedIn: 'backend',
+          persistedIn: 'supabase',
           timestamp: saved.updatedAt,
           message: 'Asignaciones cargadas desde la base de datos.',
           recordsUpdated: Object.keys(saved.groupAssignments).length,
@@ -171,7 +171,7 @@ export const RefereeAssignmentView: React.FC = () => {
     } catch (err: any) {
       setSyncStatus({
         success: false,
-        persistedIn: 'local',
+        persistedIn: 'none',
         timestamp: new Date().toISOString(),
         message: 'Error al sincronizar con Supabase: ' + (err?.message || 'Error desconocido'),
       });
@@ -294,9 +294,7 @@ export const RefereeAssignmentView: React.FC = () => {
             <span className="font-bold text-[var(--hueso,#ece8e0)]">
               {syncStatus?.persistedIn === 'supabase'
                 ? 'Conectado a Supabase (Producción Postgres RLS)'
-                : syncStatus?.persistedIn === 'backend'
-                ? 'Sincronizado con Backend & Esquema Supabase'
-                : 'Sincronización Lista para Supabase'}
+                : 'Sincronización pendiente'}
             </span>
             <span className="text-[var(--acero,#a3abb5)] ml-2">
               {syncStatus?.message || 'Los cambios se persistirán en la base de datos de Supabase.'}

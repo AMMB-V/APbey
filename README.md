@@ -15,9 +15,9 @@ La aplicación cuenta con vistas funcionales para:
 - autenticación de interfaz mediante roles;
 - configuración de puntuación, desempates y persistencia opcional en Supabase.
 
-**Importante:** la implementación actual no debe considerarse lista para producción multiusuario. Supabase Auth y RLS son la autoridad prevista; persisten archivos JSON auxiliares, autorización incompleta por torneo y un despliegue Vercel estático que no publica el backend Express.
+**Importante:** la implementación actual no debe considerarse lista para producción multiusuario. Supabase Auth y RLS son la autoridad; el backend Express ya no persiste datos en JSON ni expone mutaciones auxiliares sin ámbito de torneo. Todavía faltan pruebas de staging con cuentas reales para todos los roles y un despliegue que publique Express.
 
-El login y el canje de invitaciones usan Supabase Auth cuando está configurado; el backend valida access tokens para sus mutaciones protegidas. La persistencia JSON y la autorización completa por torneo siguen en transición; Consultar `AUDITORIA_PLAN_ACCION.md` y `PLAN_ACCION_PRODUCCION.md` antes de desplegar.
+El login, el canje de invitaciones, la configuración de etapas y las asignaciones de árbitros usan Supabase cuando está configurado. Si Supabase no está disponible, las mutaciones críticas fallan explícitamente: no se presenta una copia local como persistencia confirmada. Consultar `AUDITORIA_PLAN_ACCION.md` y `PLAN_ACCION_PRODUCCION.md` antes de desplegar.
 
 ## Relación con los documentos de diseño iniciales
 
@@ -38,16 +38,17 @@ React 19 + TypeScript + Vite
 └── supabase/                           Esquema, RLS y funciones transaccionales
 
 Express + tsx
-└── server.ts                            API auxiliar y persistencia temporal JSON
+└── server.ts                            Health check, CORS y servidor de frontend
 ```
 
-La persistencia actual es híbrida:
+La persistencia crítica usa Supabase como fuente de verdad:
 
-1. `localStorage` para el estado de sesión y torneo en el navegador.
-2. Archivos JSON en `data/` para configuraciones auxiliares del backend.
-3. Supabase para el esquema cloud y sincronización opcional.
+1. Supabase Auth y RLS autorizan cada lectura o mutación remota.
+2. `stages.config` guarda la configuración JSONB de cada etapa.
+3. `groups.referee_id`, `matches.referee_id` y `tournament_referees` guardan las asignaciones.
+4. `localStorage` sólo conserva sesión, preferencias y datos de demostración mientras se completa la migración del contexto global.
 
-La auditoría técnica recomienda elegir una única fuente de verdad antes de habilitar operaciones críticas en producción.
+El backend Express no es una segunda fuente de verdad: sirve el frontend, expone health check y no escribe archivos de datos.
 
 ## Requisitos
 

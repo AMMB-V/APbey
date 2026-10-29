@@ -184,7 +184,7 @@ export const TournamentWizard: React.FC = () => {
   const [lastSyncInfo, setLastSyncInfo] = useState<{
     stageId: string;
     timestamp: string;
-    persistedIn: 'backend' | 'local';
+    persistedIn: 'supabase' | 'none';
     message?: string;
   } | null>(null);
 
@@ -247,13 +247,13 @@ export const TournamentWizard: React.FC = () => {
       });
 
       showSuccess(
-        `Reglas de desempate persistidas exitosamente en ${
-          result.persistedIn === 'backend' ? 'base de datos backend' : 'almacenamiento local'
-        } para la etapa "${activeStage.name}".`
+        result.success
+          ? `Reglas de desempate persistidas en Supabase para la etapa "${activeStage.name}".`
+          : result.message
       );
     } catch (err) {
       console.error(err);
-      showSuccess('Reglas actualizadas en memoria.');
+      showSuccess('No se pudieron persistir las reglas de desempate.');
     } finally {
       setIsSavingTiebreakers(false);
     }
