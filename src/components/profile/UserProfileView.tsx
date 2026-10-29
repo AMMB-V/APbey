@@ -3,11 +3,12 @@ import { User, Shield, Trophy, Award, Layers, Edit2, Check, Sparkles, LogOut } f
 import { useTournament } from '../../context/TournamentContext';
 
 export const UserProfileView: React.FC = () => {
-  const { currentUser, currentRole, logout, updateProfile, matches, participants } = useTournament();
+  const { currentUser, currentRole, logout, updateProfile, updateProfilePhoto, matches, participants } = useTournament();
   const [isEditingName, setIsEditingName] = useState(false);
   const [displayName, setDisplayName] = useState(currentUser?.displayName || 'Blader Competidor');
   const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
 
   useEffect(() => {
     if (currentUser?.displayName) {
@@ -77,6 +78,28 @@ export const UserProfileView: React.FC = () => {
     }
   };
 
+  const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || isSavingPhoto) return;
+    setIsSavingPhoto(true);
+    setSaveFeedback(null);
+    try {
+      const result = await updateProfilePhoto(file);
+      setSaveFeedback({
+        type: result.success ? 'success' : 'error',
+        message: result.message,
+      });
+    } catch (error) {
+      setSaveFeedback({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'No se pudo guardar la foto.',
+      });
+    } finally {
+      setIsSavingPhoto(false);
+    }
+  };
+
   const roleBadges: Record<string, { label: string; color: string }> = {
     admin: { label: 'Administrador General', color: 'bg-rose-950 text-rose-300 border-rose-700' },
     organizer: { label: 'Organizador Oficial', color: 'bg-amber-950 text-amber-300 border-amber-700' },
@@ -104,9 +127,24 @@ export const UserProfileView: React.FC = () => {
       <div className="bg-[var(--chasis)] border-2 border-[var(--costura)] rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col gap-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-[var(--cobalto)] text-[var(--tinta)] flex items-center justify-center font-black text-2xl shadow-lg shrink-0">
-              {displayName.charAt(0).toUpperCase()}
-            </div>
+            <label className="relative w-16 h-16 rounded-2xl bg-[var(--cobalto)] text-[var(--tinta)] flex items-center justify-center font-black text-2xl shadow-lg shrink-0 overflow-hidden cursor-pointer group" title="Cambiar foto de perfil">
+              {currentUser?.avatarUrl ? (
+                <img src={currentUser.avatarUrl} alt={`Foto de ${displayName}`} className="w-full h-full object-cover" />
+              ) : (
+                displayName.charAt(0).toUpperCase()
+              )}
+              <span className="absolute inset-0 bg-black/65 text-white text-[9px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-center px-1">
+                {isSavingPhoto ? 'Guardando...' : 'Cambiar foto'}
+              </span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handlePhotoChange}
+                disabled={isSavingPhoto}
+                className="sr-only"
+                aria-label="Seleccionar foto de perfil"
+              />
+            </label>
             <div>
               {isEditingName ? (
                 <div className="flex items-center gap-2">

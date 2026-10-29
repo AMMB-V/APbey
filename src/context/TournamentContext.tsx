@@ -92,6 +92,7 @@ interface TournamentContextType {
   login: (email: string, password?: string) => Promise<{ success: boolean; message: string; user?: UserProfile }>;
   loginWithInvitation: (code: string, displayName: string, email?: string, password?: string) => Promise<{ success: boolean; message: string; user?: UserProfile }>;
   updateProfile: (updates: { displayName: string; email: string; password?: string }) => Promise<{ success: boolean; message: string }>;
+  updateProfilePhoto: (file: File) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   showAuthModal: boolean;
   setShowAuthModal: (show: boolean) => void;
@@ -283,7 +284,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, display_name, role, created_at')
+        .select('id, display_name, avatar_url, role, created_at')
         .eq('id', authUser.id)
         .single();
       if (!profile || !active) return;
@@ -291,6 +292,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const authenticatedUser: UserProfile = {
         id: profile.id,
         displayName: profile.display_name,
+        avatarUrl: profile.avatar_url || undefined,
         email: authUser.email || '',
         role: profile.role as UserRole,
         createdAt: profile.created_at,
@@ -562,7 +564,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, display_name, role, created_at')
+      .select('id, display_name, avatar_url, role, created_at')
       .eq('id', authData.user.id)
       .single();
     if (profileError || !profile) {
@@ -576,6 +578,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const authenticatedUser: UserProfile = {
       id: profile.id,
       displayName: profile.display_name,
+      avatarUrl: profile.avatar_url || undefined,
       email: authData.user.email || cleanEmail,
       role: profile.role as UserRole,
       createdAt: profile.created_at,
@@ -652,6 +655,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const authenticatedUser: UserProfile = {
       id: authData.user.id,
       displayName: profile.display_name,
+      avatarUrl: profile.avatar_url || undefined,
       email: cleanEmail,
       role: profile.role as UserRole,
       createdAt: new Date().toISOString(),
@@ -757,6 +761,79 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     logAudit('profiles', currentUser.id, 'update', `Perfil actualizado: ${displayName}`);
     return { success: true, message: `Perfil actualizado correctamente.${emailNotice}` };
+  };
+
+  const updateProfilePhoto = async (file: File): Promise<{ success: boolean; message: string }> => {
+    if (!currentUser) {
+      return { success: false, message: 'Debes iniciar sesión para actualizar tu foto.' };
+    }
+    if (!file.type.startsWith('image/')) {
+      return { success: false, message: 'Selecciona una imagen válida.' };
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      return { success: false, message: 'La imagen no puede superar 2 MB.' };
+    }
+
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      const localUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error('No se pudo leer la imagen seleccionada.'));
+        reader.readAsDataURL(file);
+      });
+      const updatedUser = { ...currentUser, avatarUrl: localUrl };
+      setCurrentUser(updatedUser);
+      setUsers((previous) => {
+        const updatedList = previous.map((user) => user.id === currentUser.id ? updatedUser : user);
+        localStorage.setItem('apbey_users', JSON.stringify(updatedList));
+        return updatedList;
+      });
+      localStorage.setItem(SESSION_USER_KEY, JSON.stringify(updatedUser));
+      return { success: true, message: 'Foto de perfil guardada localmente.' };
+    }
+
+    try {
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `${currentUser.id}/${crypto.randomUUID()}.${extension}`;
+      const { error: uploadError } = await withTimeout(
+        supabase.storage.from('avatars').upload(path, file, { cacheControl: '3600', upsert: false }),
+        15000,
+        'La conexión con Supabase tardó demasiado al subir la foto.'
+      );
+      if (uploadError) {
+        return { success: false, message: `No se pudo subir la foto: ${uploadError.message}` };
+      }
+
+      const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      const avatarUrl = publicUrlData.publicUrl;
+      const { data: updatedProfile, error: profileError } = await withTimeout(
+        supabase.rpc('update_my_avatar', { p_avatar_url: avatarUrl }),
+        10000,
+        'La conexión con Supabase tardó demasiado al guardar la foto.'
+      );
+      if (profileError) {
+        return { success: false, message: `No se pudo guardar la foto en el perfil: ${profileError.message}` };
+      }
+      if (!updatedProfile || updatedProfile.avatar_url !== avatarUrl) {
+        return { success: false, message: 'Supabase no confirmó la foto del perfil.' };
+      }
+
+      const updatedUser = { ...currentUser, avatarUrl };
+      setCurrentUser(updatedUser);
+      setUsers((previous) => {
+        const updatedList = previous.map((user) => user.id === currentUser.id ? updatedUser : user);
+        localStorage.setItem('apbey_users', JSON.stringify(updatedList));
+        return updatedList;
+      });
+      localStorage.setItem(SESSION_USER_KEY, JSON.stringify(updatedUser));
+      return { success: true, message: 'Foto de perfil guardada correctamente.' };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'No se pudo guardar la foto.',
+      };
+    }
   };
 
   const logout = () => {
@@ -2075,6 +2152,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         login,
         loginWithInvitation,
         updateProfile,
+        updateProfilePhoto,
         logout,
         showAuthModal,
         setShowAuthModal,
