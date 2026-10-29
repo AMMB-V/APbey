@@ -7,6 +7,7 @@ import {
   Stage,
   Tournament,
 } from '../../types/tournament';
+import { createEntityId } from '../ids';
 
 export interface ApplyBattleResult {
   updatedMatch: Match;
@@ -79,7 +80,7 @@ export function applyBattle(
   const nextBattleNumber = existingBattles.filter(b => b.matchId === match.id).length + 1;
 
   const newBattle: Battle = {
-    id: `battle_${match.id}_${nextBattleNumber}_${Date.now()}`,
+    id: createEntityId(),
     matchId: match.id,
     battleNumber: nextBattleNumber,
     setNumber: match.sets1 + match.sets2 + 1,
@@ -169,7 +170,7 @@ export function applyPenalty(
   }
 
   const newPenalty: Penalty = {
-    id: `penalty_${match.id}_${Date.now()}`,
+    id: createEntityId(),
     matchId: match.id,
     participantId: offenderId,
     card: card || 'yellow',

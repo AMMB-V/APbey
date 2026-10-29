@@ -72,6 +72,7 @@ import {
 } from '../lib/storage/mockData';
 import { parseRankingWorkbook } from '../lib/storage/rankingWorkbook';
 import { BladerRanking, HallOfFameEntry } from '../types/rankings';
+import { createEntityId } from '../lib/ids';
 
 export interface SupabaseSyncInfo {
   isConfigured: boolean;
@@ -968,7 +969,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const tParticipants = participants.filter(p => p.tournamentId === tournamentId);
     const newSeed = tParticipants.length + 1;
     const newP: Participant = {
-      id: `p_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: createEntityId(),
       tournamentId,
       displayName: sanitizeStr(displayName),
       seed: newSeed,
@@ -998,7 +999,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const name = rawName.trim();
       if (!name) continue;
       createdList.push({
-        id: `p_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        id: createEntityId(),
         tournamentId,
         displayName: name,
         seed: nextSeed++,
@@ -1122,7 +1123,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       serpentineGroups.forEach((groupBladers, idx) => {
         const groupLetter = String.fromCharCode(65 + idx); // 'A', 'B', 'C'...
-        const groupId = `${stage.id}_grp_${groupLetter.toLowerCase()}`;
+        const groupId = createEntityId();
         const groupName = `Grupo ${groupLetter}`;
 
         createdGroups.push({
@@ -1734,7 +1735,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     serpentine.forEach((groupBladers, idx) => {
       const groupLetter = String.fromCharCode(65 + idx);
-      const groupId = `${stage.id}_grp_${groupLetter.toLowerCase()}`;
+      const groupId = createEntityId();
       const groupName = `Grupo ${groupLetter}`;
       const assignedRef = existingReferees[idx % existingReferees.length] || null;
 
@@ -1860,7 +1861,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     stageType: StageType,
     stageConfig: StageConfig
   ): Tournament => {
-    const tId = `tourney_${Date.now()}`;
+    const tId = createEntityId();
     const baseSlug = (data.name || 'torneo')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -1902,7 +1903,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
 
     const initialStage: Stage = {
-      id: `stage_${Date.now()}_1`,
+      id: createEntityId(),
       tournamentId: tId,
       position: 1,
       name: stageType === 'group_stage' ? 'Fase de Grupos' : 'Cuadro Principal',
@@ -1942,7 +1943,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!source) {
       return null;
     }
-    const newId = `tourney_${Date.now()}`;
+    const newId = createEntityId();
     const duplicated: Tournament = {
       ...source,
       id: newId,
@@ -1957,7 +1958,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const sourceStages = stages.filter(s => s.tournamentId === id);
     const newStages = sourceStages.map((s, idx) => ({
       ...s,
-      id: `stage_${newId}_${idx + 1}`,
+      id: createEntityId(),
       tournamentId: newId,
       status: 'pending' as const,
     }));
@@ -2014,7 +2015,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } while (invitations.some((inv) => inv.code === code));
 
     const inv: Invitation = {
-      id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: createEntityId(),
       email: normalizedEmail,
       role,
       tournamentId,

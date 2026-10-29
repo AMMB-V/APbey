@@ -7,6 +7,7 @@ import {
   Stage,
 } from '../../types/tournament';
 import { generateSingleElimination } from './formats/singleElimination';
+import { createEntityId } from '../ids';
 import { computeStandings } from './tiebreakers';
 
 export interface AdvanceStageResult {
@@ -103,7 +104,7 @@ export function advanceGroupStageToPlayoffs(
   qualifiers.push(...finalPlayoffParticipants);
 
   // Next stage object
-  const nextStageId = `stage_playoffs_${Date.now()}`;
+  const nextStageId = createEntityId();
   const nextStage: Stage = {
     id: nextStageId,
     tournamentId,

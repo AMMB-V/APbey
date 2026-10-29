@@ -79,6 +79,7 @@ La respuesta funcional es conservar el alcance del PDF como contrato del MVP, us
 - La duplicación de torneos ya no cae silenciosamente al primer torneo cuando recibe un ID inexistente; devuelve un resultado explícito y la interfaz informa que el torneo dejó de estar disponible.
 - `resetAllData` ahora rechaza también desde el contexto cualquier intento de restaurar fixtures cuando Supabase está configurado; no depende únicamente de que el botón de administración esté oculto.
 - Al configurar Supabase ya no se sincroniza automáticamente el torneo que estaba en memoria local: primero se valida la conexión y se hidrata el snapshot remoto, evitando subir fixtures o estado obsoleto por accidente.
+- Las entidades creadas por la aplicación (torneos, etapas, grupos, participantes, rondas, matches, batallas, penalizaciones e invitaciones) ahora usan UUID; los IDs legibles se conservan únicamente en fixtures y pruebas.
 
 Estos cambios son deliberadamente acotados: no se implementó una migración incompleta a Next.js ni autenticación ficticia para aparentar cumplimiento.
 
@@ -225,6 +226,7 @@ npm run test
 | Baja | Consistencia | `duplicateTournament` usaba `tournaments[0]` como sustituto si el ID solicitado no existía. | Corregido: se elimina el fallback implícito y se muestra un error accionable en las dos superficies que permiten duplicar. |
 | Baja | Persistencia | El reset de datos demo estaba protegido sólo por la visibilidad del botón en el panel. | Corregido: la acción valida el modo local en `TournamentContext` y devuelve un resultado explícito sin tocar el estado cloud. |
 | Alta | Persistencia | `updateSupabaseKeys` podía sincronizar el `activeTournament` anterior después de limpiar el estado local al conectar una instancia cloud. | Corregido: se eliminó la sincronización automática; la conexión sólo valida credenciales y deja que la hidratación remota cargue la fuente de verdad. |
+| Alta | Persistencia | El flujo de creación y los motores generaban IDs legibles (`tourney_*`, IDs derivados de etapa/match y `battle_*`) incompatibles con las claves UUID de Supabase. | Corregido: se centralizó la generación de UUID para entidades nuevas y se ajustaron las pruebas del motor para no depender de IDs sintéticos. |
 
 La auditoría local del backend confirmó `/api/health` con HTTP 200 y rechazó una mutación sin autenticación cuando el backend no tiene Supabase configurado con HTTP 503. La matriz rollback-only contra la instancia Supabase real cubrió organizer, referee, blader, usuario no relacionado y admin con 9/9 comprobaciones; crea usuarios Auth/profiles sólo dentro de una transacción que termina en `rollback`. Esto valida RLS y RPC sin dejar cuentas ni torneos de prueba persistentes, pero no sustituye una sesión Auth persistente extremo a extremo.
 

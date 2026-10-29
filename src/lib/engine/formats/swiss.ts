@@ -1,4 +1,5 @@
 import { Match, Participant, Round } from '../../../types/tournament';
+import { createEntityId } from '../../ids';
 import { computeStandings } from '../tiebreakers';
 
 export interface SwissRoundResult {
@@ -13,7 +14,7 @@ export function generateSwissRound(
   participants: Participant[],
   previousMatches: Match[]
 ): SwissRoundResult {
-  const roundId = `${stageId}_swiss_r_${roundNumber}`;
+  const roundId = createEntityId();
   const round: Round = {
     id: roundId,
     stageId,
@@ -55,7 +56,7 @@ export function generateSwissRound(
 
     const byeBlader = availableParticipants.splice(byeCandidateIndex, 1)[0];
     matches.push({
-      id: `${roundId}_m_bye`,
+      id: createEntityId(),
       tournamentId,
       stageId,
       roundId,
@@ -112,7 +113,7 @@ export function generateSwissRound(
       pairedIds.add(opponent.id);
 
       matches.push({
-        id: `${roundId}_m_p${position}`,
+        id: createEntityId(),
         tournamentId,
         stageId,
         roundId,
@@ -150,4 +151,3 @@ export function generateSwiss(
     matches: round1.matches,
   };
 }
-

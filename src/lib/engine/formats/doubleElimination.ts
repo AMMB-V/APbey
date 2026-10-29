@@ -1,5 +1,6 @@
 import { Match, Participant, Round } from '../../../types/tournament';
 import { generateSingleElimination } from './singleElimination';
+import { createEntityId } from '../../ids';
 
 export interface DoubleEliminationResult {
   rounds: Round[];
@@ -32,7 +33,7 @@ export function generateDoubleElimination(
   const lbRoundsCount = Math.max(1, (wbRoundsCount - 1) * 2);
 
   for (let r = 1; r <= lbRoundsCount; r++) {
-    const lbRoundId = `${stageId}_lb_r_${r}`;
+    const lbRoundId = createEntityId();
     rounds.push({
       id: lbRoundId,
       stageId,
@@ -44,7 +45,7 @@ export function generateDoubleElimination(
     const matchCount = Math.max(1, Math.floor(participants.length / Math.pow(2, Math.floor((r + 1) / 2) + 1)));
     for (let m = 0; m < matchCount; m++) {
       matches.push({
-        id: `${stageId}_lb_m_r${r}_p${m + 1}`,
+        id: createEntityId(),
         tournamentId,
         stageId,
         roundId: lbRoundId,
@@ -68,7 +69,7 @@ export function generateDoubleElimination(
   }
 
   // Grand Finals
-  const gfRoundId = `${stageId}_gf_round`;
+  const gfRoundId = createEntityId();
   rounds.push({
     id: gfRoundId,
     stageId,
@@ -78,7 +79,7 @@ export function generateDoubleElimination(
   });
 
   const gfMatch: Match = {
-    id: `${stageId}_gf_match`,
+    id: createEntityId(),
     tournamentId,
     stageId,
     roundId: gfRoundId,
@@ -103,7 +104,7 @@ export function generateDoubleElimination(
   // Optional Grand Finals Reset
   if (options.grandFinalReset) {
     const gfResetMatch: Match = {
-      id: `${stageId}_gf_reset_match`,
+      id: createEntityId(),
       tournamentId,
       stageId,
       roundId: gfRoundId,

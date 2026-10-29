@@ -26,8 +26,10 @@ describe('generateSingleElimination', () => {
     expect(result.matches).toHaveLength(3);
     expect(result.matches.filter((match) => match.isBye)).toHaveLength(1);
 
-    const firstRound = result.matches.filter((match) => match.roundId === 'stage-1_r_1');
-    const final = result.matches.find((match) => match.roundId === 'stage-1_r_2');
+    const firstRoundId = result.rounds.find((round) => round.number === 1)?.id;
+    const finalRoundId = result.rounds.find((round) => round.number === 2)?.id;
+    const firstRound = result.matches.filter((match) => match.roundId === firstRoundId);
+    const final = result.matches.find((match) => match.roundId === finalRoundId);
     expect(firstRound.every((match) => match.nextMatchWinnerId === final?.id)).toBe(true);
     expect([final?.participant1Id, final?.participant2Id]).toContain('p1');
     expect([final?.participant1Id, final?.participant2Id]).toContain(null);
@@ -42,7 +44,8 @@ describe('generateSingleElimination', () => {
     );
 
     expect(result.rounds.some((round) => round.name === 'Tercer Lugar')).toBe(true);
-    expect(result.matches.some((match) => match.id.includes('_3rd'))).toBe(true);
+    const thirdPlaceRoundId = result.rounds.find((round) => round.name === 'Tercer Lugar')?.id;
+    expect(result.matches.some((match) => match.roundId === thirdPlaceRoundId)).toBe(true);
   });
 
   it('propagates byes through later rounds for non-power-of-two brackets', () => {
@@ -52,8 +55,10 @@ describe('generateSingleElimination', () => {
       [1, 2, 3, 4, 5].map((seed) => participant(`p${seed}`, seed))
     );
 
-    const roundTwo = result.matches.filter((match) => match.roundId === 'stage-1_r_2');
-    const roundThree = result.matches.filter((match) => match.roundId === 'stage-1_r_3');
+    const roundTwoId = result.rounds.find((round) => round.number === 2)?.id;
+    const roundThreeId = result.rounds.find((round) => round.number === 3)?.id;
+    const roundTwo = result.matches.filter((match) => match.roundId === roundTwoId);
+    const roundThree = result.matches.filter((match) => match.roundId === roundThreeId);
 
     expect(roundTwo.some((match) => match.participant1Id === 'p1')).toBe(true);
     expect(roundTwo.some((match) => match.participant1Id === 'p2' || match.participant2Id === 'p2')).toBe(true);
