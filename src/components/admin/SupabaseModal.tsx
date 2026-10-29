@@ -219,10 +219,10 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
               <div>
                 <h3 className="text-sm font-bold text-[var(--hueso)] flex items-center gap-2">
                   <Shield className="w-4 h-4 text-[var(--cobalto)]" />
-                  Script de Migración SQL (324 líneas)
+                  Script de esquema inicial
                 </h3>
                 <p className="text-xs text-[var(--acero)]">
-                  Crea las 13 tablas, triggers de finish points y políticas de seguridad RLS en PostgreSQL.
+                  Úsalo sólo para una instancia nueva; las migraciones versionadas son la fuente recomendada para staging y producción.
                 </p>
               </div>
 
@@ -237,11 +237,11 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
               </div>
             </div>
 
-            <div className="p-3 bg-[var(--grafito)] border border-[var(--costura)] rounded-lg text-xs font-mono text-[var(--acero)] space-y-1">
-              <div className="text-[var(--hueso)] font-bold">-- ¿Aparece "Error de Supabase [42501]" al conectar?</div>
-              <div className="text-amber-300">1. Haz clic en el botón amarillo "Fix Error 42501" para copiar los permisos RLS.</div>
-              <div>2. Pégalo en <a href={sqlEditorUrl} target="_blank" rel="noreferrer" className="text-emerald-400 underline">Supabase SQL Editor</a> y presiona <strong>RUN</strong>.</div>
-              <div>3. ¡Listo! Vuelve a presionar "Guardar y Probar Conexión" y conectará de inmediato.</div>
+            <div className="p-3 bg-[var(--grafito)] border border-[var(--costura)] rounded-lg text-xs text-[var(--acero)] space-y-1">
+              <div className="text-[var(--hueso)] font-bold">¿La conexión falla?</div>
+              <div>1. Verifica que la URL y la clave pública correspondan al mismo proyecto.</div>
+              <div>2. Comprueba que las migraciones del repositorio estén aplicadas en esa instancia desde el <a href={sqlEditorUrl} target="_blank" rel="noreferrer" className="text-emerald-400 underline">Supabase SQL Editor</a>.</div>
+              <div>3. No pegues claves de servicio en el navegador; sólo la clave anon/public es válida aquí.</div>
             </div>
           </div>
         </div>

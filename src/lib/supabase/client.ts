@@ -118,7 +118,7 @@ export async function testSupabaseConnection(url?: string, anonKey?: string): Pr
       if (error.code === '42501') {
         return {
           success: true,
-          message: 'Conexión con Supabase verificada exitosamente. Tu base de datos tiene RLS activo; usa el botón "Copiar Permisos RLS" para permitir lectura al rol anónimo.',
+          message: 'Conexión con Supabase verificada; la instancia respondió con RLS activo. Comprueba que las migraciones del repositorio estén aplicadas.',
         };
       }
       return {
