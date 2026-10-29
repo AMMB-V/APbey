@@ -99,7 +99,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 | Overlays, API pública y streaming | No aplicado | `server.ts` no expone esas rutas | Crear API versionada de sólo lectura y SSE/webhooks firmados. |
 | RBAC frontend | Parcial | `Header.tsx`, `App.tsx` | Mantenerlo como UX, no como control de seguridad. |
 | RBAC backend | Parcial | Supabase Auth/RLS y mutaciones directas desde el cliente | Añadir pruebas API con tokens reales y autorización completa por torneo/match. |
-| RLS | Parcial avanzado | `supabase/migrations/20261026_security_rls_completion.sql` | Ejecutar contra una instancia real y revisar políticas de UPDATE/DELETE y RPC. |
+| RLS | Avanzado | `supabase/migrations/20261026_security_rls_completion.sql`, `supabase/migrations/20261029_rankings_import.sql` | Migraciones aplicadas en la instancia Supabase conectada; mantener pruebas con cuentas reales por rol y revisar políticas nuevas al añadir tablas. |
 | Auditoría | Parcial avanzado | `audit_log`, migración de unificación y RPC de invitaciones | Persistir actor autenticado en todas las mutaciones y completar auditoría de correcciones. |
 | CI y pruebas | Parcial avanzado | `.github/workflows/ci.yml`, `package.json`, Vitest | Añadir pruebas API, RLS, integración, E2E y accesibilidad. |
 | Migración de memoria a SQL | Parcial avanzado | `TournamentContext.tsx`, `supabaseService.ts` | La hidratación remota carga el snapshot completo de torneos, etapas, grupos, rondas, matches, participantes, batallas y penalizaciones; las mutaciones de batalla y penalización usan RPC con control de versión. Aún faltan pruebas E2E multi-cliente y cuentas reales por rol. |
@@ -209,7 +209,7 @@ npm run test
 
 | Severidad | Área | Hallazgo | Estado |
 |---|---|---|---|
-| Alta | Rankings | La publicación de Rankings y Salón de la Fama debía reemplazar dos tablas con varias llamadas desde el cliente. | Corregido: `publish_rankings(jsonb, jsonb)` valida al administrador y reemplaza ambas tablas dentro de una única transacción de PostgreSQL; el importador rechaza extensiones, tamaños, números inválidos y IDs duplicados antes de publicar. |
+| Alta | Rankings | La publicación de Rankings y Salón de la Fama debía reemplazar dos tablas con varias llamadas desde el cliente. | Corregido y verificado en Supabase: `publish_rankings(jsonb, jsonb)` es `SECURITY DEFINER`, valida al administrador y reemplaza ambas tablas dentro de una única transacción; sólo `authenticated` conserva `EXECUTE`, mientras las tablas permiten lectura pública y escritura administrativa por RLS. El importador rechaza extensiones, tamaños, números inválidos e IDs duplicados antes de publicar. |
 | Alta | Persistencia | `syncTournamentToSupabase` podía devolver éxito aunque fallara una tabla relacionada. | Corregido: los errores de participantes, etapas, grupos, rondas, matches y batallas ahora abortan la sincronización. |
 | Alta | Consistencia multiusuario | La hidratación omitía grupos, rondas, batallas y penalizaciones, y podía conservar mocks cuando fallaba Supabase. | Corregido: snapshot completo, espera de sesión Auth, aplicación atómica, limpieza explícita ante error remoto y bloqueo de persistencia crítica local cuando Supabase está configurado. |
 | Media | Consistencia multiusuario | `recordPenalty` sólo modificaba estado local y el wizard conservaba campos del torneo anterior. | Corregido: RPC `record_penalty` con rollback por conflicto/fallo y reinicialización completa del formulario. |
