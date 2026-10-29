@@ -16,9 +16,14 @@ const value = (row: Record<string, unknown>, ...keys: string[]) => {
 const text = (row: Record<string, unknown>, ...keys: string[]) =>
   String(value(row, ...keys) ?? '').trim();
 
-const number = (row: Record<string, unknown>, ...keys: string[]) => {
-  const parsed = Number(value(row, ...keys));
-  return Number.isFinite(parsed) ? parsed : 0;
+const number = (row: Record<string, unknown>, rowNumber: number, label: string, ...keys: string[]) => {
+  const raw = value(row, ...keys);
+  if (raw === undefined || raw === null || String(raw).trim() === '') return 0;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`Valor inválido en ${label}, fila ${rowNumber}.`);
+  }
+  return parsed;
 };
 
 const sheetRows = async (file: File, sheetNames: string[], preferredNames: string[]) => {
@@ -37,6 +42,13 @@ const sheetRows = async (file: File, sheetNames: string[], preferredNames: strin
 };
 
 export async function parseRankingWorkbook(file: File): Promise<RankingWorkbookData> {
+  if (!file.name.toLowerCase().endsWith('.xlsx')) {
+    throw new Error('El archivo de rankings debe tener extensión .xlsx.');
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error('El archivo de rankings no puede superar 10 MB.');
+  }
+
   const sheetNames = await readSheetNames(file);
   const rankingRows = await sheetRows(file, sheetNames, ['rankings', 'ranking', 'bladers', 'bladers rankings']);
   const hallOfFameSheet = sheetNames.find((name) =>
@@ -53,11 +65,19 @@ export async function parseRankingWorkbook(file: File): Promise<RankingWorkbookD
       return {
         id: text(row, 'id') || `ranking-${index + 1}`,
         name,
-        points: number(row, 'points', 'puntos'),
-        elo: number(row, 'elo', 'rating elo', 'rating'),
-        wins: number(row, 'wins', 'victorias', 'v'),
-        losses: number(row, 'losses', 'derrotas', 'd'),
-        tournamentsWon: number(row, 'tournamentswon', 'torneos', 'torneos ganados', 'wins tournaments'),
+        points: number(row, index + 2, 'points', 'points', 'puntos'),
+        elo: number(row, index + 2, 'elo', 'elo', 'rating elo', 'rating'),
+        wins: number(row, index + 2, 'wins', 'wins', 'victorias', 'v'),
+        losses: number(row, index + 2, 'losses', 'losses', 'derrotas', 'd'),
+        tournamentsWon: number(
+          row,
+          index + 2,
+          'tournaments won',
+          'tournamentswon',
+          'torneos',
+          'torneos ganados',
+          'wins tournaments'
+        ),
         favoriteCombo: text(row, 'favoritecombo', 'combo favorito', 'combo'),
       } satisfies BladerRanking;
     })
@@ -74,13 +94,36 @@ export async function parseRankingWorkbook(file: File): Promise<RankingWorkbookD
         runnerUp: text(row, 'runnerup', 'subcampeón', 'subcampeon'),
         date: text(row, 'date', 'fecha'),
         winningCombo: text(row, 'winningcombo', 'combo ganador'),
-        participantsCount: number(row, 'participantscount', 'participantes', 'bladers'),
+        participantsCount: number(
+          row,
+          index + 2,
+          'participants count',
+          'participantscount',
+          'participantes',
+          'bladers'
+        ),
       } satisfies HallOfFameEntry;
     })
     .filter((entry) => entry !== null) as HallOfFameEntry[];
 
   if (rankings.length === 0 && hallOfFame.length === 0) {
     throw new Error('El archivo no contiene filas válidas de Rankings ni Salón de la Fama.');
+  }
+
+  const rankingIds = new Set<string>();
+  for (const ranking of rankings) {
+    if (rankingIds.has(ranking.id)) {
+      throw new Error(`El ID de ranking "${ranking.id}" está duplicado.`);
+    }
+    rankingIds.add(ranking.id);
+  }
+
+  const hallOfFameIds = new Set<string>();
+  for (const entry of hallOfFame) {
+    if (hallOfFameIds.has(entry.id)) {
+      throw new Error(`El ID del Salón de la Fama "${entry.id}" está duplicado.`);
+    }
+    hallOfFameIds.add(entry.id);
   }
 
   return { rankings, hallOfFame };

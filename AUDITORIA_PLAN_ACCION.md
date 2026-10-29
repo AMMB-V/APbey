@@ -25,7 +25,7 @@ El archivo define una arquitectura objetivo de **Next.js 15 + App Router + Serve
 | RLS en todas las tablas | Parcial | Hay RLS y funciones, pero faltan políticas y existe duplicidad de auditoría. |
 | Motor puro sin I/O | Mayormente aplicado | `src/lib/engine` está separado; faltan cobertura y algunos formatos/reglas completas. |
 | Vitest y Playwright | No aplicado | CI declara `test`, pero `package.json` no define script ni se encontraron suites. |
-| Vistas públicas, admin, organizer y referee por rutas | Parcial | Existen vistas/tabbs, pero no rutas URL ni deep linking. |
+| Vistas públicas, admin, organizer y referee por rutas | Parcial avanzado | Existen vistas/tabs y ahora se conservan `view`, `tournament` y `stage` en la URL; aún faltan guards de autorización y rutas separadas por rol. |
 
 **Respuesta de diseño:** no se debe afirmar que el proyecto sigue `CLAUDE.md` como guía de implementación vigente. Debe conservarse como especificación objetivo y decidir formalmente entre (a) estabilizar React/Vite/Express y adaptarlo a esos contratos, o (b) migrar a Next.js como iniciativa separada. La opción (a) es la de menor riesgo para cerrar el MVP actual.
 
@@ -72,8 +72,10 @@ La respuesta funcional es conservar el alcance del PDF como contrato del MVP, us
 - El canje de invitaciones dejó de crear perfiles locales: ahora crea la cuenta con Supabase Auth y ejecuta el RPC transaccional `claim_invitation`, que bloquea el código, valida correo y asigna el rol desde la base de datos.
 - Las invitaciones ya se persisten en `public.invitations` cuando existe una sesión admin con Supabase configurado; el modo local sólo queda como fallback de demostración. La invitación por correo aún no es transaccional: el panel genera código/enlace y prepara un `mailto:`; falta configurar SMTP o una función backend para enviar y registrar la entrega.
 - Se añadió la Edge Function `send-invitation` para Resend y la migración de estado de entrega. Queda pendiente desplegar la función, configurar el dominio/remitente y validar una entrega real; `sent` sólo significa aceptación por Resend.
-- El auditor de Supabase detectó RLS sin políticas en siete tablas, funciones `SECURITY DEFINER` expuestas y claves foráneas sin índices. Se añadió `supabase/migrations/20261026_security_hardening.sql` para corregir esas brechas de forma idempotente. La migración debe aplicarse en Supabase y luego deben repetirse los advisors; la protección contra contraseñas filtradas se activa desde el Dashboard.
+- El auditor de Supabase detectó RLS sin políticas en siete tablas, funciones `SECURITY DEFINER` expuestas y claves foráneas sin índices. Se añadieron `supabase/migrations/20261026_security_hardening.sql`, `supabase/migrations/20261029_restrict_internal_rpc.sql` y `supabase/migrations/20261029_restore_rls_helper_execution.sql`; las helpers internas no son ejecutables por `anon` ni `public`, pero conservan `EXECUTE` para `authenticated` porque PostgreSQL lo exige al evaluar las políticas RLS. También se separaron las políticas de lectura pública y escritura administrativa de Rankings y de las tablas relacionales para eliminar solapamientos. Los advisors posteriores sólo mantienen advertencias intencionales para índices sin uso, RPC públicas autenticadas y la protección contra contraseñas filtradas, que se activa desde el Dashboard.
 - Las persistencias locales ya no devuelven éxito cuando el backend autorizado no confirmó la escritura.
+- El panel de administración ya no muestra ni enlaza un proyecto Supabase fijo: la URL, el dashboard y el SQL Editor se derivan de la instancia configurada por el operador.
+- La ayuda de conexión ya no menciona botones inexistentes ni recomienda copiar permisos RLS manualmente; distingue el esquema inicial de las migraciones versionadas y advierte que nunca debe introducirse una service role key en el navegador.
 
 Estos cambios son deliberadamente acotados: no se implementó una migración incompleta a Next.js ni autenticación ficticia para aparentar cumplimiento.
 
@@ -90,7 +92,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 | Penalizaciones y Best-of-N | Parcial | `RefereeConsole.tsx`, `supabase/schema.sql` | Persistir remotamente, cerrar sets correctamente y validar árbitro asignado. |
 | Undo y reabrir combate | Parcial/no aplicado | `TournamentContext.tsx`; acción `reopen` sólo tipada | Crear endpoint, permisos, recomputación, auditoría y control de concurrencia. |
 | Mesas, convocatoria y Stadium Display | Parcial | `TournamentContext.tsx`, `App.tsx`, `StadiumDisplay.tsx` | Persistir estación, emitir eventos desde backend y mostrar desconexión. |
-| Realtime | Parcial | `src/lib/supabase/supabaseService.ts` | Integrar suscripciones en el contexto, filtrar por torneo y limpiar canales. |
+| Realtime | Parcial avanzado | `src/lib/supabase/supabaseService.ts` | El contexto recibe matches, batallas y penalizaciones del torneo activo y limpia el canal al desmontar; faltan pruebas multi-cliente y resolución avanzada de conflictos. |
 | Check-in manual | Completo | `TournamentContext.tsx`, `ParticipantManager.tsx` | Mantener cobertura. |
 | Check-in móvil, temporizador, auto-drop y re-siembra | No aplicado | No existe flujo/scheduler operativo | Implementar ventana temporal, job transaccional y regeneración segura. |
 | Decks 3on3 y Bey Check | Parcial | `types/tournament.ts`, vistas de participantes/bracket | Crear entidad, persistencia, validación de tres combos e historial de inspección. |
@@ -99,7 +101,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 | Overlays, API pública y streaming | No aplicado | `server.ts` no expone esas rutas | Crear API versionada de sólo lectura y SSE/webhooks firmados. |
 | RBAC frontend | Parcial | `Header.tsx`, `App.tsx` | Mantenerlo como UX, no como control de seguridad. |
 | RBAC backend | Parcial | Supabase Auth/RLS y mutaciones directas desde el cliente | Añadir pruebas API con tokens reales y autorización completa por torneo/match. |
-| RLS | Parcial avanzado | `supabase/migrations/20261026_security_rls_completion.sql` | Ejecutar contra una instancia real y revisar políticas de UPDATE/DELETE y RPC. |
+| RLS | Avanzado | `supabase/migrations/20261026_security_rls_completion.sql`, `supabase/migrations/20261029_rankings_import.sql`, `supabase/migrations/20261029_restrict_internal_rpc.sql`, `supabase/migrations/20261029_consolidate_rls_policies.sql`, `supabase/tests/rls_authorization.sql` | Migraciones aplicadas en la instancia Supabase conectada; las políticas relacionales quedaron separadas por operación sin solapamiento, las helpers internas no son ejecutables por `anon`/`public` y la matriz rollback-only por roles volvió a pasar con 9/9 comprobaciones. Falta repetir con cuentas persistentes y sesiones Auth reales cuando el rate limit de signup lo permita. |
 | Auditoría | Parcial avanzado | `audit_log`, migración de unificación y RPC de invitaciones | Persistir actor autenticado en todas las mutaciones y completar auditoría de correcciones. |
 | CI y pruebas | Parcial avanzado | `.github/workflows/ci.yml`, `package.json`, Vitest | Añadir pruebas API, RLS, integración, E2E y accesibilidad. |
 | Migración de memoria a SQL | Parcial avanzado | `TournamentContext.tsx`, `supabaseService.ts` | La hidratación remota carga el snapshot completo de torneos, etapas, grupos, rondas, matches, participantes, batallas y penalizaciones; las mutaciones de batalla y penalización usan RPC con control de versión. Aún faltan pruebas E2E multi-cliente y cuentas reales por rol. |
@@ -122,7 +124,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 1. `vercel.json` reescribe todas las rutas a `index.html`; no despliega `server.ts`.
 2. El backend ya no usa `data/*.json`; el despliegue debe publicar Express o separar la API.
 3. Las mutaciones críticas de batalla y penalización revierten el estado optimista si Supabase rechaza la operación.
-4. El estado local sólo se restaura en modo sin Supabase; con Supabase configurado, un fallo de hidratación limpia los datos de demostración para no presentar un falso snapshot remoto.
+4. El estado local sólo se restaura en modo sin Supabase; con Supabase configurado, un fallo de hidratación limpia los datos de demostración para no presentar un falso snapshot remoto. Las escrituras de estado crítico y caché de rankings también quedan bloqueadas en ese modo. La cabecera y la asignación de árbitros muestran estado vacío cuando no existe torneo activo, y `Restablecer Demo` sólo aparece en modo local.
 
 ### P1 — Modelo de datos y consistencia
 
@@ -132,6 +134,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 - El estado monolítico de `TournamentContext.tsx` mezcla autenticación, dominio, UI y persistencia.
 - La sincronización completa de torneos ahora propaga los errores de tablas relacionadas en lugar de devolver éxito después de una persistencia parcial.
 - La selección del torneo activo se restaura únicamente si existe en el snapshot remoto; el wizard reinicia sus campos al cambiar de torneo o etapa para evitar configuraciones cruzadas entre dispositivos.
+- `saveState` y la caché local de rankings sólo funcionan sin cliente Supabase; con Supabase configurado no se guarda una copia local que pueda sobrescribir el snapshot remoto.
 
 ### P1 — Calidad y accesibilidad
 
@@ -142,7 +145,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 - `tsconfig.json` no activa `strict` y permite JS.
 - `index.html` ya declara `lang="es"`; debe conservarse una revisión de metadatos/SEO porque algunos textos sociales siguen en inglés.
 - El modal de autenticación y varios controles de icono carecen de semántica ARIA/foco completo.
-- La navegación no tiene rutas URL ni deep linking.
+- La navegación conserva `view`, `tournament` y `stage` en la URL y soporta refresh/back-forward; aún faltan guards de autorización y rutas separadas por rol.
 
 ## Plan de acción priorizado
 
@@ -166,7 +169,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 
 ### Fase 2 — UX, navegación y rendimiento
 
-1. Añadir rutas URL, historial, deep links y guards de UX.
+1. Añadir guards de autorización y rutas separadas por rol; el deep linking base de vista, torneo y etapa ya está implementado.
 2. Hacer accesibles modal, tabs, botones de icono, tarjetas y estados.
 3. Añadir pan/zoom táctil y layout de bracket escalable.
 4. Reducir serialización completa de `localStorage`, paginar consultas y virtualizar listas.
@@ -188,7 +191,7 @@ La validación de esta iteración sí pasó:
 
 - `npm.cmd run lint`
 - `npm.cmd run test` — 3 archivos, 8 pruebas.
-- `supabase/tests/rls_authorization.sql` — ejecutada contra la instancia Supabase conectada; 4 pruebas rollback-only pasaron.
+- `supabase/tests/rls_authorization.sql` — ejecutada contra la instancia Supabase conectada después de consolidar las políticas; 9/9 pruebas rollback-only pasaron y la transacción terminó con `rollback`.
 - `npm.cmd run build` — bundle generado; Vite mantiene un aviso de chunk principal superior a 500 kB.
 - `npm.cmd audit --omit=dev` — sin vulnerabilidades de producción detectadas.
 - `git diff --check`
@@ -208,13 +211,16 @@ npm run test
 
 | Severidad | Área | Hallazgo | Estado |
 |---|---|---|---|
-| Alta | Rankings | `syncRankingsToSupabase` elimina la publicación anterior antes de insertar la nueva; un fallo de inserción puede dejar Rankings y Salón de la Fama vacíos o incompletos. | Pendiente: mover la publicación a una operación versionada/transaccional en Supabase. |
+| Alta | Rankings | La publicación de Rankings y Salón de la Fama debía reemplazar dos tablas con varias llamadas desde el cliente. | Corregido y verificado en Supabase: `publish_rankings(jsonb, jsonb)` es `SECURITY DEFINER`, valida al administrador y reemplaza ambas tablas dentro de una única transacción; sólo `authenticated` conserva `EXECUTE`, mientras las tablas permiten lectura pública y escritura administrativa por RLS. Las políticas de escritura se separaron por operación para no solaparse con la lectura pública. La prueba rollback-only confirmó publicación administrativa transaccional. El importador rechaza extensiones, tamaños, números inválidos e IDs duplicados antes de publicar. |
 | Alta | Persistencia | `syncTournamentToSupabase` podía devolver éxito aunque fallara una tabla relacionada. | Corregido: los errores de participantes, etapas, grupos, rondas, matches y batallas ahora abortan la sincronización. |
-| Alta | Consistencia multiusuario | La hidratación omitía grupos, rondas, batallas y penalizaciones, y podía conservar mocks cuando fallaba Supabase. | Corregido: snapshot completo, espera de sesión Auth, aplicación atómica y limpieza explícita ante error remoto. |
+| Alta | Consistencia multiusuario | La hidratación omitía grupos, rondas, batallas y penalizaciones, y podía conservar mocks cuando fallaba Supabase. | Corregido: snapshot completo, espera de sesión Auth, aplicación atómica, limpieza explícita ante error remoto y bloqueo de persistencia crítica local cuando Supabase está configurado. |
 | Media | Consistencia multiusuario | `recordPenalty` sólo modificaba estado local y el wizard conservaba campos del torneo anterior. | Corregido: RPC `record_penalty` con rollback por conflicto/fallo y reinicialización completa del formulario. |
 | Media | Calidad | El middleware de autenticación contiene un mensaje de error malformado aunque el código HTTP sea correcto. | Pendiente de limpieza antes del despliegue. |
+| Media | RLS | Las políticas `*_read` y `*_manage` se solapaban en nueve tablas relacionales y `profiles`. | Corregido y aplicado: las mutaciones ahora usan políticas separadas de `INSERT`, `UPDATE` y `DELETE`; `profiles` concentra la lectura propia/admin en una sola política. El advisor ya no reporta solapamientos; sólo permanecen 29 índices sin uso, que requieren métricas de producción antes de eliminarse. |
+| Media | UX/operación | El panel administrativo mostraba un proyecto Supabase fijo aunque se configurara otra instancia. | Corregido: los enlaces y el estado de conexión usan la URL configurada; los dominios personalizados vuelven al dashboard general sin inventar un project ref. |
+| Baja | UX/operación | La ayuda de conexión mencionaba un botón `Fix Error 42501` y `Copiar Permisos RLS` que ya no existen. | Corregido: la guía describe la aplicación de migraciones versionadas y el uso exclusivo de la clave anon/public en el cliente. |
 
-La auditoría local del backend confirmó `/api/health` con HTTP 200 y rechazó una mutación sin autenticación cuando el backend no tiene Supabase configurado con HTTP 503. Esto demuestra que el guard existe, pero no sustituye las pruebas con tokens reales, roles y autorización por torneo en staging.
+La auditoría local del backend confirmó `/api/health` con HTTP 200 y rechazó una mutación sin autenticación cuando el backend no tiene Supabase configurado con HTTP 503. La matriz rollback-only contra la instancia Supabase real cubrió organizer, referee, blader, usuario no relacionado y admin con 9/9 comprobaciones; crea usuarios Auth/profiles sólo dentro de una transacción que termina en `rollback`. Esto valida RLS y RPC sin dejar cuentas ni torneos de prueba persistentes, pero no sustituye una sesión Auth persistente extremo a extremo.
 
 ## Higiene de caché y artefactos
 

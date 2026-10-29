@@ -262,11 +262,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   useEffect(() => {
     let active = true;
+    if (!getSupabaseClient()) return;
     void loadRankingsFromSupabase().then((remote) => {
       if (!active || !remote || (remote.rankings.length === 0 && remote.hallOfFame.length === 0)) return;
       setRankings(remote.rankings);
       setHallOfFame(remote.hallOfFame);
-      localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(remote));
     });
     return () => {
       active = false;
@@ -417,6 +417,21 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           message: 'Actualización realtime recibida.',
         }));
       },
+      onPenaltyInsert: (incomingPenalty) => {
+        const relatedMatch = matchesRef.current.find((match) => match.id === incomingPenalty.matchId);
+        if (!relatedMatch || relatedMatch.tournamentId !== activeTournamentId) return;
+        setPenalties((current) => (
+          current.some((penalty) => penalty.id === incomingPenalty.id)
+            ? current
+            : [...current, incomingPenalty]
+        ));
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConnected: true,
+          lastSync: new Date().toLocaleTimeString(),
+          message: 'Penalización recibida por realtime.',
+        }));
+      },
       onStatusChange: (status) => {
         const connected = status === 'SUBSCRIBED';
         setSupabaseSyncInfo((previous) => ({
@@ -517,6 +532,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [activeTournamentId]);
 
   useEffect(() => {
+    if (getSupabaseClient()) return;
     try {
       const saved = localStorage.getItem(RANKINGS_STORAGE_KEY);
       if (!saved) return;
@@ -538,7 +554,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!syncResult.success) throw new Error(syncResult.message);
     setRankings(data.rankings);
     setHallOfFame(data.hallOfFame);
-    localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(data));
+    if (!getSupabaseClient()) {
+      localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(data));
+    }
     logAudit(
       'ranking_entries',
       file.name,
@@ -560,6 +578,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     invitations: Invitation[];
     auditLogs: AuditLog[];
   }>) => {
+    if (getSupabaseClient()) return;
     try {
       let persisted: Partial<{
         tournaments: Tournament[];

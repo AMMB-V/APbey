@@ -23,6 +23,28 @@ export function saveSupabaseConfig(url: string, anonKey: string): void {
   }
 }
 
+export function getSupabaseDashboardUrl(url: string): string {
+  try {
+    const hostname = new URL(url).hostname;
+    const projectRef = hostname.endsWith('.supabase.co')
+      ? hostname.slice(0, -'.supabase.co'.length)
+      : '';
+
+    return projectRef
+      ? `https://supabase.com/dashboard/project/${projectRef}`
+      : 'https://supabase.com/dashboard';
+  } catch {
+    return 'https://supabase.com/dashboard';
+  }
+}
+
+export function getSupabaseSqlEditorUrl(url: string): string {
+  const dashboardUrl = getSupabaseDashboardUrl(url);
+  return dashboardUrl === 'https://supabase.com/dashboard'
+    ? dashboardUrl
+    : `${dashboardUrl}/sql`;
+}
+
 let supabaseInstance: SupabaseClient | null = null;
 let currentConfigHash = '';
 
@@ -96,7 +118,7 @@ export async function testSupabaseConnection(url?: string, anonKey?: string): Pr
       if (error.code === '42501') {
         return {
           success: true,
-          message: 'Conexión con Supabase verificada exitosamente. Tu base de datos tiene RLS activo; usa el botón "Copiar Permisos RLS" para permitir lectura al rol anónimo.',
+          message: 'Conexión con Supabase verificada; la instancia respondió con RLS activo. Comprueba que las migraciones del repositorio estén aplicadas.',
         };
       }
       return {
