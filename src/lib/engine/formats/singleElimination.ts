@@ -170,17 +170,21 @@ export function generateSingleElimination(
     }
   }
 
-  // Propagate byes to Round 2
-  if (totalRounds > 1) {
-    const r2Matches = roundMatchesMap.get(2)!;
-    for (let i = 0; i < r1Matches.length; i++) {
-      const match = r1Matches[i];
-      if (match.isBye && match.winnerId) {
-        const nextMatchIndex = Math.floor(i / 2);
-        const slot = i % 2 === 0 ? 'participant1Id' : 'participant2Id';
-        r2Matches[nextMatchIndex][slot] = match.winnerId;
-      }
+  // Propagate byes through every round. Without this, a bracket with 5-7
+  // participants leaves a one-player match pending in round 2 or later.
+  for (let r = 1; r < totalRounds; r++) {
+    const currentMatches = roundMatchesMap.get(r)!;
+    const nextMatches = roundMatchesMap.get(r + 1)!;
+
+    for (let i = 0; i < currentMatches.length; i++) {
+      const match = currentMatches[i];
+      if (!match.isBye || !match.winnerId) continue;
+
+      const nextMatch = nextMatches[Math.floor(i / 2)];
+      const slot = i % 2 === 0 ? 'participant1Id' : 'participant2Id';
+      nextMatch[slot] = match.winnerId;
     }
+
   }
 
   // Flatten matches list

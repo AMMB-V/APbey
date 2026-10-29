@@ -23,6 +23,8 @@ import {
   loadTournamentsFromSupabase,
   subscribeToTournamentRealtime,
   persistBattleToSupabase,
+  syncRankingsToSupabase,
+  loadRankingsFromSupabase,
 } from '../lib/supabase/supabaseService';
 import {
   getSupabaseClient,
@@ -61,6 +63,8 @@ import {
   INITIAL_STAGES,
   INITIAL_TOURNAMENTS,
 } from '../lib/storage/mockData';
+import { parseRankingWorkbook } from '../lib/storage/rankingWorkbook';
+import { BladerRanking, HallOfFameEntry } from '../types/rankings';
 
 export interface SupabaseSyncInfo {
   isConfigured: boolean;
@@ -151,6 +155,9 @@ interface TournamentContextType {
   createInvitation: (email: string, role: 'organizer' | 'referee', tournamentId?: string) => Promise<Invitation>;
   revokeInvitation: (id: string) => Promise<void>;
   changeUserRole: (userId: string, newRole: UserRole) => void;
+  rankings: BladerRanking[];
+  hallOfFame: HallOfFameEntry[];
+  importRankingWorkbook: (file: File) => Promise<{ rankings: number; hallOfFame: number }>;
 
   // Reset
   resetAllData: () => void;
@@ -158,6 +165,7 @@ interface TournamentContextType {
 
 const STORAGE_KEY = 'bey_tournament_arena_v1';
 const SESSION_USER_KEY = 'apbey_session_user';
+const RANKINGS_STORAGE_KEY = 'apbey_rankings_v1';
 
 const TournamentContext = createContext<TournamentContextType | null>(null);
 
@@ -180,6 +188,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [users, setUsers] = useState<UserProfile[]>(INITIAL_PROFILES);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [currentRole, setCurrentRole] = useState<UserRole>('public');
+  const [rankings, setRankings] = useState<BladerRanking[]>([]);
+  const [hallOfFame, setHallOfFame] = useState<HallOfFameEntry[]>([]);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'invite'>('login');
   const [inviteCodePrefill, setInviteCodePrefill] = useState<string>('');
@@ -200,6 +210,19 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       }
     } catch {}
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void loadRankingsFromSupabase().then((remote) => {
+      if (!active || !remote || (remote.rankings.length === 0 && remote.hallOfFame.length === 0)) return;
+      setRankings(remote.rankings);
+      setHallOfFame(remote.hallOfFame);
+      localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(remote));
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -258,7 +281,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
   }, []);
   const [tournaments, setTournaments] = useState<Tournament[]>(INITIAL_TOURNAMENTS);
-  const [activeTournamentId, setActiveTournamentId] = useState<string>(INITIAL_TOURNAMENTS[0].id);
+  const [activeTournamentId, setActiveTournamentId] = useState<string>(INITIAL_TOURNAMENTS[0]?.id || '');
   const [stages, setStages] = useState<Stage[]>(INITIAL_STAGES);
   const [groups, setGroups] = useState<Group[]>(INITIAL_GROUPS);
   const [rounds, setRounds] = useState<Round[]>(INITIAL_ROUNDS);
@@ -267,17 +290,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [battles, setBattles] = useState<Battle[]>(INITIAL_BATTLES);
   const [penalties, setPenalties] = useState<Penalty[]>(INITIAL_PENALTIES);
   const [invitations, setInvitations] = useState<Invitation[]>(INITIAL_INVITATIONS);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([
-    {
-      id: 'audit_init',
-      tableName: 'tournaments',
-      recordId: 'tourney_panama_2026',
-      action: 'insert',
-      actor: 'user_org_1',
-      createdAt: '2026-02-01T09:00:00Z',
-      note: 'Torneo creado con fase de grupos inicial (4 grupos de 4) y playoffs.',
-    },
-  ]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [activeStationAlert, setActiveStationAlert] = useState<{ matchId: string; message: string; timestamp: number } | null>(null);
   const [showStadiumModal, setShowStadiumModal] = useState<boolean>(false);
   const [supabaseSyncInfo, setSupabaseSyncInfo] = useState<SupabaseSyncInfo>(() => {
@@ -327,6 +340,38 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       // ignore
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(RANKINGS_STORAGE_KEY);
+      if (!saved) return;
+      const data = JSON.parse(saved) as { rankings?: BladerRanking[]; hallOfFame?: HallOfFameEntry[] };
+      setRankings(Array.isArray(data.rankings) ? data.rankings : []);
+      setHallOfFame(Array.isArray(data.hallOfFame) ? data.hallOfFame : []);
+    } catch {
+      setRankings([]);
+      setHallOfFame([]);
+    }
+  }, []);
+
+  const importRankingWorkbook = async (file: File) => {
+    if (currentRole !== 'admin') {
+      throw new Error('Solo un administrador puede importar rankings.');
+    }
+    const data = await parseRankingWorkbook(file);
+    const syncResult = await syncRankingsToSupabase(data);
+    if (!syncResult.success) throw new Error(syncResult.message);
+    setRankings(data.rankings);
+    setHallOfFame(data.hallOfFame);
+    localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(data));
+    logAudit(
+      'ranking_entries',
+      file.name,
+      'insert',
+      `Importación de rankings desde ${file.name}: ${data.rankings.length} filas y ${data.hallOfFame.length} campeonatos.`
+    );
+    return { rankings: data.rankings.length, hallOfFame: data.hallOfFame.length };
+  };
 
   const saveState = (newData: Partial<{
     tournaments: Tournament[];
@@ -1726,8 +1771,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const resetAllData = () => {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(RANKINGS_STORAGE_KEY);
+    setRankings([]);
+    setHallOfFame([]);
     setTournaments(INITIAL_TOURNAMENTS);
-    setActiveTournamentId(INITIAL_TOURNAMENTS[0].id);
+    setActiveTournamentId(INITIAL_TOURNAMENTS[0]?.id || '');
     setStages(INITIAL_STAGES);
     setGroups(INITIAL_GROUPS);
     setRounds(INITIAL_ROUNDS);
@@ -1808,6 +1856,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         createInvitation,
         revokeInvitation,
         changeUserRole,
+        rankings,
+        hallOfFame,
+        importRankingWorkbook,
         resetAllData,
         supabaseSyncInfo,
         syncCurrentTournamentToSupabase,

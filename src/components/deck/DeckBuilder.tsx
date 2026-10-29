@@ -57,9 +57,9 @@ const OFFICIAL_BITS = [
 ];
 
 const DEFAULT_DECK: [BeySlot, BeySlot, BeySlot] = [
-  { blade: 'Phoenix Wing', ratchet: '9-60', bit: 'Point (P)', comboType: 'Ataque' },
-  { blade: 'Hells Scythe', ratchet: '3-60', bit: 'Ball (B)', comboType: 'Resistencia' },
-  { blade: 'Wizard Arrow', ratchet: '4-60', bit: 'Flat (F)', comboType: 'Equilibrio' },
+  { blade: '', ratchet: '', bit: '' },
+  { blade: '', ratchet: '', bit: '' },
+  { blade: '', ratchet: '', bit: '' },
 ];
 
 export const DeckBuilder: React.FC = () => {

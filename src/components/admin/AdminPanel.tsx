@@ -22,6 +22,7 @@ import {
 export const AdminPanel: React.FC = () => {
   const {
     currentUser,
+    currentRole,
     users,
     invitations,
     auditLogs,
@@ -32,6 +33,9 @@ export const AdminPanel: React.FC = () => {
     resetAllData,
     supabaseSyncInfo,
     syncCurrentTournamentToSupabase,
+    importRankingWorkbook,
+    rankings,
+    hallOfFame,
   } = useTournament();
 
   const [inviteEmail, setInviteEmail] = useState('');
@@ -42,6 +46,7 @@ export const AdminPanel: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showDbModal, setShowDbModal] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [isImportingRankings, setIsImportingRankings] = useState(false);
 
   const handleCreateInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,7 +92,24 @@ export const AdminPanel: React.FC = () => {
     setTimeout(() => setSuccessMsg(null), 5000);
   };
 
-  const [adminTab, setAdminTab] = useState<'referees' | 'invitations'>('referees');
+  const handleRankingWorkbook = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setErrorMsg(null);
+    setIsImportingRankings(true);
+    try {
+      const imported = await importRankingWorkbook(file);
+      setSuccessMsg(`Rankings actualizados: ${imported.rankings} bladers y ${imported.hallOfFame} torneos del Salón de la Fama.`);
+      setTimeout(() => setSuccessMsg(null), 5000);
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'No se pudo importar el archivo Excel.');
+    } finally {
+      setIsImportingRankings(false);
+    }
+  };
+
+  const [adminTab, setAdminTab] = useState<'referees' | 'invitations' | 'rankings'>('referees');
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 text-[var(--hueso)]">
@@ -125,6 +147,21 @@ export const AdminPanel: React.FC = () => {
             <RotateCcw className="w-3.5 h-3.5" />
             Restablecer Demo
           </button>
+
+          {currentRole === 'admin' && (
+            <button
+              onClick={() => setAdminTab('rankings')}
+              className={`px-4 py-2 rounded-[var(--r-control)] text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
+                adminTab === 'rankings'
+                  ? 'bg-[var(--chasis)] text-[var(--hueso)] border border-[var(--costura)] shadow-sm'
+                  : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--chasis)]/50'
+              }`}
+            >
+              <UploadCloud className="w-3.5 h-3.5 text-purple-300" />
+              <span>Importar Rankings</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-neutral-800 text-neutral-300">Solo admin</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -212,6 +249,7 @@ export const AdminPanel: React.FC = () => {
               <span>{successMsg}</span>
             </div>
           )}
+
           {errorMsg && (
             <div role="alert" className="p-3 bg-rose-950/40 border border-rose-700 rounded-[var(--r-control)] text-xs font-semibold text-rose-300 flex items-center gap-2">
               <span aria-hidden="true">!</span>
@@ -468,7 +506,48 @@ export const AdminPanel: React.FC = () => {
     </div>
   )}
 
-      <SupabaseModal isOpen={showDbModal} onClose={() => setShowDbModal(false)} />
+  {adminTab === 'rankings' && currentRole === 'admin' && (
+    <section className="space-y-5">
+      {successMsg && (
+        <div className="p-3 bg-emerald-950/40 border border-emerald-600 rounded-[var(--r-control)] text-xs font-semibold text-emerald-300" role="status">
+          {successMsg}
+        </div>
+      )}
+      {errorMsg && (
+        <div className="p-3 bg-rose-950/40 border border-rose-700 rounded-[var(--r-control)] text-xs font-semibold text-rose-300" role="alert">
+          {errorMsg}
+        </div>
+      )}
+      <div className="bg-[var(--chasis)] rounded-[var(--r-card)] border border-[var(--costura)] p-5 shadow-xs">
+        <div className="flex items-start gap-3">
+          <UploadCloud className="w-5 h-5 text-purple-300 shrink-0 mt-0.5" />
+          <div>
+            <h3 className="text-sm font-bold text-[var(--hueso)]">Fuente oficial de Rankings</h3>
+            <p className="text-xs text-[var(--acero)] mt-1">
+              Carga un libro .xlsx. Usa una hoja <strong>Rankings</strong> y, opcionalmente, otra hoja <strong>HallOfFame</strong>.
+              La importación reemplaza la publicación anterior y elimina datos de prueba.
+            </p>
+          </div>
+        </div>
+        <label className="mt-5 flex min-h-[48px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-purple-700/70 bg-purple-950/30 px-4 py-3 text-xs font-bold text-purple-200 hover:bg-purple-950/60">
+          <UploadCloud className="w-4 h-4" />
+          {isImportingRankings ? 'Procesando archivo...' : 'Adjuntar archivo Excel'}
+          <input
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            className="sr-only"
+            onChange={handleRankingWorkbook}
+            disabled={isImportingRankings}
+          />
+        </label>
+        <p className="mt-3 text-[11px] text-[var(--acero)]">
+          Publicado actualmente: {rankings.length} bladers · {hallOfFame.length} entradas del Salón de la Fama.
+        </p>
+      </div>
+    </section>
+  )}
+
+  <SupabaseModal isOpen={showDbModal} onClose={() => setShowDbModal(false)} />
     </div>
   );
 };
