@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import {
-  ShieldCheck,
   Radio,
   LogIn,
   LogOut,
-  User,
   KeyRound,
   Trophy,
   TrendingUp,
@@ -12,7 +10,6 @@ import {
   Shield,
   Users,
   Search,
-  BookOpen,
   Wrench,
   Tv,
   ChevronDown,
@@ -79,17 +76,21 @@ export const Header: React.FC<HeaderProps> = ({
           className="flex items-center gap-2.5 shrink-0 cursor-pointer group"
           title="Ir al inicio de torneos"
         >
-          <div className="w-[116px] h-8 flex items-center justify-start shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
             <img
-              src="/apbey-logo.png"
-              alt="APbey"
-              className="w-full h-auto object-contain"
+              src="/apbey-mark.png"
+              alt=""
+              aria-hidden="true"
+              className="w-9 h-9 object-contain"
             />
+            <span className="text-base sm:text-lg font-black tracking-tight leading-none font-display text-[var(--hueso)]">
+              APBEY
+            </span>
           </div>
         </div>
 
         {/* Zone 2: Desktop 7-Group Navigation (Hick's Law: grouped cleanly) */}
-        <nav aria-label="Navegación principal" className="hidden lg:flex min-w-0 items-center gap-1 overflow-x-auto">
+        <nav aria-label="Navegación principal" className="hidden lg:flex flex-1 min-w-0 items-center justify-center gap-1 overflow-visible">
           {/* 1. Torneos */}
           <button
             type="button"
