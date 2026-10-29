@@ -447,6 +447,38 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   useEffect(() => {
+    let active = true;
+
+    const hydrateFromSupabase = async () => {
+      const remote = await loadTournamentsFromSupabase();
+      if (!active || !remote) return;
+
+      if (remote.tournaments.length > 0) {
+        setTournaments(remote.tournaments);
+        setActiveTournamentId((current) => (
+          remote.tournaments.some((tournament) => tournament.id === current)
+            ? current
+            : remote.tournaments[0].id
+        ));
+      }
+      if (remote.stages.length > 0) setStages(remote.stages);
+      if (remote.matches.length > 0) setMatches(remote.matches);
+      if (remote.participants.length > 0) setParticipants(remote.participants);
+      setSupabaseSyncInfo((previous) => ({
+        ...previous,
+        isConnected: true,
+        lastSync: new Date().toLocaleTimeString(),
+        message: 'Datos de torneos cargados desde Supabase.',
+      }));
+    };
+
+    void hydrateFromSupabase();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     try {
       const saved = localStorage.getItem(RANKINGS_STORAGE_KEY);
       if (!saved) return;
