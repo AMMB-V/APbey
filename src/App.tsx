@@ -75,6 +75,7 @@ function TournamentApp() {
   const {
     currentUser,
     currentRole,
+    tournaments,
     activeTournament,
     setActiveTournamentId,
     stages,
@@ -98,37 +99,74 @@ function TournamentApp() {
 
   // Keep activeStageId in sync when tournament changes
   useEffect(() => {
-    if (tournamentStages.length > 0 && !tournamentStages.some((s) => s.id === activeStageId)) {
+    if (tournamentStages.length === 0) return;
+    const requestedStageId = new URLSearchParams(window.location.search).get('stage');
+    if (requestedStageId && tournamentStages.some((stage) => stage.id === requestedStageId)) {
+      setActiveStageId(requestedStageId);
+      return;
+    }
+    if (!tournamentStages.some((s) => s.id === activeStageId)) {
       setActiveStageId(tournamentStages[0].id);
     }
   }, [tournamentStages, activeStageId]);
 
   const currentStage = tournamentStages.find((s) => s.id === activeStageId) || tournamentStages[0];
 
+  // Restore a tournament deep link once the remote snapshot is available.
+  useEffect(() => {
+    const requestedTournamentId = new URLSearchParams(window.location.search).get('tournament');
+    if (
+      requestedTournamentId &&
+      tournaments.some((tournament) => tournament.id === requestedTournamentId) &&
+      requestedTournamentId !== activeTournament?.id
+    ) {
+      setActiveTournamentId(requestedTournamentId);
+    }
+  }, [tournaments, activeTournament?.id, setActiveTournamentId]);
+
   // Sync title and URL search param
   useEffect(() => {
     window.localStorage.setItem('apbey_active_tab', activeTab);
     const url = new URL(window.location.href);
     url.searchParams.set('view', activeTab);
+    if (activeTournament?.id) {
+      url.searchParams.set('tournament', activeTournament.id);
+    } else {
+      url.searchParams.delete('tournament');
+    }
+    if (activeStageId && tournamentStages.some((stage) => stage.id === activeStageId)) {
+      url.searchParams.set('stage', activeStageId);
+    } else {
+      url.searchParams.delete('stage');
+    }
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
 
     // Update document.title per HCI orientation requirement
     const titleText = VIEW_TITLES[activeTab] || 'Torneos de Beyblade X';
     document.title = `APbey | ${titleText}`;
-  }, [activeTab]);
+  }, [activeTab, activeTournament?.id, activeStageId, tournamentStages]);
 
   // Handle browser back/forward popstate
   useEffect(() => {
     const handleBrowserNavigation = () => {
-      const requestedView = new URLSearchParams(window.location.search).get('view');
+      const params = new URLSearchParams(window.location.search);
+      const requestedView = params.get('view');
       if (requestedView && VALID_TABS.includes(requestedView as MainTabType)) {
         setActiveTab(requestedView as MainTabType);
+      }
+      const requestedTournamentId = params.get('tournament');
+      if (requestedTournamentId && tournaments.some((tournament) => tournament.id === requestedTournamentId)) {
+        setActiveTournamentId(requestedTournamentId);
+      }
+      const requestedStageId = params.get('stage');
+      if (requestedStageId && tournamentStages.some((stage) => stage.id === requestedStageId)) {
+        setActiveStageId(requestedStageId);
       }
     };
 
     window.addEventListener('popstate', handleBrowserNavigation);
     return () => window.removeEventListener('popstate', handleBrowserNavigation);
-  }, []);
+  }, [setActiveTournamentId, tournamentStages, tournaments]);
 
   // Global Ctrl+K / Cmd+K listener for CommandPalette
   useEffect(() => {

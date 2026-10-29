@@ -25,7 +25,7 @@ El archivo define una arquitectura objetivo de **Next.js 15 + App Router + Serve
 | RLS en todas las tablas | Parcial | Hay RLS y funciones, pero faltan políticas y existe duplicidad de auditoría. |
 | Motor puro sin I/O | Mayormente aplicado | `src/lib/engine` está separado; faltan cobertura y algunos formatos/reglas completas. |
 | Vitest y Playwright | No aplicado | CI declara `test`, pero `package.json` no define script ni se encontraron suites. |
-| Vistas públicas, admin, organizer y referee por rutas | Parcial | Existen vistas/tabbs, pero no rutas URL ni deep linking. |
+| Vistas públicas, admin, organizer y referee por rutas | Parcial avanzado | Existen vistas/tabs y ahora se conservan `view`, `tournament` y `stage` en la URL; aún faltan guards de autorización y rutas separadas por rol. |
 
 **Respuesta de diseño:** no se debe afirmar que el proyecto sigue `CLAUDE.md` como guía de implementación vigente. Debe conservarse como especificación objetivo y decidir formalmente entre (a) estabilizar React/Vite/Express y adaptarlo a esos contratos, o (b) migrar a Next.js como iniciativa separada. La opción (a) es la de menor riesgo para cerrar el MVP actual.
 
@@ -143,7 +143,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 - `tsconfig.json` no activa `strict` y permite JS.
 - `index.html` ya declara `lang="es"`; debe conservarse una revisión de metadatos/SEO porque algunos textos sociales siguen en inglés.
 - El modal de autenticación y varios controles de icono carecen de semántica ARIA/foco completo.
-- La navegación no tiene rutas URL ni deep linking.
+- La navegación conserva `view`, `tournament` y `stage` en la URL y soporta refresh/back-forward; aún faltan guards de autorización y rutas separadas por rol.
 
 ## Plan de acción priorizado
 
@@ -167,7 +167,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 
 ### Fase 2 — UX, navegación y rendimiento
 
-1. Añadir rutas URL, historial, deep links y guards de UX.
+1. Añadir guards de autorización y rutas separadas por rol; el deep linking base de vista, torneo y etapa ya está implementado.
 2. Hacer accesibles modal, tabs, botones de icono, tarjetas y estados.
 3. Añadir pan/zoom táctil y layout de bracket escalable.
 4. Reducir serialización completa de `localStorage`, paginar consultas y virtualizar listas.
