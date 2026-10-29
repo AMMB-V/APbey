@@ -475,17 +475,36 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     auditLogs: AuditLog[];
   }>) => {
     try {
+      let persisted: Partial<{
+        tournaments: Tournament[];
+        stages: Stage[];
+        groups: Group[];
+        rounds: Round[];
+        matches: Match[];
+        participants: Participant[];
+        battles: Battle[];
+        penalties: Penalty[];
+        invitations: Invitation[];
+        auditLogs: AuditLog[];
+      }> = {};
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          persisted = parsed;
+        }
+      }
       const current = {
-        tournaments,
-        stages,
-        groups,
-        rounds,
-        matches,
-        participants,
-        battles,
-        penalties,
-        invitations,
-        auditLogs,
+        tournaments: persisted.tournaments ?? tournaments,
+        stages: persisted.stages ?? stages,
+        groups: persisted.groups ?? groups,
+        rounds: persisted.rounds ?? rounds,
+        matches: persisted.matches ?? matches,
+        participants: persisted.participants ?? participants,
+        battles: persisted.battles ?? battles,
+        penalties: persisted.penalties ?? penalties,
+        invitations: persisted.invitations ?? invitations,
+        auditLogs: persisted.auditLogs ?? auditLogs,
         ...newData,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
@@ -658,6 +677,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const supabase = getSupabaseClient();
     let emailNotice = '';
+    let persistedEmail = currentUser.email;
     if (supabase) {
       try {
         const authUpdates: { email?: string; password?: string } = {};
@@ -665,26 +685,42 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (password) authUpdates.password = password;
 
         if (Object.keys(authUpdates).length > 0) {
-          const { error } = await supabase.auth.updateUser(authUpdates);
+          const { data: authUpdateData, error } = await supabase.auth.updateUser(authUpdates);
           if (error) {
-            console.warn('[TournamentContext] Error actualizando auth:', error.message);
+            return {
+              success: false,
+              message: `No se pudo actualizar la cuenta: ${error.message}`,
+            };
           } else if (authUpdates.email) {
             emailNotice = ' Revisa tu correo para confirmar el cambio de dirección.';
+            persistedEmail = authUpdateData.user?.email || currentUser.email;
           }
         }
 
-        const { error: profileError } = await supabase.rpc('update_my_profile', {
+        const { data: updatedProfile, error: profileError } = await supabase.rpc('update_my_profile', {
           p_display_name: displayName,
         });
         if (profileError) {
-          console.warn('[TournamentContext] Error en RPC update_my_profile:', profileError.message);
+          return {
+            success: false,
+            message: `No se pudo guardar el nombre en Supabase: ${profileError.message}`,
+          };
+        }
+        if (!updatedProfile || updatedProfile.display_name !== displayName) {
+          return {
+            success: false,
+            message: 'Supabase no confirmó el nombre actualizado.',
+          };
         }
       } catch (err) {
-        console.warn('[TournamentContext] Supabase offline o no disponible:', err);
+        return {
+          success: false,
+          message: `No se pudo guardar el perfil: ${err instanceof Error ? err.message : 'error de conexión'}`,
+        };
       }
     }
 
-    const updatedUser = { ...currentUser, displayName, email };
+    const updatedUser = { ...currentUser, displayName, email: persistedEmail };
     setCurrentUser(updatedUser);
     setUsers((previous) => {
       const updatedList = previous.map((user) => user.id === currentUser.id ? updatedUser : user);
