@@ -285,9 +285,12 @@ export async function loadTournamentsFromSupabase(): Promise<{
 
   try {
     const { data: tourneys, error: tErr } = await supabase.from('tournaments').select('*');
-    if (tErr || !tourneys || tourneys.length === 0) return null;
+    if (tErr) {
+      console.warn('[Supabase] No se pudieron cargar torneos:', tErr.message);
+      return null;
+    }
 
-    const tournaments: Tournament[] = tourneys.map(t => ({
+    const tournaments: Tournament[] = (tourneys || []).map(t => ({
       id: t.id,
       slug: t.slug,
       name: t.name,
@@ -318,7 +321,11 @@ export async function loadTournamentsFromSupabase(): Promise<{
     }));
 
     // Optionally load participants and stages
-    const { data: parts } = await supabase.from('participants').select('*');
+    const { data: parts, error: participantsError } = await supabase.from('participants').select('*');
+    if (participantsError) {
+      console.warn('[Supabase] No se pudieron cargar participantes:', participantsError.message);
+      return null;
+    }
     const participants: Participant[] = (parts || []).map(p => ({
       id: p.id,
       tournamentId: p.tournament_id,
@@ -329,7 +336,11 @@ export async function loadTournamentsFromSupabase(): Promise<{
       status: p.status,
     }));
 
-    const { data: stg } = await supabase.from('stages').select('*');
+    const { data: stg, error: stagesError } = await supabase.from('stages').select('*');
+    if (stagesError) {
+      console.warn('[Supabase] No se pudieron cargar etapas:', stagesError.message);
+      return null;
+    }
     const stages: Stage[] = (stg || []).map(s => ({
       id: s.id,
       tournamentId: s.tournament_id,
@@ -343,7 +354,11 @@ export async function loadTournamentsFromSupabase(): Promise<{
       config: s.config,
     }));
 
-    const { data: mtch } = await supabase.from('matches').select('*');
+    const { data: mtch, error: matchesError } = await supabase.from('matches').select('*');
+    if (matchesError) {
+      console.warn('[Supabase] No se pudieron cargar partidas:', matchesError.message);
+      return null;
+    }
     const matches: Match[] = (mtch || []).map(m => ({
       id: m.id,
       tournamentId: m.tournament_id,
