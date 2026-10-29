@@ -29,13 +29,15 @@ function readStoredConfigs(): Record<string, unknown> {
   return {};
 }
 
-function writeStoredConfigs(data: Record<string, unknown>): void {
+function writeStoredConfigs(data: Record<string, unknown>): boolean {
   try {
     const temporaryFile = `${STAGE_CONFIGS_FILE}.tmp`;
     fs.writeFileSync(temporaryFile, JSON.stringify(data, null, 2), 'utf-8');
     fs.renameSync(temporaryFile, STAGE_CONFIGS_FILE);
+    return true;
   } catch (err) {
     console.error('Error writing stage_configs.json:', err);
+    return false;
   }
 }
 
@@ -51,13 +53,15 @@ function readStoredAssignments(): Record<string, unknown> {
   return {};
 }
 
-function writeStoredAssignments(data: Record<string, unknown>): void {
+function writeStoredAssignments(data: Record<string, unknown>): boolean {
   try {
     const temporaryFile = `${REFEREE_ASSIGNMENTS_FILE}.tmp`;
     fs.writeFileSync(temporaryFile, JSON.stringify(data, null, 2), 'utf-8');
     fs.renameSync(temporaryFile, REFEREE_ASSIGNMENTS_FILE);
+    return true;
   } catch (err) {
     console.error('Error writing referee_assignments.json:', err);
+    return false;
   }
 }
 
@@ -198,7 +202,12 @@ async function startServer() {
     };
 
     configs[stageId] = updatedConfig;
-    writeStoredConfigs(configs);
+    if (!writeStoredConfigs(configs)) {
+      return res.status(500).json({
+        error: 'persistence_failed',
+        message: 'No se pudo guardar la configuración de desempates.',
+      });
+    }
 
     console.log(`[Backend] Persisted tiebreakers for stage "${stageId}":`, tiebreakers);
 
@@ -232,7 +241,12 @@ async function startServer() {
     };
 
     configs[stageId] = updated;
-    writeStoredConfigs(configs);
+    if (!writeStoredConfigs(configs)) {
+      return res.status(500).json({
+        error: 'persistence_failed',
+        message: 'No se pudo guardar la configuración de la etapa.',
+      });
+    }
 
     res.json({
       success: true,
@@ -292,7 +306,12 @@ async function startServer() {
     };
 
     assignments[tournamentId] = updated;
-    writeStoredAssignments(assignments);
+    if (!writeStoredAssignments(assignments)) {
+      return res.status(500).json({
+        error: 'persistence_failed',
+        message: 'No se pudo guardar la asignación de árbitros.',
+      });
+    }
 
     res.json({
       success: true,
