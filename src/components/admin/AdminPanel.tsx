@@ -179,7 +179,10 @@ export const AdminPanel: React.FC = () => {
             <button
               onClick={() => {
                 if (confirm('¿Restablecer todos los datos a la configuración inicial de demostración?')) {
-                  resetAllData();
+                  const result = resetAllData();
+                  if (!result.success) {
+                    window.alert(result.message);
+                  }
                 }
               }}
               className="btn btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5 hover:text-rose-400"

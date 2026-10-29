@@ -168,7 +168,7 @@ interface TournamentContextType {
   importRankingWorkbook: (file: File) => Promise<{ rankings: number; hallOfFame: number }>;
 
   // Reset
-  resetAllData: () => void;
+  resetAllData: () => { success: boolean; message: string };
 }
 
 const STORAGE_KEY = 'bey_tournament_arena_v1';
@@ -2175,7 +2175,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return test;
   };
 
-  const resetAllData = () => {
+  const resetAllData = (): { success: boolean; message: string } => {
+    if (getSupabaseClient()) {
+      const message = 'El restablecimiento de datos demo sólo está disponible sin Supabase configurado.';
+      setSupabaseSyncInfo((previous) => ({ ...previous, message }));
+      return { success: false, message };
+    }
+
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(RANKINGS_STORAGE_KEY);
     setRankings([]);
@@ -2202,6 +2208,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         note: 'Datos reiniciados a los valores iniciales de prueba.',
       },
     ]);
+    return { success: true, message: 'Datos demo restablecidos.' };
   };
 
   return (
