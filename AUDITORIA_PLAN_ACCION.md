@@ -102,7 +102,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 | RLS | Parcial avanzado | `supabase/migrations/20261026_security_rls_completion.sql` | Ejecutar contra una instancia real y revisar políticas de UPDATE/DELETE y RPC. |
 | Auditoría | Parcial avanzado | `audit_log`, migración de unificación y RPC de invitaciones | Persistir actor autenticado en todas las mutaciones y completar auditoría de correcciones. |
 | CI y pruebas | Parcial avanzado | `.github/workflows/ci.yml`, `package.json`, Vitest | Añadir pruebas API, RLS, integración, E2E y accesibilidad. |
-| Migración de memoria a SQL | Parcial | `TournamentContext.tsx`, `supabaseService.ts` | La hidratación inicial de torneos, etapas, matches y participantes desde Supabase ya está conectada y respeta colecciones vacías como estado válido; faltan entidades restantes, mutaciones cloud completas y control de conflictos/versiones. |
+| Migración de memoria a SQL | Parcial avanzado | `TournamentContext.tsx`, `supabaseService.ts` | La hidratación remota carga el snapshot completo de torneos, etapas, grupos, rondas, matches, participantes, batallas y penalizaciones; las mutaciones de batalla y penalización usan RPC con control de versión. Aún faltan pruebas E2E multi-cliente y cuentas reales por rol. |
 
 ## Hallazgos críticos
 
@@ -121,8 +121,8 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 
 1. `vercel.json` reescribe todas las rutas a `index.html`; no despliega `server.ts`.
 2. El backend ya no usa `data/*.json`; el despliegue debe publicar Express o separar la API.
-3. La aplicación puede mostrar éxito local mientras una sincronización remota falla parcialmente.
-4. El backend auxiliar todavía persiste configuraciones en JSON local; ahora informa errores de escritura, pero sigue sin ser una fuente de verdad apta para producción multiusuario.
+3. Las mutaciones críticas de batalla y penalización revierten el estado optimista si Supabase rechaza la operación.
+4. El estado local sólo se restaura en modo sin Supabase; con Supabase configurado, un fallo de hidratación limpia los datos de demostración para no presentar un falso snapshot remoto.
 
 ### P1 — Modelo de datos y consistencia
 
@@ -131,6 +131,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 - Hay RLS habilitado sin políticas completas.
 - El estado monolítico de `TournamentContext.tsx` mezcla autenticación, dominio, UI y persistencia.
 - La sincronización completa de torneos ahora propaga los errores de tablas relacionadas en lugar de devolver éxito después de una persistencia parcial.
+- La selección del torneo activo se restaura únicamente si existe en el snapshot remoto; el wizard reinicia sus campos al cambiar de torneo o etapa para evitar configuraciones cruzadas entre dispositivos.
 
 ### P1 — Calidad y accesibilidad
 
@@ -209,8 +210,8 @@ npm run test
 |---|---|---|---|
 | Alta | Rankings | `syncRankingsToSupabase` elimina la publicación anterior antes de insertar la nueva; un fallo de inserción puede dejar Rankings y Salón de la Fama vacíos o incompletos. | Pendiente: mover la publicación a una operación versionada/transaccional en Supabase. |
 | Alta | Persistencia | `syncTournamentToSupabase` podía devolver éxito aunque fallara una tabla relacionada. | Corregido: los errores de participantes, etapas, grupos, rondas, matches y batallas ahora abortan la sincronización. |
-| Alta | Backend | Las configuraciones de etapas y asignaciones de árbitros todavía se escriben en JSON local; no son persistencia compartida ni adecuada para serverless. | Pendiente: migrar estas entidades a Supabase y eliminar el camino JSON productivo. |
-| Media | Backend | Las rutas mutantes ya informan `500` si la escritura atómica local falla; antes respondían éxito sin comprobar el resultado. | Corregido localmente, sin resolver la limitación arquitectónica del almacenamiento JSON. |
+| Alta | Consistencia multiusuario | La hidratación omitía grupos, rondas, batallas y penalizaciones, y podía conservar mocks cuando fallaba Supabase. | Corregido: snapshot completo, espera de sesión Auth, aplicación atómica y limpieza explícita ante error remoto. |
+| Media | Consistencia multiusuario | `recordPenalty` sólo modificaba estado local y el wizard conservaba campos del torneo anterior. | Corregido: RPC `record_penalty` con rollback por conflicto/fallo y reinicialización completa del formulario. |
 | Media | Calidad | El middleware de autenticación contiene un mensaje de error malformado aunque el código HTTP sea correcto. | Pendiente de limpieza antes del despliegue. |
 
 La auditoría local del backend confirmó `/api/health` con HTTP 200 y rechazó una mutación sin autenticación cuando el backend no tiene Supabase configurado con HTTP 503. Esto demuestra que el guard existe, pero no sustituye las pruebas con tokens reales, roles y autorización por torneo en staging.
