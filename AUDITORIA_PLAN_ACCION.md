@@ -122,7 +122,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 1. `vercel.json` reescribe todas las rutas a `index.html`; no despliega `server.ts`.
 2. El backend ya no usa `data/*.json`; el despliegue debe publicar Express o separar la API.
 3. Las mutaciones críticas de batalla y penalización revierten el estado optimista si Supabase rechaza la operación.
-4. El estado local sólo se restaura en modo sin Supabase; con Supabase configurado, un fallo de hidratación limpia los datos de demostración para no presentar un falso snapshot remoto. Las escrituras de estado crítico y caché de rankings también quedan bloqueadas en ese modo.
+4. El estado local sólo se restaura en modo sin Supabase; con Supabase configurado, un fallo de hidratación limpia los datos de demostración para no presentar un falso snapshot remoto. Las escrituras de estado crítico y caché de rankings también quedan bloqueadas en ese modo. La cabecera y la asignación de árbitros muestran estado vacío cuando no existe torneo activo, y `Restablecer Demo` sólo aparece en modo local.
 
 ### P1 — Modelo de datos y consistencia
 

@@ -173,17 +173,19 @@ export const AdminPanel: React.FC = () => {
             Configurar Supabase
           </button>
 
-          <button
-            onClick={() => {
-              if (confirm('¿Restablecer todos los datos a la configuración inicial de demostración?')) {
-                resetAllData();
-              }
-            }}
-            className="btn btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5 hover:text-rose-400"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            Restablecer Demo
-          </button>
+          {!supabaseSyncInfo.isConfigured && (
+            <button
+              onClick={() => {
+                if (confirm('¿Restablecer todos los datos a la configuración inicial de demostración?')) {
+                  resetAllData();
+                }
+              }}
+              className="btn btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5 hover:text-rose-400"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Restablecer Demo
+            </button>
+          )}
 
           {currentRole === 'admin' && (
             <button

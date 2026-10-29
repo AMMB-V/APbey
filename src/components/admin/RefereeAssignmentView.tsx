@@ -26,7 +26,7 @@ export const RefereeAssignmentView: React.FC = () => {
   } = useTournament();
 
   // Selected tournament and stage
-  const currentTourney = activeTournament || tournaments[0];
+  const currentTourney = activeTournament;
   const tourneyStages = stages
     .filter((s) => s.tournamentId === (currentTourney?.id || activeTournamentId))
     .sort((a, b) => a.position - b.position);
@@ -206,6 +206,36 @@ export const RefereeAssignmentView: React.FC = () => {
         stageGroups.reduce((acc, g) => ({ ...acc, [g.id]: g.refereeId || null }), {})
       )
     : [];
+
+  if (!currentTourney) {
+    return (
+      <div
+        className="space-y-4 text-[var(--hueso)] font-['Atkinson_Hyperlegible_Next',sans-serif]"
+        style={{
+          backgroundColor: 'var(--grafito, #1b1d21)',
+          minHeight: '100%',
+          padding: '1.5rem',
+          borderRadius: 'var(--r-card, 10px)',
+          border: '1px solid var(--costura, #363b43)',
+        }}
+      >
+        <div>
+          <h2 className="t-title text-[var(--hueso,#ece8e0)] font-bold tracking-tight">
+            Asignación de Árbitros
+          </h2>
+          <p className="t-label text-[var(--acero,#a3abb5)] text-xs mt-1">
+            Selecciona un torneo para administrar sus asignaciones.
+          </p>
+        </div>
+        <div className="rounded-[var(--r-control,4px)] border border-[var(--costura,#363b43)] bg-[var(--chasis,#25282e)] p-6 text-center">
+          <p className="text-sm font-semibold text-[var(--hueso,#ece8e0)]">Sin torneo seleccionado</p>
+          <p className="text-xs text-[var(--acero,#a3abb5)] mt-1">
+            Crea o selecciona un torneo desde la sección Torneos para asignar árbitros.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
