@@ -102,7 +102,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 | RLS | Parcial avanzado | `supabase/migrations/20261026_security_rls_completion.sql` | Ejecutar contra una instancia real y revisar políticas de UPDATE/DELETE y RPC. |
 | Auditoría | Parcial avanzado | `audit_log`, migración de unificación y RPC de invitaciones | Persistir actor autenticado en todas las mutaciones y completar auditoría de correcciones. |
 | CI y pruebas | Parcial avanzado | `.github/workflows/ci.yml`, `package.json`, Vitest | Añadir pruebas API, RLS, integración, E2E y accesibilidad. |
-| Migración de memoria a SQL | Parcial | `TournamentContext.tsx`, `supabaseService.ts` | Convertir Supabase en fuente de verdad y controlar conflictos/versiones. |
+| Migración de memoria a SQL | Parcial | `TournamentContext.tsx`, `supabaseService.ts` | La hidratación inicial de torneos, etapas, matches y participantes desde Supabase ya está conectada; faltan entidades restantes, mutaciones cloud completas y control de conflictos/versiones. |
 
 ## Hallazgos críticos
 
@@ -126,7 +126,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 ### P1 — Modelo de datos y consistencia
 
 - `audit_log` y `audit_logs` representan dos contratos distintos.
-- El frontend usa IDs legibles/locales mientras varias columnas SQL esperan UUID.
+- El frontend todavía conserva IDs legibles/locales en el fallback y en entidades heredadas, mientras varias columnas SQL esperan UUID.
 - Hay RLS habilitado sin políticas completas.
 - El estado monolítico de `TournamentContext.tsx` mezcla autenticación, dominio, UI y persistencia.
 
@@ -136,7 +136,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 - `package.json` define `npm run test` y existen suites Vitest para arbitraje, desempates y Single Elimination.
 - La cobertura automatizada actual es de 3 archivos y 8 pruebas Vitest; aún faltan integración API, RLS, E2E y accesibilidad.
 - `tsconfig.json` no activa `strict` y permite JS.
-- `index.html` declara idioma inglés pese a una interfaz española.
+- `index.html` ya declara `lang="es"`; debe conservarse una revisión de metadatos/SEO porque algunos textos sociales siguen en inglés.
 - El modal de autenticación y varios controles de icono carecen de semántica ARIA/foco completo.
 - La navegación no tiene rutas URL ni deep linking.
 
