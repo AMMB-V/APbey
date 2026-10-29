@@ -30,8 +30,12 @@ create policy ranking_entries_public_read on ranking_entries
   for select using (true);
 
 drop policy if exists ranking_entries_admin_write on ranking_entries;
-create policy ranking_entries_admin_write on ranking_entries
-  for all to authenticated
+create policy ranking_entries_admin_insert on ranking_entries
+  for insert to authenticated
+  with check (is_admin());
+
+create policy ranking_entries_admin_update on ranking_entries
+  for update to authenticated
   using (is_admin())
   with check (is_admin());
 
@@ -40,10 +44,22 @@ create policy hall_of_fame_public_read on hall_of_fame_entries
   for select using (true);
 
 drop policy if exists hall_of_fame_admin_write on hall_of_fame_entries;
-create policy hall_of_fame_admin_write on hall_of_fame_entries
-  for all to authenticated
+create policy hall_of_fame_admin_insert on hall_of_fame_entries
+  for insert to authenticated
+  with check (is_admin());
+
+create policy hall_of_fame_admin_update on hall_of_fame_entries
+  for update to authenticated
   using (is_admin())
   with check (is_admin());
+
+create policy ranking_entries_admin_delete on ranking_entries
+  for delete to authenticated
+  using (is_admin());
+
+create policy hall_of_fame_admin_delete on hall_of_fame_entries
+  for delete to authenticated
+  using (is_admin());
 
 create or replace function publish_rankings(
   p_rankings jsonb,
