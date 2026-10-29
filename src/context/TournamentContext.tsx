@@ -23,6 +23,7 @@ import {
   loadTournamentsFromSupabase,
   subscribeToTournamentRealtime,
   persistBattleToSupabase,
+  persistPenaltyToSupabase,
   syncRankingsToSupabase,
   loadRankingsFromSupabase,
 } from '../lib/supabase/supabaseService';
@@ -426,6 +427,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Sync to localStorage
   useEffect(() => {
+    if (supabaseSyncInfo.isConfigured) return;
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -444,15 +446,25 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } catch {
       // ignore
     }
-  }, []);
+  }, [supabaseSyncInfo.isConfigured]);
 
   useEffect(() => {
     let active = true;
 
     const hydrateFromSupabase = async () => {
+      if (!supabaseSyncInfo.isConfigured) return;
       const remote = await loadTournamentsFromSupabase();
       if (!active) return;
       if (!remote) {
+        setTournaments([]);
+        setStages([]);
+        setGroups([]);
+        setRounds([]);
+        setMatches([]);
+        setParticipants([]);
+        setBattles([]);
+        setPenalties([]);
+        setActiveTournamentId('');
         setSupabaseSyncInfo((previous) => ({
           ...previous,
           isConnected: false,
@@ -463,13 +475,18 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       setTournaments(remote.tournaments);
       setStages(remote.stages);
+      setGroups(remote.groups);
+      setRounds(remote.rounds);
       setMatches(remote.matches);
       setParticipants(remote.participants);
-      setActiveTournamentId((current) => (
-        remote.tournaments.some((tournament) => tournament.id === current)
-          ? current
+      setBattles(remote.battles);
+      setPenalties(remote.penalties);
+      const savedActiveTournamentId = localStorage.getItem('apbey_active_tournament_id');
+      setActiveTournamentId(
+        savedActiveTournamentId && remote.tournaments.some((tournament) => tournament.id === savedActiveTournamentId)
+          ? savedActiveTournamentId
           : remote.tournaments[0]?.id || ''
-      ));
+      );
       setSupabaseSyncInfo((previous) => ({
         ...previous,
         isConnected: true,
@@ -482,7 +499,15 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return () => {
       active = false;
     };
-  }, []);
+  }, [supabaseSyncInfo.isConfigured]);
+
+  useEffect(() => {
+    if (activeTournamentId) {
+      localStorage.setItem('apbey_active_tournament_id', activeTournamentId);
+    } else {
+      localStorage.removeItem('apbey_active_tournament_id');
+    }
+  }, [activeTournamentId]);
 
   useEffect(() => {
     try {
@@ -884,7 +909,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setCurrentRole('public');
   };
 
-  const activeTournament = tournaments.find(t => t.id === activeTournamentId) || tournaments[0];
+  const activeTournament = tournaments.find(t => t.id === activeTournamentId);
 
   const logAudit = (
     tableName: string,
@@ -1443,6 +1468,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const stage = stages.find(s => s.id === match.stageId);
     const tournament = tournaments.find(t => t.id === match.tournamentId);
     if (!stage || !tournament) return;
+    const previousMatches = matches;
+    const previousPenalties = penalties;
+    const hadRemoteConfig = supabaseSyncInfo.isConfigured;
 
     const { updatedMatch, newPenalty } = applyPenalty(
       match,
@@ -1462,6 +1490,20 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const updated = [...prev, newPenalty];
       saveState({ matches: nextMatches, penalties: updated });
       return updated;
+    });
+
+    void persistPenaltyToSupabase(newPenalty, updatedMatch, match.version).then((result) => {
+      setSupabaseSyncInfo((previous) => ({
+        ...previous,
+        isConnected: result.success,
+        lastSync: result.success ? new Date().toLocaleTimeString() : previous.lastSync,
+        message: result.message,
+      }));
+      if (hadRemoteConfig && !result.success) {
+        setMatches(previousMatches);
+        setPenalties(previousPenalties);
+        saveState({ matches: previousMatches, penalties: previousPenalties });
+      }
     });
 
     logAudit(

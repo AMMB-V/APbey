@@ -9,6 +9,8 @@ import {
   Battle,
   Penalty,
   UserProfile,
+  FinishPointsConfig,
+  FinishType,
 } from '../../types/tournament';
 import { BladerRanking, HallOfFameEntry } from '../../types/rankings';
 
@@ -277,20 +279,84 @@ export async function syncTournamentToSupabase(
 export async function loadTournamentsFromSupabase(): Promise<{
   tournaments: Tournament[];
   stages: Stage[];
+  groups: Group[];
+  rounds: Round[];
   matches: Match[];
   participants: Participant[];
+  battles: Battle[];
+  penalties: Penalty[];
 } | null> {
   const supabase = getSupabaseClient();
   if (!supabase) return null;
 
   try {
-    const { data: tourneys, error: tErr } = await supabase.from('tournaments').select('*');
-    if (tErr) {
-      console.warn('[Supabase] No se pudieron cargar torneos:', tErr.message);
+    // Auth restoration is asynchronous. Waiting for the session here prevents
+    // private organizer/referee tournaments from disappearing on first load.
+    await supabase.auth.getSession();
+
+    const [
+      { data: tourneys, error: tournamentsError },
+      { data: finishPointRows, error: finishPointsError },
+      { data: refereeRows, error: refereesError },
+      { data: participantRows, error: participantsError },
+      { data: stageRows, error: stagesError },
+      { data: groupRows, error: groupsError },
+      { data: groupParticipantRows, error: groupParticipantsError },
+      { data: roundRows, error: roundsError },
+      { data: matchRows, error: matchesError },
+      { data: battleRows, error: battlesError },
+      { data: penaltyRows, error: penaltiesError },
+    ] = await Promise.all([
+      supabase.from('tournaments').select('*').order('created_at', { ascending: true }),
+      supabase.from('tournament_finish_points').select('*'),
+      supabase.from('tournament_referees').select('*'),
+      supabase.from('participants').select('*').order('seed', { ascending: true }),
+      supabase.from('stages').select('*').order('position', { ascending: true }),
+      supabase.from('groups').select('*').order('position', { ascending: true }),
+      supabase.from('group_participants').select('*'),
+      supabase.from('rounds').select('*').order('number', { ascending: true }),
+      supabase.from('matches').select('*').order('position', { ascending: true }),
+      supabase.from('battles').select('*').order('battle_number', { ascending: true }),
+      supabase.from('penalties').select('*').order('created_at', { ascending: true }),
+    ]);
+
+    const errors = [
+      tournamentsError,
+      finishPointsError,
+      refereesError,
+      participantsError,
+      stagesError,
+      groupsError,
+      groupParticipantsError,
+      roundsError,
+      matchesError,
+      battlesError,
+      penaltiesError,
+    ].filter(Boolean);
+    if (errors.length > 0) {
+      console.warn(
+        '[Supabase] Snapshot incompleto; no se aplicarán datos parciales:',
+        errors.map((error) => error?.message).filter(Boolean).join('; ')
+      );
       return null;
     }
 
-    const tournaments: Tournament[] = (tourneys || []).map(t => ({
+    const defaultFinishPoints: FinishPointsConfig = { spin: 1, over: 2, burst: 2, xtreme: 3 };
+    const finishPointsByTournament = new Map<string, FinishPointsConfig>();
+    for (const row of finishPointRows || []) {
+      const points = finishPointsByTournament.get(row.tournament_id) || { ...defaultFinishPoints };
+      points[row.finish as FinishType] = Number(row.points) || 0;
+      finishPointsByTournament.set(row.tournament_id, points);
+    }
+
+    const refereesByTournament = new Map<string, string[]>();
+    for (const row of refereeRows || []) {
+      const referees = refereesByTournament.get(row.tournament_id) || [];
+      referees.push(row.profile_id);
+      refereesByTournament.set(row.tournament_id, referees);
+    }
+
+    const tournaments: Tournament[] = (tourneys || []).map((t) => ({
       id: t.id,
       slug: t.slug,
       name: t.name,
@@ -311,37 +377,29 @@ export async function loadTournamentsFromSupabase(): Promise<{
       country: t.country || 'PA',
       startsAt: t.starts_at,
       createdAt: t.created_at,
-      finishPoints: {
-        spin: 1,
-        over: 2,
-        burst: 2,
-        xtreme: 3,
-      },
-      assignedReferees: [],
+      finishPoints: finishPointsByTournament.get(t.id) || { ...defaultFinishPoints },
+      assignedReferees: refereesByTournament.get(t.id) || [],
     }));
 
-    // Optionally load participants and stages
-    const { data: parts, error: participantsError } = await supabase.from('participants').select('*');
-    if (participantsError) {
-      console.warn('[Supabase] No se pudieron cargar participantes:', participantsError.message);
-      return null;
-    }
-    const participants: Participant[] = (parts || []).map(p => ({
+    const participants: Participant[] = (participantRows || []).map((p) => ({
       id: p.id,
       tournamentId: p.tournament_id,
+      profileId: p.profile_id || undefined,
       displayName: p.display_name,
-      seed: p.seed,
+      seed: p.seed ?? 0,
       checkedIn: p.checked_in,
       inspected: p.inspected,
       status: p.status,
     }));
 
-    const { data: stg, error: stagesError } = await supabase.from('stages').select('*');
-    if (stagesError) {
-      console.warn('[Supabase] No se pudieron cargar etapas:', stagesError.message);
-      return null;
+    const participantsByGroup = new Map<string, string[]>();
+    for (const row of groupParticipantRows || []) {
+      const participantIds = participantsByGroup.get(row.group_id) || [];
+      participantIds.push(row.participant_id);
+      participantsByGroup.set(row.group_id, participantIds);
     }
-    const stages: Stage[] = (stg || []).map(s => ({
+
+    const stages: Stage[] = (stageRows || []).map((s) => ({
       id: s.id,
       tournamentId: s.tournament_id,
       position: s.position,
@@ -351,15 +409,28 @@ export async function loadTournamentsFromSupabase(): Promise<{
       matchType: s.match_type,
       pointsToWin: s.points_to_win,
       bestOf: s.best_of,
-      config: s.config,
+      config: s.config || { tiebreakers: [] },
     }));
 
-    const { data: mtch, error: matchesError } = await supabase.from('matches').select('*');
-    if (matchesError) {
-      console.warn('[Supabase] No se pudieron cargar partidas:', matchesError.message);
-      return null;
-    }
-    const matches: Match[] = (mtch || []).map(m => ({
+    const groups: Group[] = (groupRows || []).map((g) => ({
+      id: g.id,
+      stageId: g.stage_id,
+      name: g.name,
+      position: g.position,
+      participantIds: participantsByGroup.get(g.id) || [],
+      refereeId: g.referee_id || undefined,
+    }));
+
+    const rounds: Round[] = (roundRows || []).map((r) => ({
+      id: r.id,
+      stageId: r.stage_id,
+      groupId: r.group_id || undefined,
+      number: r.number,
+      bracket: r.bracket,
+      name: r.name || '',
+    }));
+
+    const matches: Match[] = (matchRows || []).map((m) => ({
       id: m.id,
       tournamentId: m.tournament_id,
       stageId: m.stage_id,
@@ -380,9 +451,38 @@ export async function loadTournamentsFromSupabase(): Promise<{
       nextMatchWinnerId: m.next_match_winner_id || undefined,
       nextMatchLoserId: m.next_match_loser_id || undefined,
       version: m.version ?? 1,
+      startedAt: m.started_at || undefined,
+      finishedAt: m.finished_at || undefined,
     }));
 
-    return { tournaments, stages, matches, participants };
+    const battles: Battle[] = (battleRows || []).map((b) => ({
+      id: b.id,
+      matchId: b.match_id,
+      battleNumber: b.battle_number,
+      setNumber: b.set_number || 1,
+      scorerId: b.scorer_id || undefined,
+      finish: b.finish || undefined,
+      points: b.points || 0,
+      voided: Boolean(b.voided),
+      recordedBy: b.recorded_by,
+      createdAt: b.created_at,
+    }));
+
+    const penalties: Penalty[] = (penaltyRows || []).map((p) => ({
+      id: p.id,
+      matchId: p.match_id,
+      battleId: p.battle_id || undefined,
+      participantId: p.participant_id,
+      card: p.card,
+      isFoul: p.is_foul,
+      pointsAwarded: p.points_awarded || 0,
+      awardedTo: p.awarded_to || undefined,
+      reason: p.reason || undefined,
+      issuedBy: p.issued_by,
+      createdAt: p.created_at,
+    }));
+
+    return { tournaments, stages, groups, rounds, matches, participants, battles, penalties };
   } catch (err) {
     console.warn('[Supabase] No se pudieron cargar datos remotos:', err);
     return null;
@@ -508,6 +608,42 @@ export async function persistBattleToSupabase(
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error desconocido de sincronización.';
     console.warn('[Supabase Realtime] No se pudo emitir mutación directa:', err);
+    return { success: false, message };
+  }
+}
+
+export async function persistPenaltyToSupabase(
+  penalty: Penalty,
+  match: Match,
+  expectedVersion = Math.max(1, match.version - 1)
+): Promise<{ success: boolean; message: string }> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { success: false, message: 'Supabase no está configurado.' };
+  }
+
+  try {
+    const { error } = await supabase.rpc('record_penalty', {
+      p_match_id: penalty.matchId,
+      p_offender_id: penalty.participantId,
+      p_card: penalty.card,
+      p_is_foul: penalty.isFoul,
+      p_points_awarded: penalty.pointsAwarded,
+      p_awarded_to: penalty.awardedTo || null,
+      p_reason: penalty.reason || null,
+      p_issued_by: penalty.issuedBy,
+      p_expected_version: expectedVersion,
+    });
+    if (error) {
+      const message = error.message.toLowerCase().includes('conflicto')
+        ? 'El match cambió en otra sesión. Recarga el torneo antes de registrar la penalización.'
+        : `No se pudo registrar la penalización de forma transaccional: ${error.message}`;
+      return { success: false, message };
+    }
+    return { success: true, message: 'Penalización registrada transaccionalmente en Supabase.' };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Error desconocido de sincronización.';
+    console.warn('[Supabase] No se pudo emitir la penalización:', err);
     return { success: false, message };
   }
 }

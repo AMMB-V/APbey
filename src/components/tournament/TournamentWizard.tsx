@@ -144,6 +144,25 @@ export const TournamentWizard: React.FC = () => {
   const [pointsPlayoffs, setPointsPlayoffs] = useState<number>(activeTournament?.pointsToWinPlayoffs ?? 5);
   const [pointsFinal, setPointsFinal] = useState<number>(activeTournament?.pointsToWinFinal ?? 7);
 
+  useEffect(() => {
+    setName(activeTournament?.name || '');
+    setDescription(activeTournament?.description || '');
+    setVenueName(activeTournament?.venueName || '');
+    setVenueAddress(activeTournament?.venueAddress || '');
+    setCountry(activeTournament?.country || 'PA');
+    setEntryFee(activeTournament?.entryFee || 0);
+    setMaxParticipants(activeTournament?.maxParticipants || 16);
+    setSpinPts(activeTournament?.finishPoints.spin ?? 1);
+    setOverPts(activeTournament?.finishPoints.over ?? 2);
+    setBurstPts(activeTournament?.finishPoints.burst ?? 2);
+    setXtremePts(activeTournament?.finishPoints.xtreme ?? 3);
+    setFoulPts(activeTournament?.foulPoints ?? 1);
+    setFoulsPerPoint(activeTournament?.foulsPerPoint ?? 3);
+    setPointsGroup(activeTournament?.pointsToWinGroup ?? 4);
+    setPointsPlayoffs(activeTournament?.pointsToWinPlayoffs ?? 5);
+    setPointsFinal(activeTournament?.pointsToWinFinal ?? 7);
+  }, [activeTournament?.id]);
+
   // Tournament stages
   const tournamentStages = stages.filter((s) => s.tournamentId === activeTournament?.id);
   const defaultSelectedStage =
@@ -173,10 +192,12 @@ export const TournamentWizard: React.FC = () => {
 
   // Sync tiebreakers when selected stage changes
   useEffect(() => {
-    if (activeStage?.config.tiebreakers) {
-      setStageTiebreakers(activeStage.config.tiebreakers);
-    }
-  }, [selectedStageId, activeStage?.config.tiebreakers]);
+    setAdvanceCount(activeStage?.config.advanceCount ?? 2);
+    setGroupSize(activeStage?.config.groupSize ?? 4);
+    setBestOf(activeStage?.bestOf ?? 1);
+    setPointsToWin(activeStage?.pointsToWin ?? 4);
+    setStageTiebreakers(activeStage?.config.tiebreakers || ['points', 'head_to_head', 'point_diff', 'points_for', 'seed']);
+  }, [selectedStageId, activeStage?.id]);
 
   // Backend persistence status & indicators
   const [isSavingTiebreakers, setIsSavingTiebreakers] = useState<boolean>(false);
