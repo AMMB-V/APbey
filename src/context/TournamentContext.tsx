@@ -108,7 +108,7 @@ interface TournamentContextType {
   setActiveTournamentId: (id: string) => void;
   createTournament: (data: Partial<Tournament>, stageType: StageType, stageConfig: StageConfig) => Tournament;
   updateTournament: (id: string, updates: Partial<Tournament>) => void;
-  duplicateTournament: (id: string) => Tournament;
+  duplicateTournament: (id: string) => Tournament | null;
   deleteTournament: (id: string) => void;
 
   // Stages & Brackets
@@ -1937,8 +1937,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     logAudit('tournaments', id, 'update', 'Configuración de torneo actualizada.');
   };
 
-  const duplicateTournament = (id: string): Tournament => {
-    const source = tournaments.find(t => t.id === id) || tournaments[0];
+  const duplicateTournament = (id: string): Tournament | null => {
+    const source = tournaments.find(t => t.id === id);
+    if (!source) {
+      return null;
+    }
     const newId = `tourney_${Date.now()}`;
     const duplicated: Tournament = {
       ...source,

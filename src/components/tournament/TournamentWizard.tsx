@@ -322,7 +322,9 @@ export const TournamentWizard: React.FC = () => {
   const handleDuplicate = () => {
     if (!activeTournament) return;
     const duplicated = duplicateTournament(activeTournament.id);
-    showSuccess(`Torneo duplicado exitosamente como plantilla: "${duplicated.name}".`);
+    showSuccess(duplicated
+      ? `Torneo duplicado exitosamente como plantilla: "${duplicated.name}".`
+      : 'No se pudo duplicar el torneo porque ya no está disponible.');
   };
 
   const handleExportCSV = () => {

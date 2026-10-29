@@ -76,6 +76,7 @@ La respuesta funcional es conservar el alcance del PDF como contrato del MVP, us
 - Las persistencias locales ya no devuelven éxito cuando el backend autorizado no confirmó la escritura.
 - El panel de administración ya no muestra ni enlaza un proyecto Supabase fijo: la URL, el dashboard y el SQL Editor se derivan de la instancia configurada por el operador.
 - La ayuda de conexión ya no menciona botones inexistentes ni recomienda copiar permisos RLS manualmente; distingue el esquema inicial de las migraciones versionadas y advierte que nunca debe introducirse una service role key en el navegador.
+- La duplicación de torneos ya no cae silenciosamente al primer torneo cuando recibe un ID inexistente; devuelve un resultado explícito y la interfaz informa que el torneo dejó de estar disponible.
 
 Estos cambios son deliberadamente acotados: no se implementó una migración incompleta a Next.js ni autenticación ficticia para aparentar cumplimiento.
 
@@ -219,6 +220,7 @@ npm run test
 | Media | RLS | Las políticas `*_read` y `*_manage` se solapaban en nueve tablas relacionales y `profiles`. | Corregido y aplicado: las mutaciones ahora usan políticas separadas de `INSERT`, `UPDATE` y `DELETE`; `profiles` concentra la lectura propia/admin en una sola política. El advisor ya no reporta solapamientos; sólo permanecen 29 índices sin uso, que requieren métricas de producción antes de eliminarse. |
 | Media | UX/operación | El panel administrativo mostraba un proyecto Supabase fijo aunque se configurara otra instancia. | Corregido: los enlaces y el estado de conexión usan la URL configurada; los dominios personalizados vuelven al dashboard general sin inventar un project ref. |
 | Baja | UX/operación | La ayuda de conexión mencionaba un botón `Fix Error 42501` y `Copiar Permisos RLS` que ya no existen. | Corregido: la guía describe la aplicación de migraciones versionadas y el uso exclusivo de la clave anon/public en el cliente. |
+| Baja | Consistencia | `duplicateTournament` usaba `tournaments[0]` como sustituto si el ID solicitado no existía. | Corregido: se elimina el fallback implícito y se muestra un error accionable en las dos superficies que permiten duplicar. |
 
 La auditoría local del backend confirmó `/api/health` con HTTP 200 y rechazó una mutación sin autenticación cuando el backend no tiene Supabase configurado con HTTP 503. La matriz rollback-only contra la instancia Supabase real cubrió organizer, referee, blader, usuario no relacionado y admin con 9/9 comprobaciones; crea usuarios Auth/profiles sólo dentro de una transacción que termina en `rollback`. Esto valida RLS y RPC sin dejar cuentas ni torneos de prueba persistentes, pero no sustituye una sesión Auth persistente extremo a extremo.
 
