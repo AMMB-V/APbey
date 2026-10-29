@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TournamentProvider, useTournament } from './context/TournamentContext';
 import { Header, MainTabType } from './components/common/Header';
 import { BracketViewer } from './components/bracket/BracketViewer';
@@ -11,21 +11,72 @@ import { AdminPanel } from './components/admin/AdminPanel';
 import { SoftwareEngineeringGuide } from './components/docs/SoftwareEngineeringGuide';
 import { StadiumDisplay } from './components/stadium/StadiumDisplay';
 import { AuthModal } from './components/auth/AuthModal';
-import { Layers, Volume2, Shield, Lock, KeyRound, LogIn } from 'lucide-react';
+import { BottomNav } from './components/common/BottomNav';
+import { CommandPalette } from './components/common/CommandPalette';
+import { ScoreboardView } from './components/scoreboard/ScoreboardView';
+import { DeckBuilder } from './components/deck/DeckBuilder';
+import { TierListView } from './components/deck/TierListView';
+import { RankingsView } from './components/rankings/RankingsView';
+import { CommunityView } from './components/community/CommunityView';
+import { UserProfileView } from './components/profile/UserProfileView';
+import { Layers, Volume2, Shield, Lock, KeyRound, LogIn, Trophy } from 'lucide-react';
+
+const VALID_TABS: MainTabType[] = [
+  'torneos',
+  'bracket',
+  'marcador',
+  'referee',
+  'rankings',
+  'deck',
+  'tierlist',
+  'comunidad',
+  'profile',
+  'participants',
+  'wizard',
+  'admin',
+  'docs',
+];
+
+const VIEW_TITLES: Record<MainTabType, string> = {
+  torneos: 'Torneos Oficiales',
+  bracket: 'Brackets & Grupos',
+  marcador: 'Marcador de Combate',
+  referee: 'Panel de Árbitro',
+  rankings: 'Rankings & Salón de la Fama',
+  deck: 'Deck 3on3 Builder',
+  tierlist: 'Tier List Competitiva',
+  comunidad: 'Comunidad & Reglas WBO',
+  profile: 'Mi Perfil de Blader',
+  participants: 'Lista de Bladers',
+  wizard: 'Diseñador de Torneos',
+  admin: 'Gestión & Árbitros',
+  docs: 'Guía de Software',
+};
 
 function TournamentApp() {
   const [activeTab, setActiveTab] = useState<MainTabType>(() => {
     if (typeof window === 'undefined') return 'bracket';
+
+    // Check hash for legacy AppBey redirects
+    const hash = window.location.hash;
+    if (hash.includes('referee')) return 'marcador';
+    if (hash.includes('stadium')) return 'bracket';
+    if (hash.includes('rankings')) return 'rankings';
+    if (hash.includes('deck')) return 'deck';
+
     const requestedView = new URLSearchParams(window.location.search).get('view');
-    if (requestedView && ['torneos', 'bracket', 'referee', 'participants', 'wizard', 'admin', 'docs'].includes(requestedView)) {
+    if (requestedView && VALID_TABS.includes(requestedView as MainTabType)) {
       return requestedView as MainTabType;
     }
+
     const saved = window.localStorage.getItem('apbey_active_tab');
-    return saved && ['torneos', 'bracket', 'referee', 'participants', 'wizard', 'admin', 'docs'].includes(saved)
-      ? saved as MainTabType
+    return saved && VALID_TABS.includes(saved as MainTabType)
+      ? (saved as MainTabType)
       : 'bracket';
   });
+
   const [selectedRefereeMatchId, setSelectedRefereeMatchId] = useState<string | undefined>(undefined);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   const {
     currentUser,
@@ -51,7 +102,7 @@ function TournamentApp() {
   const [activeStageId, setActiveStageId] = useState<string>(tournamentStages[0]?.id || '');
 
   // Keep activeStageId in sync when tournament changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (tournamentStages.length > 0 && !tournamentStages.some((s) => s.id === activeStageId)) {
       setActiveStageId(tournamentStages[0].id);
     }
@@ -59,17 +110,23 @@ function TournamentApp() {
 
   const currentStage = tournamentStages.find((s) => s.id === activeStageId) || tournamentStages[0];
 
-  React.useEffect(() => {
+  // Sync title and URL search param
+  useEffect(() => {
     window.localStorage.setItem('apbey_active_tab', activeTab);
     const url = new URL(window.location.href);
     url.searchParams.set('view', activeTab);
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+
+    // Update document.title per HCI orientation requirement
+    const titleText = VIEW_TITLES[activeTab] || 'Torneos de Beyblade X';
+    document.title = `APbey | ${titleText}`;
   }, [activeTab]);
 
-  React.useEffect(() => {
+  // Handle browser back/forward popstate
+  useEffect(() => {
     const handleBrowserNavigation = () => {
       const requestedView = new URLSearchParams(window.location.search).get('view');
-      if (requestedView && ['torneos', 'bracket', 'referee', 'participants', 'wizard', 'admin', 'docs'].includes(requestedView)) {
+      if (requestedView && VALID_TABS.includes(requestedView as MainTabType)) {
         setActiveTab(requestedView as MainTabType);
       }
     };
@@ -78,19 +135,40 @@ function TournamentApp() {
     return () => window.removeEventListener('popstate', handleBrowserNavigation);
   }, []);
 
+  // Global Ctrl+K / Cmd+K listener for CommandPalette
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const handleOpenMatchInReferee = (matchId: string) => {
     setSelectedRefereeMatchId(matchId);
-    if (currentRole === 'public') {
-      openAuthModal('login');
-    } else {
-      setActiveTab('referee');
-    }
+    setActiveTab('marcador');
   };
 
   return (
-    <div className="min-h-screen bg-[var(--grafito)] text-[var(--hueso)] flex flex-col font-sans antialiased selection:bg-[var(--cobalto)] selection:text-[var(--tinta)]">
+    <div className="min-h-screen bg-[var(--grafito)] text-[var(--hueso)] flex flex-col font-sans antialiased selection:bg-[var(--cobalto)] selection:text-[var(--tinta)] pb-16 md:pb-0">
+      {/* WCAG 2.2 AA Skip to Content Link */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2.5 focus:bg-[var(--cobalto)] focus:text-[var(--tinta)] focus:font-black focus:rounded-xl focus:shadow-2xl"
+      >
+        Saltar al contenido principal
+      </a>
+
       {/* Top Header */}
-      <Header activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Header
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+      />
 
       {/* Persistent Stadium Summon Banner */}
       {activeStationAlert && (
@@ -105,12 +183,14 @@ function TournamentApp() {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <button
+                type="button"
                 onClick={() => setShowStadiumModal(true)}
                 className="px-2.5 py-1 bg-[var(--tinta)] text-[var(--hueso)] rounded text-[11px] font-semibold hover:bg-neutral-800 transition-colors"
               >
                 Ver en Estadio
               </button>
               <button
+                type="button"
                 onClick={() => dismissStationCall(activeStationAlert.matchId)}
                 className="text-[var(--tinta)] hover:opacity-75 font-mono text-xs px-1.5"
                 title="Descartar notificación"
@@ -123,15 +203,16 @@ function TournamentApp() {
       )}
 
       {/* Main Container */}
-      <main className="grow max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5">
-        {/* Tournament Bar Indicator */}
-        <div className="mb-4 flex flex-wrap items-center justify-between text-xs text-[var(--acero)] bg-[var(--chasis)] border border-[var(--costura)] px-4 py-2 rounded-[var(--r-control)] shadow-xs gap-3">
+      <main id="main-content" tabIndex={-1} className="grow max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 outline-hidden">
+        {/* Breadcrumbs & Active Tournament Bar */}
+        <div className="mb-4 flex flex-wrap items-center justify-between text-xs text-[var(--acero)] bg-[var(--chasis)] border border-[var(--costura)] px-4 py-2 rounded-2xl shadow-xs gap-3">
           <div className="flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-amber-400 shrink-0" aria-hidden="true" />
             <span className="font-semibold text-[var(--hueso)]">Torneo:</span>
-            <span className="font-bold text-[var(--hueso)]">{activeTournament?.name}</span>
+            <span className="font-bold text-[var(--hueso)]">{activeTournament?.name || 'Torneo Beyblade X'}</span>
             <span className="hidden sm:inline">·</span>
             <span className="hidden sm:inline text-[var(--acero)]">
-              {activeTournament?.venueName || 'Arena Central'} ({activeTournament?.country})
+              {activeTournament?.venueName || 'Arena Central'} ({activeTournament?.country || 'PA'})
             </span>
           </div>
 
@@ -145,8 +226,9 @@ function TournamentApp() {
               </div>
             ) : (
               <button
+                type="button"
                 onClick={() => openAuthModal('login')}
-                className="text-[11px] font-semibold text-[var(--acero)] hover:text-[var(--hueso)] flex items-center gap-1 transition-colors"
+                className="text-[11px] font-semibold text-[var(--acero)] hover:text-[var(--hueso)] flex items-center gap-1 transition-colors min-h-[32px]"
               >
                 <Lock className="w-3 h-3 text-amber-400" />
                 <span>Modo Público · Iniciar sesión para arbitrar</span>
@@ -155,21 +237,20 @@ function TournamentApp() {
           </div>
         </div>
 
-        {/* View 0: Hub de Torneos (Listado y Gestión) */}
+        {/* View 0: Hub de Torneos */}
         {activeTab === 'torneos' && (
           <TournamentList
-            onSelectTournament={(tourneyId, targetTab) => {
-              setActiveTab(targetTab || 'bracket');
+            onSelectTournament={(_tourneyId, targetTab) => {
+              setActiveTab((targetTab as MainTabType) || 'bracket');
             }}
           />
         )}
 
-        {/* View 1: Brackets & Groups (Public and All Roles) */}
+        {/* View 1: Brackets & Groups */}
         {activeTab === 'bracket' && (
           <div className="space-y-6">
-            {/* Multi-stage Selector Bar */}
             {tournamentStages.length > 1 && (
-              <div className="bg-[var(--chasis)] rounded-[var(--r-card)] border border-[var(--costura)] p-3 shadow-xs flex items-center justify-between overflow-x-auto gap-4">
+              <div className="bg-[var(--chasis)] rounded-2xl border border-[var(--costura)] p-3 shadow-xs flex items-center justify-between overflow-x-auto gap-4">
                 <div className="flex items-center gap-2 shrink-0">
                   <Layers className="w-4 h-4 text-[var(--acero)]" />
                   <span className="text-xs font-bold text-[var(--acero)]">Etapas del Torneo:</span>
@@ -181,11 +262,12 @@ function TournamentApp() {
                     return (
                       <button
                         key={stage.id}
+                        type="button"
                         onClick={() => setActiveStageId(stage.id)}
-                        className={`px-3.5 py-1.5 text-xs font-semibold rounded-[var(--r-control)] transition-all flex items-center gap-2 whitespace-nowrap ${
+                        className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-2 whitespace-nowrap min-h-[36px] ${
                           isSelected
-                            ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
-                            : 'bg-[var(--grafito)] text-[var(--acero)] hover:text-[var(--hueso)] hover:border-[var(--costura)]'
+                            ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs font-bold'
+                            : 'bg-[var(--grafito)] text-[var(--acero)] hover:text-[var(--hueso)]'
                         }`}
                       >
                         <span className="w-4 h-4 rounded-full bg-neutral-800 text-[10px] text-white flex items-center justify-center font-mono">
@@ -210,9 +292,8 @@ function TournamentApp() {
               </div>
             )}
 
-            {/* Stage Body */}
             {currentStage && (
-              <div className="bg-[var(--chasis)] rounded-[var(--r-card)] border border-[var(--costura)] p-4 sm:p-6 shadow-md">
+              <div className="bg-[var(--chasis)] rounded-3xl border border-[var(--costura)] p-4 sm:p-6 shadow-md">
                 {currentStage.type === 'group_stage' ? (
                   <GroupStageViewer
                     stage={currentStage}
@@ -229,159 +310,62 @@ function TournamentApp() {
           </div>
         )}
 
-        {/* View 2: Referee Console */}
-        {activeTab === 'referee' && (
-          currentRole === 'referee' || currentRole === 'organizer' || currentRole === 'admin' ? (
-            <RefereeConsole
-              initialMatchId={selectedRefereeMatchId}
-              onClose={() => setActiveTab('bracket')}
-            />
-          ) : (
-            <div className="bg-[var(--chasis)] border border-[var(--costura)] rounded-[var(--r-card)] p-8 text-center max-w-lg mx-auto space-y-4 shadow-md my-8">
-              <div className="w-12 h-12 mx-auto rounded-full bg-emerald-950/40 text-emerald-400 border border-emerald-800/60 flex items-center justify-center font-bold text-xl">
-                ⚖️
-              </div>
-              <h3 className="text-base font-bold text-[var(--hueso)] font-display">
-                Panel Exclusivo para Jueces y Árbitros
-              </h3>
-              <p className="text-xs text-[var(--acero)] leading-relaxed">
-                Para arbitrar combates, registrar acabados de batalla (Xtreme, Burst, Over, Spin) o aplicar tarjetas reglamentarias, debes autenticarte con tu cuenta de árbitro o canjear el código de invitación que te entregó el organizador.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
-                <button
-                  onClick={() => openAuthModal('login')}
-                  className="px-4 py-2 text-xs font-bold rounded-[var(--r-control)] bg-[var(--hueso)] text-[var(--tinta)] hover:bg-white flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <LogIn className="w-3.5 h-3.5" />
-                  Iniciar Sesión
-                </button>
-                <button
-                  onClick={() => openAuthModal('invite')}
-                  className="px-4 py-2 text-xs font-semibold rounded-[var(--r-control)] border border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)] flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-                  Canjear Código de Invitación
-                </button>
-              </div>
-            </div>
-          )
+        {/* View 2: Marcador Unificado (Modo Libre + Oficial) */}
+        {(activeTab === 'marcador' || activeTab === 'referee') && (
+          <ScoreboardView
+            initialMatchId={selectedRefereeMatchId}
+            onOpenMatchInReferee={(matchId) => setSelectedRefereeMatchId(matchId)}
+          />
         )}
 
-        {/* View 3: Participants & Seeding */}
-        {activeTab === 'participants' && (
-          currentRole === 'organizer' || currentRole === 'admin' ? (
-            <ParticipantManager />
-          ) : (
-            <div className="bg-[var(--chasis)] border border-[var(--costura)] rounded-[var(--r-card)] p-8 text-center max-w-lg mx-auto space-y-4 shadow-md my-8">
-              <div className="w-12 h-12 mx-auto rounded-full bg-blue-950/40 text-blue-400 border border-blue-800/60 flex items-center justify-center font-bold text-xl">
-                👥
-              </div>
-              <h3 className="text-base font-bold text-[var(--hueso)] font-display">
-                Gestión de Bladers & Siembra
-              </h3>
-              <p className="text-xs text-[var(--acero)] leading-relaxed">
-                El registro de bladers, inspección de beys (Bey Check) y ordenamiento de siembras requiere rol de Organizador o Administrador.
-              </p>
-              <div className="flex justify-center pt-2">
-                <button
-                  onClick={() => openAuthModal('login')}
-                  className="px-4 py-2 text-xs font-bold rounded-[var(--r-control)] bg-[var(--hueso)] text-[var(--tinta)] hover:bg-white flex items-center gap-1.5"
-                >
-                  <LogIn className="w-3.5 h-3.5" />
-                  Iniciar Sesión como Organizador
-                </button>
-              </div>
-            </div>
-          )
-        )}
+        {/* View 3: Rankings WBO & Salón de la Fama */}
+        {activeTab === 'rankings' && <RankingsView />}
 
-        {/* View 4: Tournament Wizard / Designer */}
-        {activeTab === 'wizard' && (
-          currentRole === 'organizer' || currentRole === 'admin' ? (
-            <TournamentWizard />
-          ) : (
-            <div className="bg-[var(--chasis)] border border-[var(--costura)] rounded-[var(--r-card)] p-8 text-center max-w-lg mx-auto space-y-4 shadow-md my-8">
-              <div className="w-12 h-12 mx-auto rounded-full bg-amber-950/40 text-amber-400 border border-amber-800/60 flex items-center justify-center font-bold text-xl">
-                ⚙️
-              </div>
-              <h3 className="text-base font-bold text-[var(--hueso)] font-display">
-                Diseñador de Torneo & Reglas
-              </h3>
-              <p className="text-xs text-[var(--acero)] leading-relaxed">
-                La configuración de parámetros de arbitraje, fases de grupos, jerarquías de desempate y sedes es exclusiva para organizadores del evento.
-              </p>
-              <div className="flex justify-center pt-2">
-                <button
-                  onClick={() => openAuthModal('login')}
-                  className="px-4 py-2 text-xs font-bold rounded-[var(--r-control)] bg-[var(--hueso)] text-[var(--tinta)] hover:bg-white flex items-center gap-1.5"
-                >
-                  <LogIn className="w-3.5 h-3.5" />
-                  Iniciar Sesión como Organizador
-                </button>
-              </div>
-            </div>
-          )
-        )}
+        {/* View 4: Deck 3on3 Builder */}
+        {activeTab === 'deck' && <DeckBuilder />}
 
-        {/* View 5: Admin Panel & Invitations */}
-        {activeTab === 'admin' && (
-          currentRole === 'admin' ? (
-            <AdminPanel />
-          ) : (
-            <div className="bg-[var(--chasis)] border border-[var(--costura)] rounded-[var(--r-card)] p-8 text-center max-w-lg mx-auto space-y-4 shadow-md my-8">
-              <div className="w-12 h-12 mx-auto rounded-full bg-rose-950/40 text-rose-400 border border-rose-800/60 flex items-center justify-center font-bold text-xl">
-                🛡️
-              </div>
-              <h3 className="text-base font-bold text-[var(--hueso)] font-display">
-                Panel de Administración Restringido
-              </h3>
-              <p className="text-xs text-[var(--acero)] leading-relaxed">
-                La emisión de códigos de invitación y auditoría de base de datos requiere credenciales de Administrador del Sistema.
-              </p>
-              <div className="flex justify-center pt-2">
-                <button
-                  onClick={() => openAuthModal('login')}
-                  className="px-4 py-2 text-xs font-bold rounded-[var(--r-control)] bg-[var(--hueso)] text-[var(--tinta)] hover:bg-white flex items-center gap-1.5"
-                >
-                  <LogIn className="w-3.5 h-3.5" />
-                  Iniciar Sesión como Administrador
-                </button>
-              </div>
-            </div>
-          )
-        )}
+        {/* View 5: Tier List Competitiva */}
+        {activeTab === 'tierlist' && <TierListView />}
 
-        {/* View 6: Software Engineering Blueprint Guide */}
+        {/* View 6: Comunidad & Reglas WBO */}
+        {activeTab === 'comunidad' && <CommunityView />}
+
+        {/* View 7: Perfil de Blader */}
+        {activeTab === 'profile' && <UserProfileView />}
+
+        {/* View 8: Participantes Torneo */}
+        {activeTab === 'participants' && <ParticipantManager />}
+
+        {/* View 9: Diseñador de Torneos (Staff) */}
+        {activeTab === 'wizard' && <TournamentWizard />}
+
+        {/* View 10: Admin Panel (Personal & Accesos) */}
+        {activeTab === 'admin' && <AdminPanel />}
+
+        {/* View 11: Guía de Ingeniería de Software */}
         {activeTab === 'docs' && <SoftwareEngineeringGuide />}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-[var(--costura)] bg-[var(--chasis)] py-4 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between text-xs text-[var(--acero)] gap-2">
-          <div>
-            Beyblade X Tournament Arena · WBO Ruleset · PostgreSQL 15 & Supabase RLS.
-          </div>
-          <div className="flex items-center gap-3 font-mono text-[11px]">
-            <button
-              onClick={() => setActiveTab('docs')}
-              className="text-[var(--acero)] hover:text-[var(--hueso)] transition-colors underline"
-            >
-              Guía de Software
-            </button>
-            <span>·</span>
-            <span>TypeScript Strict</span>
-            <span>·</span>
-            <span>Vercel Ready</span>
-          </div>
-        </div>
-      </footer>
+      {/* Mobile Fixed 5-Item Bottom Navigation */}
+      <BottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenStadium={() => setShowStadiumModal(true)}
+      />
 
-      {/* Stadium Display Fullscreen Projector Overlay */}
+      {/* Global Command Palette (Ctrl+K) */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onNavigate={(tab) => setActiveTab(tab as MainTabType)}
+      />
+
+      {/* Stadium Projector Display Modal */}
       {showStadiumModal && (
         <StadiumDisplay onClose={() => setShowStadiumModal(false)} />
       )}
 
-      {/* Authentication & Invitation Redemption Modal */}
+      {/* Unified Auth & Invitation Modal */}
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
@@ -392,63 +376,10 @@ function TournamentApp() {
   );
 }
 
-class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Unhandled UI Error:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen bg-[#1b1d21] text-[#ece8e0] flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-[#25282e] border border-[#363b43] rounded-xl p-6 text-center space-y-4 shadow-xl">
-            <div className="w-12 h-12 mx-auto rounded-full bg-red-900/40 text-red-400 flex items-center justify-center font-bold text-xl border border-red-700/50">
-              ⚠️
-            </div>
-            <h1 className="text-lg font-bold">Error al inicializar la aplicación</h1>
-            <p className="text-xs text-[#a3abb5] leading-relaxed">
-              {this.state.error?.message || 'Ha ocurrido un error inesperado al cargar la interfaz.'}
-            </p>
-            <div className="flex gap-2 justify-center pt-2">
-              <button
-                onClick={() => window.location.reload()}
-                className="px-4 py-2 text-xs font-bold rounded-lg bg-[#ece8e0] text-[#101114] hover:bg-white transition-colors"
-              >
-                Recargar página
-              </button>
-              <button
-                onClick={() => {
-                  localStorage.clear();
-                  window.location.reload();
-                }}
-                className="px-4 py-2 text-xs font-semibold rounded-lg border border-[#363b43] text-[#a3abb5] hover:text-[#ece8e0] transition-colors"
-              >
-                Limpiar datos locales
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
 export default function App() {
   return (
-    <ErrorBoundary>
-      <TournamentProvider>
-        <TournamentApp />
-      </TournamentProvider>
-    </ErrorBoundary>
+    <TournamentProvider>
+      <TournamentApp />
+    </TournamentProvider>
   );
 }

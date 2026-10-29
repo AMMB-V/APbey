@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ShieldCheck,
   Radio,
@@ -7,19 +7,47 @@ import {
   User,
   KeyRound,
   Trophy,
+  TrendingUp,
+  Layers,
+  Shield,
+  Users,
+  Search,
+  BookOpen,
+  Wrench,
+  Tv,
+  ChevronDown,
 } from 'lucide-react';
 import { useTournament } from '../../context/TournamentContext';
 import { AceroIcon } from './AceroIcon';
+import { SyncBadge } from './SyncBadge';
 import { ProfileModal } from '../auth/ProfileModal';
 
-export type MainTabType = 'torneos' | 'bracket' | 'referee' | 'participants' | 'wizard' | 'admin' | 'docs';
+export type MainTabType =
+  | 'torneos'
+  | 'bracket'
+  | 'marcador'
+  | 'referee'
+  | 'rankings'
+  | 'deck'
+  | 'tierlist'
+  | 'comunidad'
+  | 'profile'
+  | 'participants'
+  | 'wizard'
+  | 'admin'
+  | 'docs';
 
 interface HeaderProps {
   activeTab: MainTabType;
   setActiveTab: (tab: MainTabType) => void;
+  onOpenCommandPalette?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
+export const Header: React.FC<HeaderProps> = ({
+  activeTab,
+  setActiveTab,
+  onOpenCommandPalette,
+}) => {
   const {
     tournaments,
     activeTournamentId,
@@ -30,13 +58,17 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
     openAuthModal,
     setShowStadiumModal,
   } = useTournament();
-  const [showProfile, setShowProfile] = React.useState(false);
+
+  const [showProfile, setShowProfile] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+
+  const isStaff = currentRole === 'referee' || currentRole === 'organizer' || currentRole === 'admin';
 
   const roleLabels: Record<string, { label: string; color: string }> = {
-    admin: { label: 'Admin', color: 'bg-rose-900/40 text-rose-300 border-rose-700/60' },
-    organizer: { label: 'Organizador', color: 'bg-amber-900/40 text-amber-300 border-amber-700/60' },
-    referee: { label: 'Árbitro', color: 'bg-emerald-900/40 text-emerald-300 border-emerald-700/60' },
-    blader: { label: 'Blader', color: 'bg-blue-900/40 text-blue-300 border-blue-700/60' },
+    admin: { label: 'Admin', color: 'bg-rose-900/60 text-rose-300 border-rose-700/80' },
+    organizer: { label: 'Organizador', color: 'bg-amber-900/60 text-amber-300 border-amber-700/80' },
+    referee: { label: 'Árbitro', color: 'bg-emerald-900/60 text-emerald-300 border-emerald-700/80' },
+    blader: { label: 'Blader', color: 'bg-blue-900/60 text-blue-300 border-blue-700/80' },
     public: { label: 'Público', color: 'bg-neutral-800 text-neutral-300 border-neutral-700' },
   };
 
@@ -50,13 +82,13 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
         <div
           onClick={() => setActiveTab('torneos')}
           className="flex items-center gap-2.5 shrink-0 cursor-pointer group"
-          title="Ver todos los torneos"
+          title="Ir al inicio de torneos"
         >
           <div className="w-8 h-8 rounded-lg bg-[var(--grafito)] border border-[var(--costura)] group-hover:border-[var(--acero)] text-[var(--hueso)] flex items-center justify-center font-bold text-sm tracking-wider shadow-xs transition-colors">
             ⚡X
           </div>
           <div>
-            <div className="text-sm sm:text-base font-bold text-[var(--hueso)] tracking-tight leading-none font-display">
+            <div className="text-sm sm:text-base font-black text-[var(--hueso)] tracking-tight leading-none font-display">
               BEYBLADE X ARENA
             </div>
             <div className="text-[10px] text-[var(--acero)] font-medium mt-0.5 hidden xs:block">
@@ -65,13 +97,14 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
           </div>
         </div>
 
-        {/* Zone 2: Navigation Links (User-Focused & Role Segmented) */}
-        <nav aria-label="Navegación principal" className="hidden md:flex items-center gap-1 hide-scrollbar">
-          {/* Torneos Hub: Visible to everyone */}
+        {/* Zone 2: Desktop 7-Group Navigation (Hick's Law: grouped cleanly) */}
+        <nav aria-label="Navegación principal" className="hidden lg:flex items-center gap-1">
+          {/* 1. Torneos */}
           <button
+            type="button"
             onClick={() => setActiveTab('torneos')}
             aria-current={activeTab === 'torneos' ? 'page' : undefined}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--r-control)] transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
               activeTab === 'torneos'
                 ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
                 : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
@@ -81,104 +114,178 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
             <span>Torneos</span>
           </button>
 
-          {/* Brackets: Visible to everyone */}
+          {/* 2. Brackets */}
           <button
+            type="button"
             onClick={() => setActiveTab('bracket')}
             aria-current={activeTab === 'bracket' ? 'page' : undefined}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--r-control)] transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
               activeTab === 'bracket'
                 ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
                 : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
             }`}
           >
             <AceroIcon id="i-trofeo" size="sm" />
-            <span>Brackets & Grupos</span>
+            <span>Brackets</span>
           </button>
 
-          {/* Referee Console: Only Árbitro, Organizador, Admin */}
-          {(currentRole === 'referee' || currentRole === 'organizer' || currentRole === 'admin') && (
-            <button
-              onClick={() => setActiveTab('referee')}
-              aria-current={activeTab === 'referee' ? 'page' : undefined}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--r-control)] transition-colors flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === 'referee'
-                  ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
-                  : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
-              }`}
-            >
-              <AceroIcon id="i-arbitro" size="sm" />
-              <span>Panel de Árbitro</span>
-            </button>
-          )}
-
-          {/* Bladers & Seeding: Only Organizador, Admin */}
-          {(currentRole === 'organizer' || currentRole === 'admin') && (
-            <button
-              onClick={() => setActiveTab('participants')}
-              aria-current={activeTab === 'participants' ? 'page' : undefined}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--r-control)] transition-colors flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === 'participants'
-                  ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
-                  : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
-              }`}
-            >
-              <AceroIcon id="i-participante" size="sm" />
-              <span>Bladers</span>
-            </button>
-          )}
-
-          {/* Tournament Wizard: Only Organizador, Admin */}
-          {(currentRole === 'organizer' || currentRole === 'admin') && (
-            <button
-              onClick={() => setActiveTab('wizard')}
-              aria-current={activeTab === 'wizard' ? 'page' : undefined}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--r-control)] transition-colors flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === 'wizard'
-                  ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
-                  : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
-              }`}
-            >
-              <AceroIcon id="i-ajustes" size="sm" />
-              <span>Diseñador</span>
-            </button>
-          )}
-
-          {/* Admin & Invitations: Only Admin */}
-          {currentRole === 'admin' && (
-            <button
-              onClick={() => setActiveTab('admin')}
-              aria-current={activeTab === 'admin' ? 'page' : undefined}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--r-control)] transition-colors flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === 'admin'
-                  ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
-                  : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-[var(--cobalto)]" />
-              <span>Personal & Accesos</span>
-            </button>
-          )}
-
-          {/* Stadium Projector Display: Visible to everyone */}
+          {/* 3. Marcador (Unified Free & Official) */}
           <button
-            onClick={() => setShowStadiumModal(true)}
-            className="px-2.5 py-1.5 text-xs font-semibold rounded-[var(--r-control)] text-amber-300 hover:text-amber-200 hover:bg-amber-950/30 transition-colors flex items-center gap-1.5 whitespace-nowrap"
-            title="Abrir pantalla en vivo para proyector o streaming"
+            type="button"
+            onClick={() => setActiveTab('marcador')}
+            aria-current={activeTab === 'marcador' || activeTab === 'referee' ? 'page' : undefined}
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+              activeTab === 'marcador' || activeTab === 'referee'
+                ? 'bg-[var(--cobalto)] text-[var(--tinta)] shadow-xs'
+                : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
+            }`}
           >
-            <AceroIcon id="i-envivo" size="sm" />
-            <span className="hidden lg:inline">Estadio</span>
+            <Radio className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Marcador</span>
           </button>
+
+          {/* 4. Rankings & Hall of Fame */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('rankings')}
+            aria-current={activeTab === 'rankings' ? 'page' : undefined}
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+              activeTab === 'rankings'
+                ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
+                : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
+            <span>Rankings & Salón</span>
+          </button>
+
+          {/* 5. Herramientas Dropdown (Deck 3on3, Tier List, Participantes) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setToolsOpen(!toolsOpen)}
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1 whitespace-nowrap min-h-[36px] ${
+                activeTab === 'deck' || activeTab === 'tierlist' || activeTab === 'participants'
+                  ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
+                  : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Herramientas</span>
+              <ChevronDown className="w-3 h-3 ml-0.5 opacity-70" />
+            </button>
+
+            {toolsOpen && (
+              <div
+                role="menu"
+                className="absolute left-0 mt-1 w-48 bg-[var(--chasis)] border border-[var(--costura)] rounded-2xl shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('deck');
+                    setToolsOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs font-bold text-[var(--hueso)] hover:bg-[var(--grafito)] rounded-xl flex items-center gap-2"
+                >
+                  <Layers className="w-4 h-4 text-cyan-400" />
+                  <span>Deck 3on3 Builder</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('tierlist');
+                    setToolsOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs font-bold text-[var(--hueso)] hover:bg-[var(--grafito)] rounded-xl flex items-center gap-2"
+                >
+                  <Shield className="w-4 h-4 text-rose-400" />
+                  <span>Tier List Competitiva</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('participants');
+                    setToolsOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs font-bold text-[var(--hueso)] hover:bg-[var(--grafito)] rounded-xl flex items-center gap-2"
+                >
+                  <Users className="w-4 h-4 text-blue-400" />
+                  <span>Participantes Torneo</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 6. Comunidad */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('comunidad')}
+            aria-current={activeTab === 'comunidad' ? 'page' : undefined}
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+              activeTab === 'comunidad'
+                ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
+                : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5 text-teal-400" />
+            <span>Comunidad & Reglas</span>
+          </button>
+
+          {/* 7. Gestionar (Solo para Staff) */}
+          {isStaff && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('admin')}
+              aria-current={activeTab === 'admin' || activeTab === 'wizard' ? 'page' : undefined}
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+                activeTab === 'admin' || activeTab === 'wizard'
+                  ? 'bg-amber-400 text-black shadow-xs'
+                  : 'text-amber-300 hover:text-amber-200 hover:bg-amber-950/40'
+              }`}
+            >
+              <Wrench className="w-3.5 h-3.5" />
+              <span>Gestionar</span>
+            </button>
+          )}
         </nav>
 
-        {/* Zone 3: Tournament Selector & User Account */}
+        {/* Zone 3: Utilities, SyncBadge, Search & Account */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* Active Tournament Quick Switcher */}
+          {/* Permanent Sync Badge */}
+          <div className="hidden sm:block">
+            <SyncBadge />
+          </div>
+
+          {/* Command Palette Trigger (Ctrl+K) */}
+          {onOpenCommandPalette && (
+            <button
+              type="button"
+              onClick={onOpenCommandPalette}
+              title="Búsqueda rápida (Ctrl+K)"
+              className="p-2 text-[var(--acero)] hover:text-[var(--hueso)] bg-[var(--grafito)] border border-[var(--costura)] hover:border-[var(--acero)] rounded-xl min-w-[38px] min-h-[38px] flex items-center justify-center transition-colors"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Stadium Display Trigger */}
+          <button
+            type="button"
+            onClick={() => setShowStadiumModal(true)}
+            title="Abrir Pantalla de Estadio en Vivo para TV o Proyector"
+            className="p-2 text-amber-300 hover:text-amber-200 bg-amber-950/30 border border-amber-800/60 rounded-xl min-w-[38px] min-h-[38px] flex items-center justify-center transition-colors"
+          >
+            <Tv className="w-4 h-4" />
+          </button>
+
+          {/* Active Tournament Switcher if multiple */}
           {tournaments.length > 1 && (
-            <div className="hidden md:block">
+            <div className="hidden xl:block">
               <select
                 value={activeTournamentId}
                 onChange={(e) => setActiveTournamentId(e.target.value)}
-                className="text-xs font-semibold border border-[var(--costura)] rounded-[var(--r-control)] px-2.5 py-1.5 bg-[var(--grafito)] text-[var(--hueso)] focus:outline-hidden max-w-[150px] truncate"
+                className="text-xs font-bold border border-[var(--costura)] rounded-xl px-2.5 py-1.5 bg-[var(--grafito)] text-[var(--hueso)] focus:outline-hidden max-w-[140px] truncate min-h-[38px]"
                 title="Cambiar torneo activo"
               >
                 {tournaments.map((t) => (
@@ -190,32 +297,38 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
             </div>
           )}
 
-          {/* If NOT logged in (Public): Login & Claim Invite buttons */}
+          {/* User Account Button / Login */}
           {currentRole === 'public' || !currentUser ? (
             <div className="flex items-center gap-1.5">
               <button
+                type="button"
                 onClick={() => openAuthModal('invite')}
-                className="px-2.5 py-1.5 text-xs font-semibold rounded-[var(--r-control)] border border-[var(--costura)] hover:border-[var(--acero)] text-[var(--hueso)] hover:bg-[var(--grafito)] transition-colors hidden sm:flex items-center gap-1.5"
+                className="px-2.5 py-1.5 text-xs font-semibold rounded-xl border border-[var(--costura)] hover:border-[var(--acero)] text-[var(--hueso)] hover:bg-[var(--grafito)] transition-colors hidden sm:flex items-center gap-1.5 min-h-[38px]"
               >
                 <KeyRound className="w-3.5 h-3.5 text-amber-400" />
                 <span>Invitación</span>
               </button>
               <button
+                type="button"
                 onClick={() => openAuthModal('login')}
-                className="px-3 py-1.5 text-xs font-bold rounded-[var(--r-control)] bg-[var(--hueso)] hover:bg-white text-[var(--tinta)] transition-all flex items-center gap-1.5 shadow-sm"
+                className="px-3 py-1.5 text-xs font-bold rounded-xl bg-[var(--hueso)] hover:bg-white text-[var(--tinta)] transition-all flex items-center gap-1.5 shadow-sm min-h-[38px]"
               >
                 <LogIn className="w-3.5 h-3.5" />
-                <span>Iniciar Sesión</span>
+                <span>Entrar</span>
               </button>
             </div>
           ) : (
-            /* If logged in: User Badge + Logout */
-            <div className="flex items-center gap-1.5 sm:gap-2 bg-[var(--grafito)] border border-[var(--costura)] rounded-[var(--r-control)] p-1 pr-1.5 shadow-2xs mr-1 sm:mr-0">
-              <button type="button" onClick={() => setShowProfile(true)} className="flex items-center gap-1.5 px-1 text-left" aria-label="Abrir mi perfil">
-                <div className="w-5 h-5 rounded-full bg-[var(--chasis)] border border-[var(--costura)] flex items-center justify-center text-[10px] font-bold text-[var(--hueso)] shrink-0">
+            <div className="flex items-center gap-1.5 bg-[var(--grafito)] border border-[var(--costura)] rounded-xl p-1 pr-1.5 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setActiveTab('profile')}
+                className="flex items-center gap-1.5 px-1 text-left min-h-[34px]"
+                aria-label="Abrir mi perfil"
+              >
+                <div className="w-6 h-6 rounded-full bg-[var(--cobalto)] text-[var(--tinta)] flex items-center justify-center text-[10px] font-black shrink-0">
                   {currentUser.displayName.charAt(0).toUpperCase()}
                 </div>
-                <span className="text-xs font-semibold text-[var(--hueso)] max-w-[80px] md:max-w-[110px] truncate hidden sm:inline hover:underline">
+                <span className="text-xs font-bold text-[var(--hueso)] max-w-[90px] truncate hidden md:inline hover:underline">
                   {currentUser.displayName}
                 </span>
                 <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border uppercase shrink-0 ${currentRoleMeta.color}`}>
@@ -223,8 +336,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
                 </span>
               </button>
               <button
+                type="button"
                 onClick={logout}
-                className="p-1 rounded text-[var(--acero)] hover:text-rose-400 hover:bg-[var(--chasis)] transition-colors shrink-0"
+                className="p-1 rounded-lg text-[var(--acero)] hover:text-rose-400 hover:bg-[var(--chasis)] transition-colors shrink-0 min-w-[28px] min-h-[28px] flex items-center justify-center"
                 title="Cerrar Sesión"
               >
                 <LogOut className="w-3.5 h-3.5" />
@@ -233,85 +347,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
           )}
         </div>
       </div>
+
       <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} />
-
-      {/* Mobile Sub-bar */}
-      <nav aria-label="Navegación móvil" className="flex md:hidden overflow-x-auto border-t border-[var(--costura)] px-3 py-1.5 gap-1 scrollbar-none bg-[var(--grafito)]">
-        <button
-          onClick={() => setActiveTab('torneos')}
-          aria-current={activeTab === 'torneos' ? 'page' : undefined}
-          className={`px-2.5 py-1 text-xs font-medium rounded shrink-0 ${
-            activeTab === 'torneos' ? 'bg-[var(--hueso)] text-[var(--tinta)] font-bold' : 'text-[var(--acero)]'
-          }`}
-        >
-          Torneos
-        </button>
-
-        <button
-          onClick={() => setActiveTab('bracket')}
-          aria-current={activeTab === 'bracket' ? 'page' : undefined}
-          className={`px-2.5 py-1 text-xs font-medium rounded shrink-0 ${
-            activeTab === 'bracket' ? 'bg-[var(--hueso)] text-[var(--tinta)] font-bold' : 'text-[var(--acero)]'
-          }`}
-        >
-          Brackets
-        </button>
-
-        {(currentRole === 'referee' || currentRole === 'organizer' || currentRole === 'admin') && (
-          <button
-            onClick={() => setActiveTab('referee')}
-            aria-current={activeTab === 'referee' ? 'page' : undefined}
-            className={`px-2.5 py-1 text-xs font-medium rounded shrink-0 ${
-              activeTab === 'referee' ? 'bg-[var(--hueso)] text-[var(--tinta)] font-bold' : 'text-[var(--acero)]'
-            }`}
-          >
-            Árbitro
-          </button>
-        )}
-
-        {(currentRole === 'organizer' || currentRole === 'admin') && (
-          <button
-            onClick={() => setActiveTab('participants')}
-            aria-current={activeTab === 'participants' ? 'page' : undefined}
-            className={`px-2.5 py-1 text-xs font-medium rounded shrink-0 ${
-              activeTab === 'participants' ? 'bg-[var(--hueso)] text-[var(--tinta)] font-bold' : 'text-[var(--acero)]'
-            }`}
-          >
-            Bladers
-          </button>
-        )}
-
-        {(currentRole === 'organizer' || currentRole === 'admin') && (
-          <button
-            onClick={() => setActiveTab('wizard')}
-            aria-current={activeTab === 'wizard' ? 'page' : undefined}
-            className={`px-2.5 py-1 text-xs font-medium rounded shrink-0 ${
-              activeTab === 'wizard' ? 'bg-[var(--hueso)] text-[var(--tinta)] font-bold' : 'text-[var(--acero)]'
-            }`}
-          >
-            Diseñador
-          </button>
-        )}
-
-        {currentRole === 'admin' && (
-          <button
-            onClick={() => setActiveTab('admin')}
-            aria-current={activeTab === 'admin' ? 'page' : undefined}
-            className={`px-2.5 py-1 text-xs font-medium rounded shrink-0 ${
-              activeTab === 'admin' ? 'bg-[var(--hueso)] text-[var(--tinta)] font-bold' : 'text-[var(--acero)]'
-            }`}
-          >
-            Personal
-          </button>
-        )}
-
-        <button
-          onClick={() => setShowStadiumModal(true)}
-          className="px-2.5 py-1 text-xs font-medium rounded shrink-0 text-amber-300 bg-amber-950/40"
-        >
-          Estadio
-        </button>
-      </nav>
     </header>
   );
 };
