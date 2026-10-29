@@ -2163,15 +2163,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
     const test = await testSupabaseConnection(url, anonKey);
     setSupabaseSyncInfo({
-      isConfigured: Boolean(anonKey),
+      isConfigured: Boolean(url.trim() && anonKey.trim()),
       isConnected: test.success,
       lastSync: test.success ? new Date().toLocaleTimeString() : null,
       message: test.message,
     });
-    if (test.success && activeTournament) {
-      // Auto-sync after successful connection
-      await syncCurrentTournamentToSupabase();
-    }
     return test;
   };
 
