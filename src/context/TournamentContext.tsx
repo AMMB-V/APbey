@@ -329,27 +329,34 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       active = false;
     };
   }, []);
-  const [tournaments, setTournaments] = useState<Tournament[]>(INITIAL_TOURNAMENTS);
-  const [activeTournamentId, setActiveTournamentId] = useState<string>(INITIAL_TOURNAMENTS[0]?.id || '');
-  const [stages, setStages] = useState<Stage[]>(INITIAL_STAGES);
-  const [groups, setGroups] = useState<Group[]>(INITIAL_GROUPS);
-  const [rounds, setRounds] = useState<Round[]>(INITIAL_ROUNDS);
-  const [matches, setMatches] = useState<Match[]>(INITIAL_MATCHES);
-  const [participants, setParticipants] = useState<Participant[]>(INITIAL_PARTICIPANTS);
-  const [battles, setBattles] = useState<Battle[]>(INITIAL_BATTLES);
-  const [penalties, setPenalties] = useState<Penalty[]>(INITIAL_PENALTIES);
+  const initialSupabaseConfig = getStoredSupabaseConfig();
+  const hasConfiguredSupabase = Boolean(initialSupabaseConfig.url && initialSupabaseConfig.anonKey);
+  const [tournaments, setTournaments] = useState<Tournament[]>(
+    hasConfiguredSupabase ? [] : INITIAL_TOURNAMENTS
+  );
+  const [activeTournamentId, setActiveTournamentId] = useState<string>(
+    hasConfiguredSupabase ? '' : INITIAL_TOURNAMENTS[0]?.id || ''
+  );
+  const [stages, setStages] = useState<Stage[]>(hasConfiguredSupabase ? [] : INITIAL_STAGES);
+  const [groups, setGroups] = useState<Group[]>(hasConfiguredSupabase ? [] : INITIAL_GROUPS);
+  const [rounds, setRounds] = useState<Round[]>(hasConfiguredSupabase ? [] : INITIAL_ROUNDS);
+  const [matches, setMatches] = useState<Match[]>(hasConfiguredSupabase ? [] : INITIAL_MATCHES);
+  const [participants, setParticipants] = useState<Participant[]>(
+    hasConfiguredSupabase ? [] : INITIAL_PARTICIPANTS
+  );
+  const [battles, setBattles] = useState<Battle[]>(hasConfiguredSupabase ? [] : INITIAL_BATTLES);
+  const [penalties, setPenalties] = useState<Penalty[]>(hasConfiguredSupabase ? [] : INITIAL_PENALTIES);
   const [invitations, setInvitations] = useState<Invitation[]>(INITIAL_INVITATIONS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [activeStationAlert, setActiveStationAlert] = useState<{ matchId: string; message: string; timestamp: number } | null>(null);
   const [showStadiumModal, setShowStadiumModal] = useState<boolean>(false);
   const matchesRef = useRef<Match[]>([]);
   const [supabaseSyncInfo, setSupabaseSyncInfo] = useState<SupabaseSyncInfo>(() => {
-    const config = getStoredSupabaseConfig();
     return {
-      isConfigured: Boolean(config.anonKey),
+      isConfigured: hasConfiguredSupabase,
       isConnected: false,
       lastSync: null,
-      message: config.anonKey ? 'Clave configurada' : 'Modo local (Sin clave Supabase)',
+      message: hasConfiguredSupabase ? 'Cargando datos desde Supabase...' : 'Modo local (Sin clave Supabase)',
     };
   });
 
@@ -2121,6 +2128,17 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const updateSupabaseKeys = async (url: string, anonKey: string): Promise<{ success: boolean; message: string }> => {
     saveSupabaseConfig(url, anonKey);
+    if (url.trim() && anonKey.trim()) {
+      setTournaments([]);
+      setActiveTournamentId('');
+      setStages([]);
+      setGroups([]);
+      setRounds([]);
+      setMatches([]);
+      setParticipants([]);
+      setBattles([]);
+      setPenalties([]);
+    }
     const test = await testSupabaseConnection(url, anonKey);
     setSupabaseSyncInfo({
       isConfigured: Boolean(anonKey),
