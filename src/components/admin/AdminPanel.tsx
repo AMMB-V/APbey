@@ -17,6 +17,8 @@ import {
   Database,
   UploadCloud,
   ExternalLink,
+  X,
+  Send,
 } from 'lucide-react';
 
 export const AdminPanel: React.FC = () => {
@@ -47,6 +49,13 @@ export const AdminPanel: React.FC = () => {
   const [showDbModal, setShowDbModal] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isImportingRankings, setIsImportingRankings] = useState(false);
+  const [emailModalData, setEmailModalData] = useState<{
+    isOpen: boolean;
+    email: string;
+    code: string;
+    role?: string;
+  } | null>(null);
+  const [emailCopiedState, setEmailCopiedState] = useState<boolean>(false);
 
   const handleCreateInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,13 +84,40 @@ export const AdminPanel: React.FC = () => {
     setTimeout(() => setCopiedCode(null), 2500);
   };
 
-  const prepareInvitationEmail = (email: string, code: string) => {
+  const prepareInvitationEmail = (email: string, code: string, role?: string) => {
     const inviteUrl = `${window.location.origin}?invite=${encodeURIComponent(code)}`;
-    const subject = encodeURIComponent('Invitación a Beyblade X Arena');
-    const body = encodeURIComponent(
-      `Has sido invitado a Beyblade X Arena.\n\nCódigo de invitación: ${code}\nEnlace de registro: ${inviteUrl}\n\nUsa el mismo correo al registrarte.`
-    );
-    window.location.href = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`;
+    const roleLabel = role === 'organizer' ? 'Organizador' : 'Árbitro Oficial';
+    const emailBody = `¡Hola!\n\nHas sido invitado a Beyblade X Arena con el rol de ${roleLabel}.\n\nCódigo de invitación: ${code}\nEnlace de registro directo: ${inviteUrl}\n\nPor favor usa esta dirección de correo (${email}) para registrarte o iniciar sesión.\n\n¡Nos vemos en la arena!`;
+
+    // Copy to clipboard immediately as a reliable backup
+    try {
+      navigator.clipboard.writeText(emailBody);
+      setSuccessMsg(`✓ Texto de invitación copiado al portapapeles para ${email}`);
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch {}
+
+    // Also attempt mailto via temporary anchor
+    try {
+      const subject = encodeURIComponent(`Invitación a Beyblade X Arena (${roleLabel})`);
+      const body = encodeURIComponent(emailBody);
+      const mailtoLink = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`;
+      const tempLink = document.createElement('a');
+      tempLink.href = mailtoLink;
+      tempLink.target = '_blank';
+      tempLink.rel = 'noopener noreferrer';
+      document.body.appendChild(tempLink);
+      tempLink.click();
+      document.body.removeChild(tempLink);
+    } catch {
+      // Fallback handled by modal
+    }
+
+    setEmailModalData({
+      isOpen: true,
+      email,
+      code,
+      role,
+    });
   };
 
   const handleManualSync = async () => {
@@ -399,12 +435,12 @@ export const AdminPanel: React.FC = () => {
                         <ExternalLink className="w-3.5 h-3.5" />
                       </button>
                       <button
-                      onClick={() => prepareInvitationEmail(inv.email, inv.code)}
-                      className="p-1 rounded text-[var(--acero)] hover:text-amber-300"
-                      title="Preparar correo de invitación"
-                      aria-label={`Preparar correo para ${inv.email}`}
+                        onClick={() => prepareInvitationEmail(inv.email, inv.code, inv.role)}
+                        className="p-1 rounded text-[var(--acero)] hover:text-amber-300"
+                        title="Enviar / preparar correo de invitación"
+                        aria-label={`Enviar correo a ${inv.email}`}
                       >
-                      <Mail className="w-3.5 h-3.5" />
+                        <Mail className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => {
@@ -547,7 +583,91 @@ export const AdminPanel: React.FC = () => {
     </section>
   )}
 
-  <SupabaseModal isOpen={showDbModal} onClose={() => setShowDbModal(false)} />
+      {/* Modal de Envío y Preparación de Correo de Invitación */}
+      {emailModalData?.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs">
+          <div className="bg-[var(--chasis)] border border-[var(--costura)] rounded-[var(--r-card)] max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--costura)]">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[var(--hueso)] font-display">
+                    Invitación por Correo Electrónico
+                  </h3>
+                  <p className="text-xs text-[var(--acero)]">
+                    Destinatario: <span className="font-mono text-[var(--hueso)]">{emailModalData.email}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEmailModalData(null)}
+                className="p-1.5 rounded-lg text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 rounded-lg bg-[var(--grafito)] border border-[var(--costura)] space-y-2">
+                <div className="flex justify-between items-center text-[11px] text-[var(--acero)]">
+                  <span>CÓDIGO DE ACCESO</span>
+                  <span className="font-mono font-bold text-[var(--cobalto)]">{emailModalData.code}</span>
+                </div>
+                <div className="flex justify-between items-center text-[11px] text-[var(--acero)]">
+                  <span>ROL ASIGNADO</span>
+                  <span className="font-bold text-[var(--hueso)] capitalize">
+                    {emailModalData.role === 'organizer' ? 'Organizador' : 'Árbitro Oficial'}
+                  </span>
+                </div>
+                <div className="text-[11px] text-[var(--acero)] pt-1 border-t border-[var(--costura)]">
+                  <span>ENLACE DIRECTO:</span>
+                  <div className="mt-1 font-mono text-[10px] break-all bg-[var(--chasis)] p-2 rounded text-[var(--hueso)]">
+                    {`${window.location.origin}?invite=${encodeURIComponent(emailModalData.code)}`}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-300 text-[11px] leading-relaxed">
+                💡 Si tu cliente de correo (Outlook, Mail o Thunderbird) no se abrió automáticamente debido a restricciones de seguridad del navegador en el visor, puedes abrir Gmail Web directamente o copiar la plantilla de invitación.
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-[var(--costura)]">
+              <button
+                type="button"
+                onClick={() => {
+                  const inviteUrl = `${window.location.origin}?invite=${encodeURIComponent(emailModalData.code)}`;
+                  const roleLabel = emailModalData.role === 'organizer' ? 'Organizador' : 'Árbitro Oficial';
+                  const fullText = `Has sido invitado a Beyblade X Arena como ${roleLabel}.\n\nCódigo de invitación: ${emailModalData.code}\nEnlace directo: ${inviteUrl}\n\nIngresa con este correo (${emailModalData.email}) al registrarte.`;
+                  copyToClipboard(fullText);
+                  setEmailCopiedState(true);
+                  setTimeout(() => setEmailCopiedState(false), 3000);
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-[var(--grafito)] hover:bg-[var(--costura)] text-[var(--hueso)] text-xs font-bold flex items-center justify-center gap-2 border border-[var(--costura)] transition-all cursor-pointer"
+              >
+                {emailCopiedState ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                {emailCopiedState ? '¡Mensaje Copiado!' : 'Copiar Mensaje'}
+              </button>
+
+              <a
+                href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(emailModalData.email)}&su=${encodeURIComponent('Invitación a Beyblade X Arena')}&body=${encodeURIComponent(
+                  `Has sido invitado a Beyblade X Arena.\n\nCódigo: ${emailModalData.code}\nEnlace: ${window.location.origin}?invite=${encodeURIComponent(emailModalData.code)}\n\nUsa este correo (${emailModalData.email}) para acceder.`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-2.5 px-3 rounded-xl bg-[var(--cobalto)] hover:brightness-110 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs"
+              >
+                <Send className="w-4 h-4" />
+                Abrir en Gmail Web
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <SupabaseModal isOpen={showDbModal} onClose={() => setShowDbModal(false)} />
     </div>
   );
 };

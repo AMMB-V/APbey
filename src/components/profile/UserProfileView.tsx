@@ -1,12 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Shield, Trophy, Award, Layers, Edit2, Check, Sparkles, LogOut } from 'lucide-react';
 import { useTournament } from '../../context/TournamentContext';
 
 export const UserProfileView: React.FC = () => {
-  const { currentUser, currentRole, logout } = useTournament();
+  const { currentUser, currentRole, logout, updateProfile, matches, participants } = useTournament();
   const [isEditingName, setIsEditingName] = useState(false);
   const [displayName, setDisplayName] = useState(currentUser?.displayName || 'Blader Competidor');
   const [saveFeedback, setSaveFeedback] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (currentUser?.displayName) {
+      setDisplayName(currentUser.displayName);
+    }
+  }, [currentUser?.displayName]);
 
   const savedDeck = (() => {
     if (typeof window !== 'undefined') {
@@ -26,10 +33,37 @@ export const UserProfileView: React.FC = () => {
     ];
   })();
 
-  const handleSaveName = () => {
-    setIsEditingName(false);
-    setSaveFeedback(true);
-    setTimeout(() => setSaveFeedback(false), 2500);
+  // Calculate real stats from completed matches
+  const userMatches = matches.filter(
+    (m) =>
+      m.status === 'completed' &&
+      ((m.participant1Id && participants.find((p) => p.id === m.participant1Id)?.profileId === currentUser?.id) ||
+        (m.participant2Id && participants.find((p) => p.id === m.participant2Id)?.profileId === currentUser?.id))
+  );
+
+  const wins = userMatches.filter((m) => {
+    const isP1 = participants.find((p) => p.id === m.participant1Id)?.profileId === currentUser?.id;
+    return isP1 ? m.winnerId === m.participant1Id : m.winnerId === m.participant2Id;
+  }).length;
+
+  const losses = userMatches.length - wins;
+  const winRate = userMatches.length > 0 ? `${((wins / userMatches.length) * 100).toFixed(1)}%` : '0%';
+  const tournamentsWon = 0;
+  const elo = userMatches.length > 0 ? 1000 + wins * 25 - losses * 15 : 0;
+
+  const handleSaveName = async () => {
+    if (!currentUser || isSaving) return;
+    setIsSaving(true);
+    const res = await updateProfile({
+      displayName: displayName.trim(),
+      email: currentUser.email,
+    });
+    setIsSaving(false);
+    if (res.success) {
+      setIsEditingName(false);
+      setSaveFeedback(true);
+      setTimeout(() => setSaveFeedback(false), 3000);
+    }
   };
 
   const roleBadges: Record<string, { label: string; color: string }> = {
@@ -70,14 +104,16 @@ export const UserProfileView: React.FC = () => {
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     className="bg-[var(--grafito)] border border-[var(--cobalto)] rounded-xl px-3 py-1.5 text-sm font-bold text-[var(--hueso)] outline-hidden min-h-[38px]"
+                    placeholder="Tu nombre público"
                   />
                   <button
                     type="button"
                     onClick={handleSaveName}
-                    className="p-2 rounded-xl bg-[var(--cobalto)] text-[var(--tinta)] font-bold text-xs min-h-[38px] flex items-center gap-1"
+                    disabled={isSaving}
+                    className="p-2 rounded-xl bg-[var(--cobalto)] text-[var(--tinta)] font-bold text-xs min-h-[38px] flex items-center gap-1 disabled:opacity-50"
                   >
                     <Check className="w-4 h-4" />
-                    <span>Guardar</span>
+                    <span>{isSaving ? 'Guardando...' : 'Guardar'}</span>
                   </button>
                 </div>
               ) : (
@@ -116,18 +152,18 @@ export const UserProfileView: React.FC = () => {
 
         {saveFeedback && (
           <div className="p-3 bg-emerald-950/60 border border-emerald-600/80 rounded-xl text-xs font-bold text-emerald-300">
-            ✓ Nombre de usuario actualizado exitosamente.
+            ✓ Nombre de usuario guardado y actualizado exitosamente.
           </div>
         )}
 
-        {/* Stats Grid */}
+        {/* Stats Grid: Clean 0 or dynamic match stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-[var(--costura)]">
           <div className="p-3.5 rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] text-center">
             <div className="text-[10px] text-[var(--acero)] uppercase tracking-wider font-semibold">
               Rating ELO
             </div>
             <div className="text-xl sm:text-2xl font-black font-mono text-purple-400 mt-0.5">
-              1,845
+              {elo}
             </div>
           </div>
 
@@ -136,7 +172,7 @@ export const UserProfileView: React.FC = () => {
               Récord V / D
             </div>
             <div className="text-xl sm:text-2xl font-black font-mono text-emerald-400 mt-0.5">
-              48 - 9
+              {wins} - {losses}
             </div>
           </div>
 
@@ -145,7 +181,7 @@ export const UserProfileView: React.FC = () => {
               Efectividad
             </div>
             <div className="text-xl sm:text-2xl font-black font-mono text-cyan-400 mt-0.5">
-              84.2%
+              {winRate}
             </div>
           </div>
 
@@ -154,7 +190,7 @@ export const UserProfileView: React.FC = () => {
               Torneos Ganados
             </div>
             <div className="text-xl sm:text-2xl font-black font-mono text-amber-400 mt-0.5">
-              🏆 5
+              🏆 {tournamentsWon}
             </div>
           </div>
         </div>
@@ -169,21 +205,23 @@ export const UserProfileView: React.FC = () => {
               Deck 3on3 Registrado
             </h2>
           </div>
-          <span className="text-xs text-emerald-400 font-bold">Certificado WBO</span>
+          <span className="text-xs text-[var(--acero)] font-bold">WBO Format</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {savedDeck.map((item: any, i: number) => (
             <div
               key={i}
-              className="p-3 rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] flex flex-col gap-1"
+              className="p-3 rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] flex flex-col gap-1 min-h-[70px]"
             >
               <div className="text-[10px] text-[var(--acero)] font-mono font-bold uppercase">
                 Slot #{i + 1}
               </div>
-              <div className="text-xs font-black text-[var(--hueso)]">{item.blade}</div>
+              <div className="text-xs font-black text-[var(--hueso)]">
+                {item.blade || 'Sin Blade asignada'}
+              </div>
               <div className="text-[11px] font-mono text-cyan-400">
-                {item.ratchet} {item.bit}
+                {item.ratchet || item.bit ? `${item.ratchet} ${item.bit}` : 'Pendiente de armado'}
               </div>
             </div>
           ))}
