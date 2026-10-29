@@ -51,7 +51,7 @@ APbey no debe publicarse como plataforma multiusuario si alguno de estos puntos 
 Supabase será la autoridad única para identidad, torneos, participantes, etapas, matches, batallas, penalizaciones, invitaciones, rankings y auditoría.
 
 - `localStorage` sólo conservará preferencias de interfaz no críticas.
-- `data/*.json` quedará fuera del camino productivo o se eliminará después de migrar sus consumidores.
+- `data/*.json` ya fue eliminado del camino productivo; no se mantiene un almacén JSON alternativo.
 - Los IDs usados por el frontend serán UUID o identificadores devueltos por Supabase; no se crearán IDs locales incompatibles.
 - Toda mutación crítica tendrá confirmación remota antes de actualizar la UI como exitosa.
 
@@ -91,7 +91,7 @@ Tareas:
 
 - inventariar cada lectura y escritura de `TournamentContext`;
 - sustituir persistencia crítica local por consultas y mutaciones Supabase;
-- migrar configuraciones de etapas y asignaciones de árbitros desde JSON a tablas o columnas JSONB controladas;
+- mantener configuraciones de etapas en `stages.config` y asignaciones en `groups`, `matches` y `tournament_referees`, sin rutas JSON auxiliares;
 - corregir compatibilidad de IDs y validar relaciones con UUID;
 - centralizar contratos de entrada y salida con esquemas Zod o una capa equivalente;
 - definir un formato de error común: código, mensaje seguro, detalles de validación y request ID;
@@ -254,7 +254,7 @@ Tareas:
 ### Gate B — Datos
 
 - [ ] Supabase es la fuente de verdad.
-- [ ] No se usan JSON mutables para datos productivos.
+- [x] No se usan JSON mutables para datos productivos.
 - [ ] Escrituras críticas son transaccionales e idempotentes.
 - [ ] Backup y restauración probados.
 - [ ] Auditoría registra las mutaciones principales.
@@ -310,7 +310,7 @@ El porcentaje de preparación deberá actualizarse por evidencia, no por cantida
 | Riesgo | Mitigación |
 |---|---|
 | Migración de IDs locales a UUID | Script de migración, fixture de staging y validación de referencias antes de cortar el modo local. |
-| Dependencia accidental de JSON | Buscar consumidores, fallar explícitamente en producción y eliminar rutas después de migrar. |
+| Dependencia accidental de JSON | El backend no tiene consumidores ni rutas de persistencia JSON; las mutaciones críticas fallan si Supabase no está disponible. |
 | RLS demasiado permisivo o restrictivo | Matriz de permisos por rol y pruebas negativas automatizadas. |
 | Conflictos al registrar batallas | Control de versión, idempotency key y transacción en Supabase. |
 | Despliegue sin backend | Smoke test externo de `/api/health` y una mutación autenticada. |

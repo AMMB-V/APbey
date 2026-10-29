@@ -8,7 +8,7 @@ Alcance: frontend, backend, motor de torneos, persistencia, Supabase, despliegue
 
 El plan adjunto **no está aplicado en su totalidad**, ni en frontend ni en backend. Hay una base funcional sólida para brackets, grupos, arbitraje, participantes, configuración y visualización, pero los controles necesarios para producción multiusuario todavía no están completos.
 
-La mayor parte de la brecha no es visual: los roles del frontend no constituyen autorización por sí solos, las rutas mutantes restantes de Express aún dependen de JSON auxiliar y la configuración de Vercel no publica el backend Express. También faltan automatizaciones y superficies completas del plan: Double Elimination real, reabrir combate, check-in automático con expiración, auto-drop/re-siembra, API de overlays, SSE/webhooks y pruebas automatizadas.
+La mayor parte de la brecha no es visual: los roles del frontend no constituyen autorización por sí solos y la configuración de Vercel no publica el backend Express. Las rutas mutantes auxiliares que dependían de JSON fueron retiradas; las configuraciones y asignaciones ahora se escriben directamente en Supabase con RLS. También faltan automatizaciones y superficies completas del plan: Double Elimination real, reabrir combate, check-in automático con expiración, auto-drop/re-siembra, API de overlays, SSE/webhooks y pruebas automatizadas.
 
 ## Respuestas a los documentos iniciales
 
@@ -64,7 +64,7 @@ La respuesta funcional es conservar el alcance del PDF como contrato del MVP, us
 - Esta auditoría incorpora la matriz de respuesta a `CLAUDE.md`, el PDF y el plan integrado.
 - El login de interfaz usa Supabase Auth y reconstruye el rol desde `profiles`; ya no acepta una contraseña arbitraria ni un rol proveniente de `localStorage`.
 - El cliente ya no permite cambiar roles mediante `switchRole`.
-- Las mutaciones Express tienen límite de body, headers básicos, validación de payload, escritura atómica de JSON y middleware de Supabase Auth/RBAC cuando el backend está configurado.
+- El backend Express conserva límites de body y headers básicos, pero ya no persiste JSON ni ofrece una ruta alternativa de mutaciones; las configuraciones críticas se guardan directamente mediante Supabase Auth/RLS.
 - Las llamadas cliente al backend adjuntan el access token disponible.
 - Se generó `package-lock.json`, se añadió `npm run test` con Vitest y se incorporaron dos regresiones del generador Single Elimination.
 - Se añadió `supabase/migrations/20261026_security_rls_completion.sql` para completar políticas RLS de tablas relacionales y fijar `audit_log` como tabla canónica de nuevas escrituras.
@@ -98,7 +98,7 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 | Bracket, zoom, pan y gestos | Parcial/no aplicado | `BracketViewer.tsx` | Añadir pointer events, arrastre, pinch/zoom y layout escalable. |
 | Overlays, API pública y streaming | No aplicado | `server.ts` no expone esas rutas | Crear API versionada de sólo lectura y SSE/webhooks firmados. |
 | RBAC frontend | Parcial | `Header.tsx`, `App.tsx` | Mantenerlo como UX, no como control de seguridad. |
-| RBAC backend | Parcial | `server.ts` middleware Supabase Auth/RBAC | Añadir autorización por torneo/match y eliminar almacenamiento JSON productivo. |
+| RBAC backend | Parcial | Supabase Auth/RLS y mutaciones directas desde el cliente | Añadir pruebas API con tokens reales y autorización completa por torneo/match. |
 | RLS | Parcial avanzado | `supabase/migrations/20261026_security_rls_completion.sql` | Ejecutar contra una instancia real y revisar políticas de UPDATE/DELETE y RPC. |
 | Auditoría | Parcial avanzado | `audit_log`, migración de unificación y RPC de invitaciones | Persistir actor autenticado en todas las mutaciones y completar auditoría de correcciones. |
 | CI y pruebas | Parcial avanzado | `.github/workflows/ci.yml`, `package.json`, Vitest | Añadir pruebas API, RLS, integración, E2E y accesibilidad. |
@@ -109,18 +109,18 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 ### P0 — Seguridad y autorización
 
 1. `src/context/TournamentContext.tsx` conserva estado de sesión en cliente para UX; la autoridad efectiva debe seguir siendo Supabase Auth/RLS.
-2. Las rutas mutantes restantes de `server.ts` todavía dependen de archivos JSON y requieren completar autorización por recurso.
+2. Las rutas mutantes JSON de `server.ts` fueron retiradas; las mutaciones de configuración y arbitraje requieren sesión Supabase y las políticas RLS de sus tablas.
 3. El canje de invitaciones ya no usa leer-modificar-escribir sobre JSON: el flujo activo usa el RPC transaccional `claim_invitation`.
 4. La autorización del frontend sólo oculta vistas; no protege recursos.
 
-**Avance de esta iteración:** el login valida contraseña mediante Supabase Auth, la restauración obtiene el rol desde `profiles`, las invitaciones usan `claim_invitation` y se retiraron las rutas legacy de invitaciones basadas en JSON. Las mutaciones Express exigen autenticación y roles permitidos cuando el backend está configurado, pero la autorización por torneo y la migración total a persistencia cloud siguen pendientes.
+**Avance de esta iteración:** el login valida contraseña mediante Supabase Auth, la restauración obtiene el rol desde `profiles`, las invitaciones usan `claim_invitation`, y la configuración de etapas/asignaciones de árbitros se persiste directamente en Supabase. La autorización por torneo ya tiene una prueba rollback-only contra la instancia conectada; aún falta repetirla con cuentas reales de organizer, referee y blader, además de pruebas API desplegadas.
 
 **Decisión adoptada:** Supabase Auth + RLS es la autoridad; no se deben mantener roles confiables en localStorage.
 
 ### P0 — Despliegue y persistencia
 
 1. `vercel.json` reescribe todas las rutas a `index.html`; no despliega `server.ts`.
-2. `data/*.json` no ofrece persistencia compartida ni fiable en serverless.
+2. El backend ya no usa `data/*.json`; el despliegue debe publicar Express o separar la API.
 3. La aplicación puede mostrar éxito local mientras una sincronización remota falla parcialmente.
 
 ### P1 — Modelo de datos y consistencia
@@ -184,6 +184,7 @@ La validación de esta iteración sí pasó:
 
 - `npm.cmd run lint`
 - `npm.cmd run test` — 3 archivos, 8 pruebas.
+- `supabase/tests/rls_authorization.sql` — ejecutada contra la instancia Supabase conectada; 4 pruebas rollback-only pasaron.
 - `npm.cmd run build` — bundle generado; Vite mantiene un aviso de chunk principal superior a 500 kB.
 - `npm.cmd audit --omit=dev` — sin vulnerabilidades de producción detectadas.
 - `git diff --check`

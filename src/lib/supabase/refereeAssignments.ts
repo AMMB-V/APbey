@@ -1,17 +1,16 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { getSupabaseAccessToken } from './client';
+import { getSupabaseClient } from './client';
 
 export interface RefereeAssignmentRecord {
   tournamentId: string;
-  stageAssignments: Record<string, string | null>; // stageId -> refereeId
-  groupAssignments: Record<string, string | null>; // groupId -> refereeId
+  stageAssignments: Record<string, string | null>;
+  groupAssignments: Record<string, string | null>;
   updatedAt: string;
   updatedBy?: string;
 }
 
 export interface SupabaseSyncResult {
   success: boolean;
-  persistedIn: 'supabase' | 'backend' | 'local';
+  persistedIn: 'supabase' | 'none';
   timestamp: string;
   message: string;
   recordsUpdated?: number;
@@ -19,40 +18,10 @@ export interface SupabaseSyncResult {
   sqlStatements?: string[];
 }
 
-const STORAGE_KEY = 'bey_referee_assignments_';
-
-// Lazy-initialized Supabase client
-let supabaseClientInstance: SupabaseClient | null = null;
-
-export function getSupabaseClient(): SupabaseClient | null {
-  if (supabaseClientInstance) return supabaseClientInstance;
-
-  const url =
-    (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_SUPABASE_URL) ||
-    (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_URL) ||
-    (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SUPABASE_URL);
-
-  const anonKey =
-    (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
-    (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_ANON_KEY) ||
-    (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SUPABASE_ANON_KEY);
-
-  if (url && anonKey) {
-    try {
-      supabaseClientInstance = createClient(url, anonKey);
-      return supabaseClientInstance;
-    } catch (e) {
-      console.warn('Could not initialize Supabase client:', e);
-    }
-  }
-
-  return null;
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-/**
- * Generate executable PostgreSQL SQL statements that Supabase can run
- * based on the current referee assignments.
- */
 export function generateSupabaseSQL(
   tournamentId: string,
   stageAssignments: Record<string, string | null>,
@@ -60,194 +29,229 @@ export function generateSupabaseSQL(
 ): string[] {
   const statements: string[] = [];
 
-  // Group assignments update
   for (const [groupId, refereeId] of Object.entries(groupAssignments)) {
-    if (refereeId) {
-      statements.push(
-        `-- Asignar árbitro al grupo y a sus partidas vinculadas\n` +
-        `UPDATE groups SET referee_id = '${refereeId}' WHERE id = '${groupId}';\n` +
-        `UPDATE matches SET referee_id = '${refereeId}' WHERE group_id = '${groupId}' AND status <> 'completed';`
-      );
-    } else {
-      statements.push(
-        `UPDATE groups SET referee_id = NULL WHERE id = '${groupId}';`
-      );
-    }
-  }
-
-  // Stage assignments update
-  for (const [stageId, refereeId] of Object.entries(stageAssignments)) {
-    if (refereeId) {
-      statements.push(
-        `-- Asignar árbitro jefe de fase / etapa\n` +
-        `UPDATE stages SET config = jsonb_set(coalesce(config, '{}'::jsonb), '{head_referee_id}', '"${refereeId}"'::jsonb) WHERE id = '${stageId}';`
-      );
-    } else {
-      statements.push(
-        `UPDATE stages SET config = config - 'head_referee_id' WHERE id = '${stageId}';`
-      );
-    }
-  }
-
-  // Tournament referees roster
-  const allReferees = new Set<string>();
-  Object.values(stageAssignments).forEach(r => r && allReferees.add(r));
-  Object.values(groupAssignments).forEach(r => r && allReferees.add(r));
-
-  for (const refId of allReferees) {
     statements.push(
-      `INSERT INTO tournament_referees (tournament_id, profile_id) VALUES ('${tournamentId}', '${refId}') ON CONFLICT (tournament_id, profile_id) DO NOTHING;`
+      refereeId
+        ? `UPDATE groups SET referee_id = '${refereeId}' WHERE id = '${groupId}';\nUPDATE matches SET referee_id = '${refereeId}' WHERE group_id = '${groupId}' AND status <> 'completed';`
+        : `UPDATE groups SET referee_id = NULL WHERE id = '${groupId}';`
     );
   }
 
-  // Audit log entry in Supabase
-  statements.push(
-    `INSERT INTO audit_log (table_name, record_id, action, note, created_at) VALUES ('groups', '${tournamentId}', 'update', 'Asignación de árbitros sincronizada', NOW());`
-  );
+  for (const [stageId, refereeId] of Object.entries(stageAssignments)) {
+    statements.push(
+      refereeId
+        ? `UPDATE stages SET config = jsonb_set(coalesce(config, '{}'::jsonb), '{head_referee_id}', '"${refereeId}"'::jsonb) WHERE id = '${stageId}';`
+        : `UPDATE stages SET config = config - 'head_referee_id' WHERE id = '${stageId}';`
+    );
+  }
+
+  const allReferees = new Set<string>();
+  Object.values(stageAssignments).forEach((refereeId) => refereeId && allReferees.add(refereeId));
+  Object.values(groupAssignments).forEach((refereeId) => refereeId && allReferees.add(refereeId));
+  for (const refereeId of allReferees) {
+    statements.push(
+      `INSERT INTO tournament_referees (tournament_id, profile_id) VALUES ('${tournamentId}', '${refereeId}') ON CONFLICT (tournament_id, profile_id) DO NOTHING;`
+    );
+  }
 
   return statements;
 }
 
-/**
- * Persist referee assignments to Supabase with backend and local storage fallbacks.
- */
 export async function persistRefereeAssignments(
   tournamentId: string,
   stageAssignments: Record<string, string | null>,
   groupAssignments: Record<string, string | null>,
-  updatedBy?: string
+  _updatedBy?: string
 ): Promise<SupabaseSyncResult> {
   const timestamp = new Date().toISOString();
-  const payload: RefereeAssignmentRecord = {
-    tournamentId,
-    stageAssignments,
-    groupAssignments,
-    updatedAt: timestamp,
-    updatedBy,
-  };
-
   const sqlStatements = generateSupabaseSQL(tournamentId, stageAssignments, groupAssignments);
+  const supabase = getSupabaseClient();
 
-  // 1. Cache locally immediately
-  try {
-    localStorage.setItem(`${STORAGE_KEY}${tournamentId}`, JSON.stringify(payload));
-  } catch {
-    // ignore quota
+  if (!supabase) {
+    return {
+      success: false,
+      persistedIn: 'none',
+      timestamp,
+      message: 'Supabase no está configurado; no se guardaron las asignaciones.',
+      sqlStatements,
+    };
   }
 
-  // 2. Try Supabase direct client if configured
-  const supabase = getSupabaseClient();
-  if (supabase) {
-    try {
-      let count = 0;
-      // Update groups in Supabase
-      for (const [groupId, refereeId] of Object.entries(groupAssignments)) {
-        const { error: groupError } = await supabase
-          .from('groups')
-          .update({ referee_id: refereeId })
-          .eq('id', groupId);
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData.session) {
+    return {
+      success: false,
+      persistedIn: 'none',
+      timestamp,
+      message: 'Se requiere una sesión autenticada para guardar asignaciones.',
+      sqlStatements,
+    };
+  }
 
-        if (!groupError) {
-          count++;
-          // Also update matches in group
-          await supabase
-            .from('matches')
-            .update({ referee_id: refereeId })
-            .eq('group_id', groupId);
-        }
-      }
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) {
+    return {
+      success: false,
+      persistedIn: 'none',
+      timestamp,
+      message: 'No se pudo identificar al usuario autenticado.',
+      sqlStatements,
+    };
+  }
 
-      // Log to Supabase audit_log
-      await supabase.from('audit_log').insert({
-        table_name: 'groups',
-        record_id: tournamentId,
-        action: 'update',
-        note: `Asignación de árbitros guardada (${count} grupos actualizados)`,
-      });
+  const actor = userData.user.id;
+  let recordsUpdated = 0;
 
+  for (const [groupId, refereeId] of Object.entries(groupAssignments)) {
+    const { data: group, error: groupError } = await supabase
+      .from('groups')
+      .update({ referee_id: refereeId })
+      .eq('id', groupId)
+      .select('id')
+      .maybeSingle();
+    if (groupError || !group) {
       return {
-        success: true,
-        persistedIn: 'supabase',
+        success: false,
+        persistedIn: 'none',
         timestamp,
-        message: `Asignaciones guardadas y sincronizadas exitosamente en Supabase (${count} grupos).`,
-        recordsUpdated: count,
+        message: `No se pudo guardar el grupo ${groupId}: ${groupError?.message || 'grupo no encontrado o no autorizado'}.`,
         sqlStatements,
       };
-    } catch (err: any) {
-      console.warn('Supabase direct sync notice, trying backend route:', err);
     }
-  }
 
-  // 3. Fallback: Save to Fullstack Express Backend API
-  try {
-    const accessToken = await getSupabaseAccessToken();
-    const response = await fetch(`/api/referees/assignments/${encodeURIComponent(tournamentId)}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(accessToken ? { Authorization: 'Bearer ' + accessToken } : {}),
-      },
-      body: JSON.stringify({
-        ...payload,
-        sqlStatements,
-      }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
+    const { error: matchesError } = await supabase
+      .from('matches')
+      .update({ referee_id: refereeId })
+      .eq('group_id', groupId)
+      .neq('status', 'completed');
+    if (matchesError) {
       return {
-        success: true,
-        persistedIn: 'backend',
+        success: false,
+        persistedIn: 'none',
         timestamp,
-        message: 'Asignaciones guardadas en el backend y preparadas para Supabase.',
-        recordsUpdated: Object.keys(groupAssignments).length,
+        message: `No se pudieron actualizar las partidas del grupo ${groupId}: ${matchesError.message}.`,
         sqlStatements,
-        details: data,
-      } as any;
+      };
     }
-  } catch {
-    // offline / dev mode
+    recordsUpdated++;
   }
 
-  // 4. Local fallback
+  for (const [stageId, refereeId] of Object.entries(stageAssignments)) {
+    const { data: stage, error: readError } = await supabase
+      .from('stages')
+      .select('config')
+      .eq('id', stageId)
+      .single();
+    if (readError || !stage) {
+      return {
+        success: false,
+        persistedIn: 'none',
+        timestamp,
+        message: `No se pudo leer la etapa ${stageId}: ${readError?.message || 'etapa no encontrada'}.`,
+        sqlStatements,
+      };
+    }
+
+    const config = { ...(stage.config || {}) } as Record<string, unknown>;
+    if (refereeId) config.head_referee_id = refereeId;
+    else delete config.head_referee_id;
+
+    const { error: stageError } = await supabase
+      .from('stages')
+      .update({ config })
+      .eq('id', stageId)
+      .select('id')
+      .single();
+    if (stageError) {
+      return {
+        success: false,
+        persistedIn: 'none',
+        timestamp,
+        message: `No se pudo guardar la etapa ${stageId}: ${stageError.message}.`,
+        sqlStatements,
+      };
+    }
+  }
+
+  const refereeIds = new Set(
+    [...Object.values(stageAssignments), ...Object.values(groupAssignments)].filter(
+      (refereeId): refereeId is string => Boolean(refereeId)
+    )
+  );
+  if (refereeIds.size > 0) {
+    const { error: rosterError } = await supabase
+      .from('tournament_referees')
+      .upsert([...refereeIds].map((profile_id) => ({ tournament_id: tournamentId, profile_id })));
+    if (rosterError) {
+      return {
+        success: false,
+        persistedIn: 'none',
+        timestamp,
+        message: `No se pudo actualizar el roster de árbitros: ${rosterError.message}.`,
+        sqlStatements,
+      };
+    }
+  }
+
+  const { error: auditError } = await supabase.from('audit_log').insert({
+    table_name: 'tournament_referees',
+    record_id: isUuid(tournamentId) ? tournamentId : null,
+    action: 'update',
+    actor,
+  });
+  if (auditError) {
+    return {
+      success: false,
+      persistedIn: 'none',
+      timestamp,
+      message: `La asignación se actualizó, pero la auditoría falló: ${auditError.message}.`,
+      sqlStatements,
+    };
+  }
+
   return {
-    success: false,
-    persistedIn: 'local',
+    success: true,
+    persistedIn: 'supabase',
     timestamp,
-    message: 'No se pudieron persistir las asignaciones en un backend autorizado. La copia local queda disponible para recuperación offline.',
-    recordsUpdated: Object.keys(groupAssignments).length,
+    message: `Asignaciones guardadas en Supabase (${recordsUpdated} grupos).`,
+    recordsUpdated,
     sqlStatements,
   };
 }
 
-/**
- * Fetch saved referee assignments for a tournament.
- */
 export async function fetchRefereeAssignments(
   tournamentId: string
 ): Promise<RefereeAssignmentRecord | null> {
-  // Try backend first
-  try {
-    const res = await fetch(`/api/referees/assignments/${encodeURIComponent(tournamentId)}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.assignment) {
-        return data.assignment as RefereeAssignmentRecord;
-      }
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('id')
+    .eq('id', tournamentId)
+    .maybeSingle();
+  if (tournamentError || !tournament) return null;
+
+  const { data: groups, error: groupsError } = await supabase
+    .from('groups')
+    .select('id, referee_id, stage_id, stages!inner(tournament_id, config)')
+    .eq('stages.tournament_id', tournamentId);
+  if (groupsError) return null;
+
+  const groupAssignments: Record<string, string | null> = {};
+  const stageAssignments: Record<string, string | null> = {};
+  for (const group of groups || []) {
+    groupAssignments[group.id] = group.referee_id;
+    const stage = Array.isArray(group.stages) ? group.stages[0] : group.stages;
+    if (stage && !(group.stage_id in stageAssignments)) {
+      stageAssignments[group.stage_id] = (stage.config as Record<string, unknown> | null)?.head_referee_id as string | null || null;
     }
-  } catch {
-    // fallback
   }
 
-  // Local storage fallback
-  try {
-    const cached = localStorage.getItem(`${STORAGE_KEY}${tournamentId}`);
-    if (cached) {
-      return JSON.parse(cached) as RefereeAssignmentRecord;
-    }
-  } catch {
-    // ignore
-  }
-
-  return null;
+  return {
+    tournamentId,
+    groupAssignments,
+    stageAssignments,
+    updatedAt: new Date().toISOString(),
+  };
 }

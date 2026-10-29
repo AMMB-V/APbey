@@ -137,7 +137,7 @@ interface TournamentContextType {
   advanceCurrentStage: (stageId: string) => void;
   updateStage: (stageId: string, updates: Partial<Stage>) => Promise<void>;
   updateStageConfig: (stageId: string, configUpdates: Partial<StageConfig>) => Promise<void>;
-  updateStageTiebreakers: (stageId: string, tiebreakers: TiebreakerCriteria[]) => Promise<{ persistedIn: 'backend' | 'local'; timestamp: string; message: string }>;
+  updateStageTiebreakers: (stageId: string, tiebreakers: TiebreakerCriteria[]) => Promise<{ success: boolean; persistedIn: 'supabase' | 'none'; timestamp: string; message: string }>;
 
   // Referee & Match actions
   recordBattle: (matchId: string, scorerId: string | null, finish: FinishType | null, note?: string) => void;
@@ -1330,7 +1330,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       'stages',
       stageId,
       'update',
-      `Reglas de desempate de la etapa "${targetStageName}" persistidas (${result.persistedIn === 'backend' ? 'Base de datos backend' : 'Caché local'}). Criterios: ${tiebreakers.join(' → ')}`
+      `Reglas de desempate de la etapa "${targetStageName}" ${result.success ? 'persistidas en Supabase' : 'no persistidas'}. Criterios: ${tiebreakers.join(' → ')}`
     );
 
     return result;
