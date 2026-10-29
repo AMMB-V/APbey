@@ -51,6 +51,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
   // Apply bracket filter (Winners / Losers / Finals) if double elimination
   const stageRounds = allStageRounds.filter((r) => {
     if (stage.type !== 'double_elimination' || bracketFilter === 'all') return true;
+    if (bracketFilter === 'finals') return r.bracket === 'grand_final';
     return r.bracket === bracketFilter;
   });
 

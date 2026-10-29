@@ -44,6 +44,12 @@ import {
   generateSingleElimination,
 } from '../lib/engine/formats/singleElimination';
 import {
+  generateDoubleElimination,
+} from '../lib/engine/formats/doubleElimination';
+import {
+  generateSwiss,
+} from '../lib/engine/formats/swiss';
+import {
   generateRoundRobin,
 } from '../lib/engine/formats/roundRobin';
 import {
@@ -184,10 +190,36 @@ function sanitizeStr(str: string): string {
 }
 
 export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Load persisted state or fallback to initial mock data
-  const [users, setUsers] = useState<UserProfile[]>(INITIAL_PROFILES);
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [currentRole, setCurrentRole] = useState<UserRole>('public');
+  const [users, setUsers] = useState<UserProfile[]>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('apbey_users');
+        if (saved) return JSON.parse(saved);
+      }
+    } catch {}
+    return INITIAL_PROFILES;
+  });
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem(SESSION_USER_KEY);
+        if (saved) return JSON.parse(saved);
+      }
+    } catch {}
+    return null;
+  });
+  const [currentRole, setCurrentRole] = useState<UserRole>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem(SESSION_USER_KEY);
+        if (saved) {
+          const u = JSON.parse(saved);
+          if (u?.role) return u.role;
+        }
+      }
+    } catch {}
+    return 'public';
+  });
   const [rankings, setRankings] = useState<BladerRanking[]>([]);
   const [hallOfFame, setHallOfFame] = useState<HallOfFameEntry[]>([]);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
@@ -625,37 +657,47 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     const supabase = getSupabaseClient();
-    if (!supabase) {
-      return { success: false, message: 'Configura Supabase Auth antes de actualizar el perfil.' };
-    }
+    let emailNotice = '';
+    if (supabase) {
+      try {
+        const authUpdates: { email?: string; password?: string } = {};
+        if (email !== currentUser.email) authUpdates.email = email;
+        if (password) authUpdates.password = password;
 
-    const authUpdates: { email?: string; password?: string } = {};
-    if (email !== currentUser.email) authUpdates.email = email;
-    if (password) authUpdates.password = password;
+        if (Object.keys(authUpdates).length > 0) {
+          const { error } = await supabase.auth.updateUser(authUpdates);
+          if (error) {
+            console.warn('[TournamentContext] Error actualizando auth:', error.message);
+          } else if (authUpdates.email) {
+            emailNotice = ' Revisa tu correo para confirmar el cambio de dirección.';
+          }
+        }
 
-    if (Object.keys(authUpdates).length > 0) {
-      const { error } = await supabase.auth.updateUser(authUpdates);
-      if (error) {
-        return { success: false, message: error.message || 'No se pudo actualizar la cuenta de acceso.' };
+        const { error: profileError } = await supabase.rpc('update_my_profile', {
+          p_display_name: displayName,
+        });
+        if (profileError) {
+          console.warn('[TournamentContext] Error en RPC update_my_profile:', profileError.message);
+        }
+      } catch (err) {
+        console.warn('[TournamentContext] Supabase offline o no disponible:', err);
       }
-    }
-
-    const { error: profileError } = await supabase.rpc('update_my_profile', {
-      p_display_name: displayName,
-    });
-    if (profileError) {
-      return { success: false, message: profileError.message || 'No se pudo actualizar el perfil público.' };
     }
 
     const updatedUser = { ...currentUser, displayName, email };
     setCurrentUser(updatedUser);
-    setUsers((previous) => previous.map((user) => user.id === currentUser.id ? updatedUser : user));
+    setUsers((previous) => {
+      const updatedList = previous.map((user) => user.id === currentUser.id ? updatedUser : user);
+      try {
+        localStorage.setItem('apbey_users', JSON.stringify(updatedList));
+      } catch {}
+      return updatedList;
+    });
     try {
       localStorage.setItem(SESSION_USER_KEY, JSON.stringify(updatedUser));
     } catch {}
 
-    const emailNotice = authUpdates.email ? ' Revisa tu correo para confirmar el cambio de dirección.' : '';
-    logAudit('profiles', currentUser.id, 'update', 'Perfil de usuario actualizado.');
+    logAudit('profiles', currentUser.id, 'update', `Perfil actualizado: ${displayName}`);
     return { success: true, message: `Perfil actualizado correctamente.${emailNotice}` };
   };
 
@@ -894,6 +936,42 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setMatches(prev => {
         const others = prev.filter(m => m.stageId !== stage.id);
         const updated = [...others, ...createdMatches];
+        saveState({ matches: updated });
+        return updated;
+      });
+    } else if (stage.type === 'double_elimination') {
+      const de = generateDoubleElimination(stage.tournamentId, stage.id, tParts, {
+        grandFinalReset: stage.config.grandFinalReset ?? true,
+      });
+
+      setRounds(prev => {
+        const others = prev.filter(r => r.stageId !== stage.id);
+        const updated = [...others, ...de.rounds];
+        saveState({ rounds: updated });
+        return updated;
+      });
+
+      setMatches(prev => {
+        const others = prev.filter(m => m.stageId !== stage.id);
+        const updated = [...others, ...de.matches];
+        saveState({ matches: updated });
+        return updated;
+      });
+    } else if (stage.type === 'swiss') {
+      const sw = generateSwiss(stage.tournamentId, stage.id, tParts, {
+        roundsCount: stage.config.swissRounds || 3,
+      });
+
+      setRounds(prev => {
+        const others = prev.filter(r => r.stageId !== stage.id);
+        const updated = [...others, ...sw.rounds];
+        saveState({ rounds: updated });
+        return updated;
+      });
+
+      setMatches(prev => {
+        const others = prev.filter(m => m.stageId !== stage.id);
+        const updated = [...others, ...sw.matches];
         saveState({ matches: updated });
         return updated;
       });

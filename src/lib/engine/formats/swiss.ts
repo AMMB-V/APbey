@@ -137,3 +137,17 @@ export function generateSwissRound(
 
   return { round, matches };
 }
+
+export function generateSwiss(
+  tournamentId: string,
+  stageId: string,
+  participants: Participant[],
+  _options?: { roundsCount?: number }
+): { rounds: Round[]; matches: Match[] } {
+  const round1 = generateSwissRound(tournamentId, stageId, 1, participants, []);
+  return {
+    rounds: [round1.round],
+    matches: round1.matches,
+  };
+}
+
