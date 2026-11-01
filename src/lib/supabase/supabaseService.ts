@@ -119,6 +119,36 @@ export async function syncTournamentToSupabase(
     if (!sessionData.session) {
       return { success: false, message: 'Inicia sesión en Supabase antes de sincronizar torneos.' };
     }
+    const sessionUserId = sessionData.session.user.id;
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, role')
+      .eq('id', sessionUserId)
+      .maybeSingle();
+    if (profileError) {
+      return { success: false, message: `No se pudo validar el perfil de Supabase: ${profileError.message}` };
+    }
+    if (!profile) {
+      return {
+        success: false,
+        message: 'La cuenta autenticada no tiene un perfil en Supabase. Crea o completa el perfil antes de sincronizar.',
+      };
+    }
+    if (profile.role !== 'admin' && profile.role !== 'organizer') {
+      return {
+        success: false,
+        message: `El rol "${profile.role}" no puede publicar torneos. Se requiere admin u organizer.`,
+      };
+    }
+
+    const { data: existingTournament, error: existingTournamentError } = await supabase
+      .from('tournaments')
+      .select('organizer_id')
+      .eq('id', tournament.id)
+      .maybeSingle();
+    if (existingTournamentError) {
+      return { success: false, message: `No se pudo comprobar la propiedad del torneo: ${existingTournamentError.message}` };
+    }
 
     // 1. Upsert Tournament
     const tourneyPayload = {
@@ -126,9 +156,7 @@ export async function syncTournamentToSupabase(
       slug: tournament.slug,
       name: tournament.name,
       description: tournament.description || null,
-      organizer_id: tournament.organizerId === 'user_admin'
-        ? sessionData.session.user.id
-        : tournament.organizerId,
+      organizer_id: existingTournament?.organizer_id || sessionUserId,
       status: tournament.status,
       is_public: tournament.isPublic,
       max_participants: tournament.maxParticipants || null,

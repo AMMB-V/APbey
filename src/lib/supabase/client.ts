@@ -127,9 +127,47 @@ export async function testSupabaseConnection(url?: string, anonKey?: string): Pr
       };
     }
 
+    const { data: sessionData, error: sessionError } = await testClient.auth.getSession();
+    if (sessionError) {
+      return {
+        success: false,
+        message: `La base responde, pero no se pudo restaurar la sesión: ${sessionError.message}`,
+      };
+    }
+    if (!sessionData.session) {
+      return {
+        success: false,
+        message: 'Supabase responde correctamente. Inicia sesión para publicar torneos y registrar arbitrajes.',
+      };
+    }
+
+    const { data: profile, error: profileError } = await testClient
+      .from('profiles')
+      .select('role')
+      .eq('id', sessionData.session.user.id)
+      .maybeSingle();
+    if (profileError) {
+      return {
+        success: false,
+        message: `La sesión existe, pero no se pudo validar el perfil: ${profileError.message}`,
+      };
+    }
+    if (!profile) {
+      return {
+        success: false,
+        message: 'La sesión existe, pero no hay un perfil asociado en public.profiles.',
+      };
+    }
+    if (profile.role !== 'admin' && profile.role !== 'organizer' && profile.role !== 'referee') {
+      return {
+        success: false,
+        message: `La sesión tiene el rol "${profile.role}", que no puede operar torneos.`,
+      };
+    }
+
     return {
       success: true,
-      message: 'Conexión a Supabase y tablas PostgreSQL verificadas correctamente.',
+      message: `Supabase conectado y sesión válida (${profile.role}).`,
     };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

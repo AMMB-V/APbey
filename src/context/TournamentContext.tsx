@@ -303,6 +303,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setCurrentUser(authenticatedUser);
       setCurrentRole(authenticatedUser.role);
       localStorage.setItem(SESSION_USER_KEY, JSON.stringify(authenticatedUser));
+      setSupabaseSyncInfo((previous) => ({
+        ...previous,
+        isConnected: true,
+        lastSync: new Date().toLocaleTimeString(),
+        message: `Sesión Supabase restaurada como ${authenticatedUser.role}.`,
+      }));
 
       if (authenticatedUser.role === 'admin') {
         const { data: invitationRows, error: invitationsError } = await supabase
