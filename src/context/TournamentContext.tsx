@@ -518,38 +518,25 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const hydrateFromSupabase = async () => {
       if (!supabaseSyncInfo.isConfigured) return;
-      const remote = await loadTournamentsFromSupabase();
+      const supabase = getSupabaseClient();
+      const { data: sessionData } = supabase
+        ? await supabase.auth.getSession()
+        : { data: { session: null } };
+      let organizerId: string | undefined;
+      if (sessionData.session) {
+        const { data: profile } = await supabase!
+          .from('profiles')
+          .select('id, role')
+          .eq('id', sessionData.session.user.id)
+          .maybeSingle();
+        if (profile?.role === 'organizer') {
+          organizerId = profile.id;
+        }
+      }
+
+      const remote = await loadTournamentsFromSupabase({ organizerId });
       if (!active) return;
       if (remote && remote.tournaments.length === 0) {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        const persisted = saved ? JSON.parse(saved) : null;
-        const { data, migrated } = migratePersistedTournamentData(persisted);
-        const supabase = getSupabaseClient();
-        const sessionData = supabase ? await supabase.auth.getSession() : { data: { session: null } };
-
-        if (data.tournaments.length > 0 && sessionData.data.session) {
-          if (migrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-          setTournaments(data.tournaments);
-          setStages(data.stages);
-          setGroups(data.groups);
-          setRounds(data.rounds);
-          setMatches(data.matches);
-          setParticipants(data.participants);
-          setBattles(data.battles);
-          setPenalties(data.penalties);
-          setActiveTournamentId(data.tournaments[0].id);
-          const result = await syncAllTournamentsToSupabase(data);
-          if (result.success) {
-            setSupabaseSyncInfo((previous) => ({
-              ...previous,
-              isConnected: true,
-              lastSync: new Date().toLocaleTimeString(),
-              message: result.message,
-            }));
-          }
-          return;
-        }
-
         setTournaments([]);
         setStages([]);
         setGroups([]);
@@ -563,9 +550,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           ...previous,
           isConnected: true,
           lastSync: new Date().toLocaleTimeString(),
-          message: data.tournaments.length > 0
-            ? 'Supabase está conectado, pero debes iniciar sesión para publicar los torneos locales de este dispositivo.'
-            : 'Supabase está conectado y no contiene torneos para esta cuenta.',
+          message: organizerId
+            ? 'Supabase está conectado; no hay torneos creados por esta cuenta.'
+            : 'Supabase está conectado y no contiene torneos disponibles para esta cuenta.',
         }));
         return;
       }
@@ -597,22 +584,6 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 : 'Supabase no respondió; se restauró la copia local pendiente de sincronización.',
             }));
             if (migrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-            const supabase = getSupabaseClient();
-            if (supabase) {
-              const { data: sessionData } = await supabase.auth.getSession();
-              if (sessionData.session) {
-                void syncAllTournamentsToSupabase({
-                  tournaments: data.tournaments,
-                  stages: data.stages || [],
-                  groups: data.groups || [],
-                  rounds: data.rounds || [],
-                  matches: data.matches || [],
-                  participants: data.participants || [],
-                  battles: data.battles || [],
-                  penalties: data.penalties || [],
-                });
-              }
-            }
             return;
           }
         } catch (error) {
