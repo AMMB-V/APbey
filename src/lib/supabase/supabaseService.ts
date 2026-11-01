@@ -32,15 +32,40 @@ export async function loadAdminProfiles(): Promise<UserProfile[] | null> {
   if (!supabase) return null;
 
   const { data, error } = await supabase.rpc('list_admin_profiles');
-  if (error || !data) {
-    console.warn('[Supabase] No se pudieron cargar los perfiles administrativos:', error?.message);
+  if (!error && data) {
+    return data.map((profile) => ({
+      id: profile.id,
+      displayName: profile.display_name,
+      email: profile.email || '',
+      role: profile.role as UserProfile['role'],
+      avatarUrl: profile.avatar_url || undefined,
+      createdAt: profile.created_at,
+    }));
+  }
+
+  console.warn('[Supabase] RPC de perfiles administrativos no disponible:', error?.message);
+  const [{ data: profiles, error: profilesError }, { data: invitations, error: invitationsError }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, display_name, role, avatar_url, created_at')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('invitations')
+      .select('email, role, status')
+      .eq('status', 'accepted'),
+  ]);
+  if (profilesError || !profiles) {
+    console.warn('[Supabase] No se pudieron cargar los perfiles administrativos:', profilesError?.message);
     return null;
   }
 
-  return data.map((profile) => ({
+  const acceptedEmailsByRole = new Map(
+    (invitations || []).map((invitation) => [invitation.role, invitation.email])
+  );
+  return profiles.map((profile) => ({
     id: profile.id,
     displayName: profile.display_name,
-    email: profile.email || '',
+    email: acceptedEmailsByRole.get(profile.role) || '',
     role: profile.role as UserProfile['role'],
     avatarUrl: profile.avatar_url || undefined,
     createdAt: profile.created_at,
