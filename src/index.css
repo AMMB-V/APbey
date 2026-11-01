@@ -47,6 +47,11 @@ input[type='radio'] {
   padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
 }
 
+.tablet-scroll-nav > button,
+.tablet-scroll-nav > div {
+  flex-shrink: 0;
+}
+
 @media (max-width: 639px) {
   .acero-card {
     padding: 0.875rem;

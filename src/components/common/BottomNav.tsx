@@ -37,10 +37,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
   return (
     <>
-      {/* Fixed Bottom Navigation Bar on Mobile */}
+      {/* Fixed bottom navigation for phones and portrait tablets */}
       <nav
         aria-label="Navegación móvil inferior"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--chasis)]/95 backdrop-blur-md border-t border-[var(--costura)] shadow-2xl px-2 py-1 flex items-center justify-around safe-bottom"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--chasis)]/95 backdrop-blur-md border-t border-[var(--costura)] shadow-2xl px-2 py-1 flex items-center justify-around safe-bottom"
       >
         {/* 1. Torneos */}
         <button
@@ -127,7 +127,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           role="dialog"
           aria-modal="true"
           aria-label="Más secciones y herramientas"
-          className="fixed inset-0 z-50 flex flex-col justify-end bg-black/75 backdrop-blur-xs md:hidden animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex flex-col justify-end bg-black/75 backdrop-blur-xs lg:hidden animate-in fade-in duration-150"
         >
           <div
             className="w-full bg-[var(--chasis)] border-t border-[var(--costura)] rounded-t-3xl p-5 text-[var(--hueso)] max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom duration-200"

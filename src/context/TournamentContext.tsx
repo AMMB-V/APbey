@@ -332,14 +332,35 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       const { data: sessionData } = await supabase.auth.getSession();
       const authUser = sessionData.session?.user;
-      if (!authUser || !active) return;
+      if (!authUser || !active) {
+        if (active) {
+          setCurrentUser(null);
+          setCurrentRole('public');
+          localStorage.removeItem(SESSION_USER_KEY);
+        }
+        return;
+      }
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('id, display_name, role, created_at')
         .eq('id', authUser.id)
         .single();
-      if (!profile || !active) return;
+      if (!profile || profileError || !active) {
+        if (active) {
+          setCurrentUser(null);
+          setCurrentRole('public');
+          localStorage.removeItem(SESSION_USER_KEY);
+          setSupabaseSyncInfo((previous) => ({
+            ...previous,
+            isConnected: false,
+            message: profileError
+              ? `La sesión existe, pero no se pudo validar el perfil: ${profileError.message}`
+              : 'La sesión existe, pero no hay un perfil asociado en public.profiles.',
+          }));
+        }
+        return;
+      }
 
       const authenticatedUser: UserProfile = {
         id: profile.id,
@@ -2685,20 +2706,28 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { data, error } = await supabase
-        .from('invitations')
-        .insert({
-          id: inv.id,
-          email: inv.email,
-          role: inv.role,
-          tournament_id: inv.tournamentId || null,
-          status: inv.status,
-          invited_by: inv.invitedBy,
-          created_at: inv.createdAt,
-          code: inv.code,
-        })
-        .select('id, email, role, tournament_id, status, invited_by, created_at, code')
-        .single();
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) {
+        throw new Error('Tu sesión de Supabase no está disponible. Inicia sesión nuevamente como administrador.');
+      }
+
+      const { data: adminProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, role')
+        .eq('id', authData.user.id)
+        .maybeSingle();
+      if (profileError || adminProfile?.role !== 'admin') {
+        throw new Error('La sesión actual no tiene permisos de administrador para crear invitaciones.');
+      }
+
+      const { data, error } = await supabase.rpc('create_invitation', {
+        p_id: inv.id,
+        p_email: inv.email,
+        p_role: inv.role,
+        p_tournament_id: inv.tournamentId || null,
+        p_code: inv.code,
+        p_created_at: inv.createdAt,
+      });
 
       if (error || !data) {
         throw new Error(error?.message || 'Supabase no devolvió la invitación creada.');
