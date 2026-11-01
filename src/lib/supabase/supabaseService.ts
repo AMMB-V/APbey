@@ -715,7 +715,7 @@ export function subscribeToTournamentRealtime(
   if (!supabase) return () => {};
 
   const channel = supabase
-    .channel(`live_tournament_${tournamentId}`)
+    .channel('live_tournament_global')
     .on(
       'postgres_changes',
       {
@@ -840,6 +840,15 @@ export function subscribeToTournamentRealtime(
         schema: 'public',
         table: 'stages',
         ...(tournamentId ? { filter: `tournament_id=eq.${tournamentId}` } : {}),
+      },
+      () => callbacks.onRemoteDataChange?.()
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'profiles',
       },
       () => callbacks.onRemoteDataChange?.()
     )
