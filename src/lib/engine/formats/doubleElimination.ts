@@ -1,6 +1,6 @@
 import { Match, Participant, Round } from '../../../types/tournament';
 import { generateSingleElimination } from './singleElimination';
-import { createEntityId, isEntityIdUuid } from '../../storage/entityIds';
+import { createEntityId } from '../../storage/entityIds';
 
 export interface DoubleEliminationResult {
   rounds: Round[];
@@ -17,8 +17,7 @@ export function generateDoubleElimination(
   const winnersResult = generateSingleElimination(tournamentId, stageId, participants, { thirdPlaceMatch: false });
   const rounds: Round[] = [];
   const matches: Match[] = [];
-  const useUuidIds = isEntityIdUuid(stageId);
-  const newId = (fallback: string) => useUuidIds ? createEntityId() : fallback;
+  const newId = () => createEntityId();
 
   // Re-tag winners rounds
   for (const r of winnersResult.rounds) {
@@ -35,7 +34,7 @@ export function generateDoubleElimination(
   const lbRoundsCount = Math.max(1, (wbRoundsCount - 1) * 2);
 
   for (let r = 1; r <= lbRoundsCount; r++) {
-    const lbRoundId = newId(`${stageId}_lb_r_${r}`);
+    const lbRoundId = newId();
     rounds.push({
       id: lbRoundId,
       stageId,
@@ -47,7 +46,7 @@ export function generateDoubleElimination(
     const matchCount = Math.max(1, Math.floor(participants.length / Math.pow(2, Math.floor((r + 1) / 2) + 1)));
     for (let m = 0; m < matchCount; m++) {
       matches.push({
-        id: newId(`${stageId}_lb_m_r${r}_p${m + 1}`),
+        id: newId(),
         tournamentId,
         stageId,
         roundId: lbRoundId,
@@ -71,7 +70,7 @@ export function generateDoubleElimination(
   }
 
   // Grand Finals
-  const gfRoundId = newId(`${stageId}_gf_round`);
+  const gfRoundId = newId();
   rounds.push({
     id: gfRoundId,
     stageId,
@@ -81,7 +80,7 @@ export function generateDoubleElimination(
   });
 
   const gfMatch: Match = {
-    id: newId(`${stageId}_gf_match`),
+    id: newId(),
     tournamentId,
     stageId,
     roundId: gfRoundId,
@@ -106,7 +105,7 @@ export function generateDoubleElimination(
   // Optional Grand Finals Reset
   if (options.grandFinalReset) {
     const gfResetMatch: Match = {
-      id: newId(`${stageId}_gf_reset_match`),
+      id: newId(),
       tournamentId,
       stageId,
       roundId: gfRoundId,

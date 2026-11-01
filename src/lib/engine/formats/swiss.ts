@@ -1,6 +1,6 @@
 import { Match, Participant, Round } from '../../../types/tournament';
 import { computeStandings } from '../tiebreakers';
-import { createEntityId, isEntityIdUuid } from '../../storage/entityIds';
+import { createEntityId } from '../../storage/entityIds';
 
 export interface SwissRoundResult {
   round: Round;
@@ -14,8 +14,7 @@ export function generateSwissRound(
   participants: Participant[],
   previousMatches: Match[]
 ): SwissRoundResult {
-  const roundId = isEntityIdUuid(stageId) ? createEntityId() : `${stageId}_swiss_r_${roundNumber}`;
-  const newId = (fallback: string) => isEntityIdUuid(stageId) ? createEntityId() : fallback;
+  const roundId = createEntityId();
   const round: Round = {
     id: roundId,
     stageId,
@@ -57,7 +56,7 @@ export function generateSwissRound(
 
     const byeBlader = availableParticipants.splice(byeCandidateIndex, 1)[0];
     matches.push({
-      id: newId(`${roundId}_m_bye`),
+      id: createEntityId(),
       tournamentId,
       stageId,
       roundId,
@@ -114,7 +113,7 @@ export function generateSwissRound(
       pairedIds.add(opponent.id);
 
       matches.push({
-        id: newId(`${roundId}_m_p${position}`),
+        id: createEntityId(),
         tournamentId,
         stageId,
         roundId,
