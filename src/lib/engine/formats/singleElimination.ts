@@ -1,6 +1,6 @@
 import { Match, Participant, Round } from '../../../types/tournament';
 import { generateSeedPairs, nextPowerOfTwo } from '../seeding';
-import { createEntityId, isEntityIdUuid } from '../../storage/entityIds';
+import { createEntityId } from '../../storage/entityIds';
 
 export interface SingleEliminationResult {
   rounds: Round[];
@@ -29,8 +29,7 @@ export function generateSingleElimination(
 
   const rounds: Round[] = [];
   const matches: Match[] = [];
-  const useUuidIds = isEntityIdUuid(stageId);
-  const newId = () => useUuidIds ? createEntityId() : '';
+  const roundIds = new Map<number, string>();
 
   // Helper to name rounds in Spanish
   const getRoundName = (roundNum: number, total: number): string => {
@@ -45,8 +44,10 @@ export function generateSingleElimination(
 
   // 1. Create rounds
   for (let r = 1; r <= totalRounds; r++) {
+    const roundId = createEntityId();
+    roundIds.set(r, roundId);
     rounds.push({
-      id: useUuidIds ? newId() : `${stageId}_r_${r}`,
+      id: roundId,
       stageId,
       number: r,
       bracket: 'winners',
@@ -56,8 +57,10 @@ export function generateSingleElimination(
 
   // Optional Third Place Round
   if (options.thirdPlaceMatch && totalRounds >= 2) {
+    const thirdPlaceRoundId = createEntityId();
+    roundIds.set(totalRounds + 1, thirdPlaceRoundId);
     rounds.push({
-      id: useUuidIds ? newId() : `${stageId}_r_3rd`,
+      id: thirdPlaceRoundId,
       stageId,
       number: totalRounds + 1,
       bracket: 'winners',
@@ -73,14 +76,12 @@ export function generateSingleElimination(
   for (let r = 1; r <= totalRounds; r++) {
     const roundMatches: Match[] = [];
     for (let m = 0; m < currentMatchCount; m++) {
-      const matchId = useUuidIds ? newId() : `${stageId}_m_r${r}_p${m + 1}`;
+      const matchId = createEntityId();
       roundMatches.push({
         id: matchId,
         tournamentId,
         stageId,
-        roundId: useUuidIds
-          ? rounds.find((round) => round.number === r && round.bracket === 'winners')!.id
-          : `${stageId}_r_${r}`,
+        roundId: roundIds.get(r)!,
         position: m + 1,
         participant1Id: null,
         participant2Id: null,
@@ -116,10 +117,10 @@ export function generateSingleElimination(
   let thirdPlaceMatch: Match | null = null;
   if (options.thirdPlaceMatch && totalRounds >= 2) {
     thirdPlaceMatch = {
-      id: useUuidIds ? newId() : `${stageId}_m_3rd_place`,
+      id: createEntityId(),
       tournamentId,
       stageId,
-      roundId: useUuidIds ? rounds[rounds.length - 1].id : `${stageId}_r_3rd`,
+      roundId: roundIds.get(totalRounds + 1)!,
       position: 1,
       participant1Id: null,
       participant2Id: null,

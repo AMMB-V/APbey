@@ -109,7 +109,7 @@ interface TournamentContextType {
   setActiveTournamentId: (id: string) => void;
   createTournament: (data: Partial<Tournament>, stageType: StageType, stageConfig: StageConfig) => Tournament;
   updateTournament: (id: string, updates: Partial<Tournament>) => void;
-  duplicateTournament: (id: string) => Tournament;
+  duplicateTournament: (id: string) => Tournament | null;
   deleteTournament: (id: string) => void;
 
   // Stages & Brackets
@@ -169,7 +169,7 @@ interface TournamentContextType {
   importRankingWorkbook: (file: File) => Promise<{ rankings: number; hallOfFame: number }>;
 
   // Reset
-  resetAllData: () => void;
+  resetAllData: () => { success: boolean; message: string };
 }
 
 const STORAGE_KEY = 'bey_tournament_arena_v1';
@@ -1989,8 +1989,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     logAudit('tournaments', id, 'update', 'Configuración de torneo actualizada.');
   };
 
-  const duplicateTournament = (id: string): Tournament => {
-    const source = tournaments.find(t => t.id === id) || tournaments[0];
+  const duplicateTournament = (id: string): Tournament | null => {
+    const source = tournaments.find(t => t.id === id);
+    if (!source) {
+      return null;
+    }
     const newId = createEntityId();
     const duplicated: Tournament = {
       ...source,
@@ -2087,7 +2090,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } while (invitations.some((inv) => inv.code === code));
 
     const inv: Invitation = {
-      id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: createEntityId(),
       email: normalizedEmail,
       role,
       tournamentId,
@@ -2236,19 +2239,21 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
     const test = await testSupabaseConnection(url, anonKey);
     setSupabaseSyncInfo({
-      isConfigured: Boolean(anonKey),
+      isConfigured: Boolean(url.trim() && anonKey.trim()),
       isConnected: test.success,
       lastSync: test.success ? new Date().toLocaleTimeString() : null,
       message: test.message,
     });
-    if (test.success && activeTournament) {
-      // Auto-sync after successful connection
-      await syncCurrentTournamentToSupabase();
-    }
     return test;
   };
 
-  const resetAllData = () => {
+  const resetAllData = (): { success: boolean; message: string } => {
+    if (getSupabaseClient()) {
+      const message = 'El restablecimiento de datos demo sólo está disponible sin Supabase configurado.';
+      setSupabaseSyncInfo((previous) => ({ ...previous, message }));
+      return { success: false, message };
+    }
+
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(RANKINGS_STORAGE_KEY);
     setRankings([]);
@@ -2275,6 +2280,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         note: 'Datos reiniciados a los valores iniciales de prueba.',
       },
     ]);
+    return { success: true, message: 'Datos demo restablecidos.' };
   };
 
   return (

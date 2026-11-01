@@ -160,7 +160,9 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
   const handleDuplicate = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const dup = duplicateTournament(id);
-    setSuccessMsg(`Torneo duplicado: "${dup.name}"`);
+    setSuccessMsg(dup
+      ? `Torneo duplicado: "${dup.name}"`
+      : 'No se pudo duplicar el torneo porque ya no está disponible.');
     setTimeout(() => setSuccessMsg(null), 3000);
   };
 
