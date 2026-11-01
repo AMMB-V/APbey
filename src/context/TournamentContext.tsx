@@ -1196,6 +1196,25 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
   };
 
+  const getTournamentCompletionState = (
+    tournamentId: string,
+    stageList: Stage[],
+    matchList: Match[]
+  ): { stageId: string; tournamentComplete: boolean } | null => {
+    const tournamentStages = stageList
+      .filter((stage) => stage.tournamentId === tournamentId)
+      .sort((a, b) => b.position - a.position);
+    const finalStage = tournamentStages[0];
+    if (!finalStage) return null;
+
+    const finalMatches = matchList.filter((match) => match.stageId === finalStage.id);
+    if (finalMatches.length === 0 || !finalMatches.every((match) => match.status === 'completed')) {
+      return { stageId: finalStage.id, tournamentComplete: false };
+    }
+
+    return { stageId: finalStage.id, tournamentComplete: true };
+  };
+
   const reorderParticipants = (tournamentId: string, reordered: Participant[]) => {
     const normalized = normalizeSeeds(reordered);
     setParticipants(prev => {
@@ -1582,10 +1601,36 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
     }
 
+    const completion = getTournamentCompletionState(match.tournamentId, stages, nextMatches);
+    const nextStages = completion?.tournamentComplete
+      ? stages.map((currentStage) => (
+        currentStage.id === completion.stageId
+          ? { ...currentStage, status: 'completed' as const }
+          : currentStage
+      ))
+      : stages;
+    const nextTournaments = completion?.tournamentComplete
+      ? tournaments.map((tournament) => (
+        tournament.id === match.tournamentId
+          ? { ...tournament, status: 'completed' as const }
+          : tournament
+      ))
+      : tournaments;
+
     setMatches(nextMatches);
+    if (completion?.tournamentComplete) {
+      setStages(nextStages);
+      setTournaments(nextTournaments);
+    }
     setBattles(prev => {
       const updated = [...prev, newBattle];
-      saveState({ matches: nextMatches, battles: updated });
+      saveState({
+        matches: nextMatches,
+        battles: updated,
+        ...(completion?.tournamentComplete
+          ? { stages: nextStages, tournaments: nextTournaments }
+          : {}),
+      });
       return updated;
     });
 
@@ -1628,6 +1673,18 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setMatches(previousMatches);
         setBattles(previousBattles);
         saveState({ matches: previousMatches, battles: previousBattles });
+      }
+      if (completion?.tournamentComplete && result.success) {
+        await syncTournamentToSupabase(
+          nextTournaments.find((tournament) => tournament.id === match.tournamentId)!,
+          nextStages,
+          groups,
+          rounds,
+          nextMatches,
+          participants,
+          [...battles, newBattle],
+          penalties
+        );
       }
     })();
 
@@ -1673,12 +1730,37 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     );
 
     const nextMatches = matches.map(m => m.id === matchId ? updatedMatch : m);
+    const completion = getTournamentCompletionState(match.tournamentId, stages, nextMatches);
+    const nextStages = completion?.tournamentComplete
+      ? stages.map((currentStage) => (
+        currentStage.id === completion.stageId
+          ? { ...currentStage, status: 'completed' as const }
+          : currentStage
+      ))
+      : stages;
+    const nextTournaments = completion?.tournamentComplete
+      ? tournaments.map((tournament) => (
+        tournament.id === match.tournamentId
+          ? { ...tournament, status: 'completed' as const }
+          : tournament
+      ))
+      : tournaments;
+    const nextPenalties = [...penalties, newPenalty];
     setMatches(nextMatches);
     setPenalties(prev => {
-      const updated = [...prev, newPenalty];
-      saveState({ matches: nextMatches, penalties: updated });
-      return updated;
+      saveState({
+        matches: nextMatches,
+        penalties: nextPenalties,
+        ...(completion?.tournamentComplete
+          ? { stages: nextStages, tournaments: nextTournaments }
+          : {}),
+      });
+      return nextPenalties;
     });
+    if (completion?.tournamentComplete) {
+      setStages(nextStages);
+      setTournaments(nextTournaments);
+    }
 
     void persistPenaltyToSupabase(newPenalty, updatedMatch, match.version).then((result) => {
       setSupabaseSyncInfo((previous) => ({
@@ -1691,6 +1773,18 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setMatches(previousMatches);
         setPenalties(previousPenalties);
         saveState({ matches: previousMatches, penalties: previousPenalties });
+      }
+      if (completion?.tournamentComplete && result.success) {
+        void syncTournamentToSupabase(
+          nextTournaments.find((tournament) => tournament.id === match.tournamentId)!,
+          nextStages,
+          groups,
+          rounds,
+          nextMatches,
+          participants,
+          battles,
+          nextPenalties
+        );
       }
     });
 
