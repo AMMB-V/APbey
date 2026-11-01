@@ -209,7 +209,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
       <div className="bg-[var(--chasis)] rounded-[var(--r-card)] border border-[var(--costura)] p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-[var(--hueso)] tracking-tight font-display flex items-center gap-2">
+            <h1 className="text-lg sm:text-xl font-bold text-[var(--hueso)] tracking-tight font-display flex items-center gap-2">
               <Trophy className="w-6 h-6 text-amber-400" />
               Torneos Oficiales Beyblade X
             </h1>

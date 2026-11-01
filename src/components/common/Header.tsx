@@ -98,7 +98,7 @@ export const Header: React.FC<HeaderProps> = ({
               aria-hidden="true"
               className="w-9 h-9 object-contain"
             />
-            <span className="text-sm sm:text-base font-black tracking-tight leading-none font-display text-[var(--hueso)]">
+            <span className="text-sm font-black tracking-tight leading-none font-display text-[var(--hueso)]">
               APBEY
             </span>
           </div>
@@ -111,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={() => setActiveTab('torneos')}
             aria-current={activeTab === 'torneos' ? 'page' : undefined}
-            className={`px-3 py-1.5 text-[11px] font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+            className={`px-3 py-1.5 text-[10px] font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
               activeTab === 'torneos'
                 ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
                 : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
@@ -126,7 +126,7 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={() => setActiveTab('bracket')}
             aria-current={activeTab === 'bracket' ? 'page' : undefined}
-            className={`px-3 py-1.5 text-[11px] font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+            className={`px-3 py-1.5 text-[10px] font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
               activeTab === 'bracket'
                 ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
                 : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
@@ -141,7 +141,7 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={() => setActiveTab('marcador')}
             aria-current={activeTab === 'marcador' || activeTab === 'referee' ? 'page' : undefined}
-            className={`px-3 py-1.5 text-[11px] font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+            className={`px-3 py-1.5 text-[10px] font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
               activeTab === 'marcador' || activeTab === 'referee'
                 ? 'bg-[var(--cobalto)] text-[var(--tinta)] shadow-xs'
                 : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
@@ -156,7 +156,7 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={() => setActiveTab('rankings')}
             aria-current={activeTab === 'rankings' ? 'page' : undefined}
-            className={`px-3 py-1.5 text-[11px] font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+            className={`px-3 py-1.5 text-[10px] font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
               activeTab === 'rankings'
                 ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
                 : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
@@ -171,7 +171,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => setToolsOpen(!toolsOpen)}
-              className={`px-3 py-1.5 text-[11px] font-bold rounded-xl transition-colors flex items-center gap-1 whitespace-nowrap min-h-[36px] ${
+              className={`px-3 py-1.5 text-[10px] font-bold rounded-xl transition-colors flex items-center gap-1 whitespace-nowrap min-h-[36px] ${
                 activeTab === 'deck' || activeTab === 'tierlist' || activeTab === 'participants'
                   ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
                   : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
@@ -193,7 +193,7 @@ export const Header: React.FC<HeaderProps> = ({
                     setActiveTab('deck');
                     setToolsOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 text-[11px] font-bold text-[var(--hueso)] hover:bg-[var(--grafito)] rounded-xl flex items-center gap-2"
+                  className="w-full text-left px-3 py-2 text-[10px] font-bold text-[var(--hueso)] hover:bg-[var(--grafito)] rounded-xl flex items-center gap-2"
                 >
                   <Layers className="w-4 h-4 text-cyan-400" />
                   <span>Deck 3on3 Builder</span>
@@ -204,7 +204,7 @@ export const Header: React.FC<HeaderProps> = ({
                     setActiveTab('tierlist');
                     setToolsOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 text-[11px] font-bold text-[var(--hueso)] hover:bg-[var(--grafito)] rounded-xl flex items-center gap-2"
+                  className="w-full text-left px-3 py-2 text-[10px] font-bold text-[var(--hueso)] hover:bg-[var(--grafito)] rounded-xl flex items-center gap-2"
                 >
                   <Shield className="w-4 h-4 text-rose-400" />
                   <span>Tier List Competitiva</span>
@@ -215,7 +215,7 @@ export const Header: React.FC<HeaderProps> = ({
                     setActiveTab('participants');
                     setToolsOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 text-[11px] font-bold text-[var(--hueso)] hover:bg-[var(--grafito)] rounded-xl flex items-center gap-2"
+                  className="w-full text-left px-3 py-2 text-[10px] font-bold text-[var(--hueso)] hover:bg-[var(--grafito)] rounded-xl flex items-center gap-2"
                 >
                   <Users className="w-4 h-4 text-blue-400" />
                   <span>Participantes Torneo</span>
@@ -230,7 +230,7 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               onClick={() => setActiveTab('admin')}
               aria-current={activeTab === 'admin' || activeTab === 'wizard' ? 'page' : undefined}
-              className={`px-3 py-1.5 text-[11px] font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+              className={`px-3 py-1.5 text-[10px] font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
                 activeTab === 'admin' || activeTab === 'wizard'
                   ? 'bg-amber-400 text-black shadow-xs'
                   : 'text-amber-300 hover:text-amber-200 hover:bg-amber-950/40'
@@ -281,7 +281,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => openAuthModal('invite')}
-                className="px-2.5 py-1.5 text-[11px] font-semibold rounded-xl border border-[var(--costura)] hover:border-[var(--acero)] text-[var(--hueso)] hover:bg-[var(--grafito)] transition-colors hidden sm:flex items-center gap-1.5 min-h-[38px]"
+                className="px-2.5 py-1.5 text-[10px] font-semibold rounded-xl border border-[var(--costura)] hover:border-[var(--acero)] text-[var(--hueso)] hover:bg-[var(--grafito)] transition-colors hidden sm:flex items-center gap-1.5 min-h-[38px]"
               >
                 <KeyRound className="w-3.5 h-3.5 text-amber-400" />
                 <span>Invitación</span>
@@ -289,7 +289,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => openAuthModal('login')}
-                className="px-3 py-1.5 text-[11px] font-bold rounded-xl bg-[var(--hueso)] hover:bg-white text-[var(--tinta)] transition-all flex items-center gap-1.5 shadow-sm min-h-[38px]"
+                className="px-3 py-1.5 text-[10px] font-bold rounded-xl bg-[var(--hueso)] hover:bg-white text-[var(--tinta)] transition-all flex items-center gap-1.5 shadow-sm min-h-[38px]"
               >
                 <LogIn className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Entrar</span>
@@ -310,7 +310,7 @@ export const Header: React.FC<HeaderProps> = ({
                     currentUser.displayName.charAt(0).toUpperCase()
                   )}
                 </div>
-                <span className="text-xs font-bold text-[var(--hueso)] max-w-[90px] truncate hidden md:inline hover:underline">
+                <span className="text-[11px] font-bold text-[var(--hueso)] max-w-[90px] truncate hidden md:inline hover:underline">
                   {currentUser.displayName}
                 </span>
                 <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border uppercase shrink-0 ${currentRoleMeta.color}`}>
