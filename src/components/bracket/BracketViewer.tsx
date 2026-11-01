@@ -150,7 +150,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
           {/* Print button */}
           <button
             onClick={handlePrint}
-            className="btn btn--secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5"
+            className="acero-btn acero-btn--secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5"
             title="Imprimir cuadro de emparejamientos"
           >
             <Printer className="w-3.5 h-3.5" />
@@ -161,7 +161,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
               type="button"
               onClick={() => startStage(stage.id)}
               disabled={participants.filter((participant) => participant.tournamentId === stage.tournamentId).length < 2}
-              className="btn btn--primary text-xs px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="acero-btn acero-btn--primary text-xs px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               title="Generar la llave y habilitar el arbitraje"
             >
               <Radio className="w-3.5 h-3.5" />
@@ -378,7 +378,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                   />
                   <button
                     onClick={() => assignStationToMatch(selectedMatch.id, stationInput)}
-                    className="btn btn--secondary text-xs px-3 py-1.5"
+                    className="acero-btn acero-btn--secondary text-xs px-3 py-1.5"
                   >
                     Guardar
                   </button>
@@ -388,7 +388,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                       callMatchToStation(selectedMatch.id);
                       setSelectedMatch(null);
                     }}
-                    className="btn btn--primary text-xs px-3 py-1.5 flex items-center gap-1"
+                    className="acero-btn acero-btn--primary text-xs px-3 py-1.5 flex items-center gap-1"
                   >
                     <Volume2 className="w-3.5 h-3.5" />
                     Llamar
@@ -422,7 +422,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                     setSelectedMatch(null);
                     onOpenMatchInReferee(mId);
                   }}
-                  className="btn btn--primary text-xs px-4 py-1.5 flex items-center gap-1.5"
+                  className="acero-btn acero-btn--primary text-xs px-4 py-1.5 flex items-center gap-1.5"
                 >
                   <Scale className="w-3.5 h-3.5" />
                   Abrir Consola de Árbitro

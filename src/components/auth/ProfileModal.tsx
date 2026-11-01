@@ -84,7 +84,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
             </div>
           </label>
 
-          <button type="submit" disabled={saving} className="w-full btn btn--primary text-xs py-2.5 flex items-center justify-center gap-2 disabled:opacity-60">
+          <button type="submit" disabled={saving} className="w-full acero-btn acero-btn--primary text-xs py-2.5 flex items-center justify-center gap-2 disabled:opacity-60">
             <Save className="w-3.5 h-3.5" />
             {saving ? 'Guardando...' : 'Guardar cambios'}
           </button>

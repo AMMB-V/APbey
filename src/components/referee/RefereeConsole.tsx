@@ -260,7 +260,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
             {match.refereeId !== currentUser.id && canArbitrate && (
               <button
                 onClick={() => claimMatchAsReferee(match.id)}
-                className="btn btn--secondary text-xs px-2.5 py-1 flex items-center gap-1"
+                className="acero-btn acero-btn--secondary text-xs px-2.5 py-1 flex items-center gap-1"
                 title="Tomar el control del match como juez"
               >
                 <UserCheck className="w-3 h-3 text-[var(--cobalto)]" />
@@ -617,7 +617,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-[var(--costura)]">
             <button
               onClick={handleDrawClick}
-              className="btn btn--secondary text-xs px-3.5 py-2 flex items-center gap-1.5"
+              className="acero-btn acero-btn--secondary text-xs px-3.5 py-2 flex items-center gap-1.5"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               Empate Simultáneo (0 pts)
@@ -626,7 +626,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
             <button
               onClick={() => undoBattle(match.id)}
               disabled={matchBattles.length === 0}
-              className={`btn btn--secondary text-xs px-3.5 py-2 flex items-center gap-1.5 ${
+              className={`acero-btn acero-btn--secondary text-xs px-3.5 py-2 flex items-center gap-1.5 ${
                 matchBattles.length > 0
                   ? 'hover:text-amber-400'
                   : 'opacity-40 cursor-not-allowed'
@@ -734,14 +734,14 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
               <button
                 type="button"
                 onClick={() => setShowFoulModal(false)}
-                className="btn btn--secondary text-xs px-3 py-1.5"
+                className="acero-btn acero-btn--secondary text-xs px-3 py-1.5"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={handleFoulSubmit}
-                className="btn btn--primary text-xs px-3 py-1.5"
+                className="acero-btn acero-btn--primary text-xs px-3 py-1.5"
               >
                 Confirmar Falta
               </button>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TournamentProvider, useTournament } from './context/TournamentContext';
 import { Header, MainTabType } from './components/common/Header';
 import { BracketViewer } from './components/bracket/BracketViewer';
@@ -89,6 +89,7 @@ function TournamentApp() {
     inviteCodePrefill,
     openAuthModal,
   } = useTournament();
+  const hasAppliedTournamentDeepLink = useRef(false);
 
   // Stages of active tournament
   const tournamentStages = activeTournament
@@ -114,15 +115,19 @@ function TournamentApp() {
 
   // Restore a tournament deep link once the remote snapshot is available.
   useEffect(() => {
+    if (hasAppliedTournamentDeepLink.current) return;
     const requestedTournamentId = new URLSearchParams(window.location.search).get('tournament');
-    if (
-      requestedTournamentId &&
-      tournaments.some((tournament) => tournament.id === requestedTournamentId) &&
-      requestedTournamentId !== activeTournament?.id
-    ) {
+    if (!requestedTournamentId) {
+      hasAppliedTournamentDeepLink.current = true;
+      return;
+    }
+    if (tournaments.length === 0) return;
+
+    hasAppliedTournamentDeepLink.current = true;
+    if (tournaments.some((tournament) => tournament.id === requestedTournamentId)) {
       setActiveTournamentId(requestedTournamentId);
     }
-  }, [tournaments, activeTournament?.id, setActiveTournamentId]);
+  }, [tournaments, setActiveTournamentId]);
 
   // Sync title and URL search param
   useEffect(() => {
