@@ -138,7 +138,7 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
               <button
                 onClick={handleSyncData}
                 disabled={isSyncing}
-                className="btn btn--primary text-xs shrink-0 py-1.5 px-3"
+                className="acero-btn acero-btn--primary text-xs shrink-0 py-1.5 px-3"
               >
                 <UploadCloud className={`w-3.5 h-3.5 ${isSyncing ? 'animate-bounce' : ''}`} />
                 {isSyncing ? 'Sincronizando...' : 'Subir Torneo'}
@@ -205,7 +205,7 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
               <button
                 type="submit"
                 disabled={isSaving}
-                className="btn btn--primary text-sm px-4 py-2"
+                className="acero-btn acero-btn--primary text-sm px-4 py-2"
               >
                 <RefreshCw className={`w-4 h-4 ${isSaving ? 'animate-spin' : ''}`} />
                 {isSaving ? 'Verificando...' : 'Guardar y Probar Conexión'}
@@ -229,7 +229,7 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleCopySql}
-                  className="btn btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5"
+                  className="acero-btn acero-btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5"
                 >
                   {copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   {copiedSql ? '¡Copiado!' : 'Copiar Esquema Completo'}

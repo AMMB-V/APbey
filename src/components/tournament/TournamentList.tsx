@@ -59,6 +59,19 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
 
   const canManage = currentRole === 'organizer' || currentRole === 'admin';
 
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    setNewName('');
+    setSelectedTemplateId('');
+    setFormError(null);
+    resetCreationDefaults();
+  };
+
+  const openCreateModal = () => {
+    closeCreateModal();
+    setShowCreateModal(true);
+  };
+
   const resetCreationDefaults = () => {
     setNewVenue('Arena Beyblade');
     setNewCountry('PA');
@@ -147,9 +160,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
       stageConfig
     );
 
-    setShowCreateModal(false);
-    setNewName('');
-    setSelectedTemplateId('');
+    closeCreateModal();
     setSuccessMsg(`¡Torneo "${created.name}" creado con éxito! Redirigiendo a Bladers & Siembra...`);
     setTimeout(() => setSuccessMsg(null), 3500);
 
@@ -211,7 +222,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
         <div className="flex items-center gap-2 w-full md:w-auto">
           {canManage ? (
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={openCreateModal}
               className="w-full md:w-auto px-4 py-2 text-xs font-bold rounded-[var(--r-control)] bg-[var(--hueso)] hover:bg-white text-[var(--tinta)] transition-all flex items-center justify-center gap-2 shadow-sm"
             >
               <Plus className="w-4 h-4" />
@@ -452,7 +463,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in" role="dialog" aria-modal="true" aria-labelledby="create-tournament-title">
           <div className="w-full max-w-xl bg-[var(--chasis)] border border-[var(--costura)] rounded-[var(--r-card)] shadow-2xl overflow-hidden flex flex-col text-[var(--hueso)] max-h-[90vh] overflow-y-auto">
             {/* Header */}
-            <div className="p-5 border-b border-[var(--costura)] flex items-center justify-between bg-[var(--grafito)] sticky top-0">
+            <div className="p-5 border-b border-[var(--costura)] flex items-center justify-between bg-[var(--grafito)] sticky top-0 z-10">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-[var(--cobalto)]/20 border border-[var(--cobalto)]/40 flex items-center justify-center text-[var(--cobalto)] font-bold text-sm">
                   🏆
@@ -467,7 +478,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                 </div>
               </div>
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={closeCreateModal}
                 className="p-1 rounded text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)] transition-colors"
               >
                 <X className="w-4 h-4" />
@@ -656,7 +667,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
               <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-[var(--costura)]">
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={closeCreateModal}
                   className="px-4 py-2 text-xs font-semibold rounded-[var(--r-control)] border border-[var(--costura)] text-[var(--acero)] hover:text-white"
                 >
                   Cancelar

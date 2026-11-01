@@ -121,6 +121,7 @@ export const TournamentWizard: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'general' | 'arbitration' | 'stages' | 'tiebreakers'>('general');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Form states based on active tournament
   const [name, setName] = useState(activeTournament?.name || '');
@@ -274,7 +275,7 @@ export const TournamentWizard: React.FC = () => {
       );
     } catch (err) {
       console.error(err);
-      showSuccess('No se pudieron persistir las reglas de desempate.');
+      setErrorMsg('No se pudieron persistir las reglas de desempate.');
     } finally {
       setIsSavingTiebreakers(false);
     }
@@ -315,6 +316,7 @@ export const TournamentWizard: React.FC = () => {
   };
 
   const showSuccess = (msg: string) => {
+    setErrorMsg(null);
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(null), 3000);
   };
@@ -385,12 +387,18 @@ export const TournamentWizard: React.FC = () => {
           <span>{successMsg}</span>
         </div>
       )}
+      {errorMsg && (
+        <div className="p-3 bg-rose-900/30 border border-rose-700 rounded-lg text-xs font-semibold text-rose-300 flex items-center gap-2 animate-in fade-in">
+          <ShieldCheck className="w-4 h-4 text-rose-400 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex items-center gap-1 border-b border-[var(--costura)] pb-2">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-[var(--costura)] pb-2">
         <button
           onClick={() => setActiveTab('general')}
-          className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+          className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
             activeTab === 'general' ? 'bg-[var(--acero)] text-[var(--grafito)]' : 'text-[var(--acero)] hover:text-[var(--hueso)]'
           }`}
         >
@@ -398,7 +406,7 @@ export const TournamentWizard: React.FC = () => {
         </button>
         <button
           onClick={() => setActiveTab('arbitration')}
-          className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+          className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
             activeTab === 'arbitration' ? 'bg-[var(--acero)] text-[var(--grafito)]' : 'text-[var(--acero)] hover:text-[var(--hueso)]'
           }`}
         >
@@ -406,7 +414,7 @@ export const TournamentWizard: React.FC = () => {
         </button>
         <button
           onClick={() => setActiveTab('stages')}
-          className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+          className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
             activeTab === 'stages' ? 'bg-[var(--acero)] text-[var(--grafito)]' : 'text-[var(--acero)] hover:text-[var(--hueso)]'
           }`}
         >
@@ -414,7 +422,7 @@ export const TournamentWizard: React.FC = () => {
         </button>
         <button
           onClick={() => setActiveTab('tiebreakers')}
-          className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+          className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
             activeTab === 'tiebreakers' ? 'bg-[var(--acero)] text-[var(--grafito)]' : 'text-[var(--acero)] hover:text-[var(--hueso)]'
           }`}
         >
@@ -748,14 +756,21 @@ export const TournamentWizard: React.FC = () => {
 
           <div className="flex justify-end pt-3 border-t border-[var(--costura)]">
             <button
-              onClick={() => {
-                if (activeTournament) {
-                  updateTournament(activeTournament.id, {
-                    pointsToWinGroup: pointsGroup,
-                    pointsToWinPlayoffs: pointsPlayoffs,
-                    pointsToWinFinal: pointsFinal,
-                  });
-                }
+              onClick={async () => {
+                if (!activeTournament || !activeStage) return;
+                await updateStageConfig(activeStage.id, {
+                  advanceCount,
+                  groupSize,
+                });
+                await updateStage(activeStage.id, {
+                  bestOf,
+                  pointsToWin,
+                });
+                updateTournament(activeTournament.id, {
+                  pointsToWinGroup: pointsGroup,
+                  pointsToWinPlayoffs: pointsPlayoffs,
+                  pointsToWinFinal: pointsFinal,
+                });
                 showSuccess('Parámetros de etapa y umbrales de puntos actualizados.');
               }}
               className="px-4 py-2 text-xs font-bold text-white bg-neutral-900 hover:bg-neutral-800 rounded-lg transition-colors"
@@ -1090,7 +1105,7 @@ export const TournamentWizard: React.FC = () => {
               type="button"
               onClick={handleSaveTiebreakers}
               disabled={isSavingTiebreakers}
-              className="px-5 py-2.5 text-xs font-bold text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-[var(--grafito)]0 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-xs"
+              className="px-5 py-2.5 text-xs font-bold text-white bg-neutral-900 hover:bg-neutral-800               disabled:bg-[var(--grafito)] rounded-lg transition-colors flex items-center justify-center gap-2 shadow-xs"
             >
               {isSavingTiebreakers ? (
                 <>

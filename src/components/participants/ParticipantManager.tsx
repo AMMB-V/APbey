@@ -116,6 +116,11 @@ export const ParticipantManager: React.FC = () => {
             <h2 className="text-lg font-bold text-[var(--hueso)] tracking-tight font-display">
               Gestión de Bladers, Decks 3on3 & Siembra (Seeding)
             </h2>
+            {activeTournament && (
+              <p className="mt-1 text-xs text-[var(--acero)] truncate max-w-[32rem]" title={activeTournament.name}>
+                Torneo activo: <span className="font-semibold text-[var(--hueso)]">{activeTournament.name}</span>
+              </p>
+            )}
             <span className="text-xs px-2 py-0.5 rounded-[var(--r-chip)] font-mono font-bold bg-[var(--grafito)] text-[var(--hueso)] border border-[var(--costura)]">
               {tParticipants.length} {activeTournament?.maxParticipants ? `/ ${activeTournament.maxParticipants}` : ''} Jugadores
             </span>
@@ -131,7 +136,7 @@ export const ParticipantManager: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={exportToCSV}
-            className="btn btn--secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5"
+            className="acero-btn acero-btn--secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5"
             title="Exportar lista de participantes a CSV"
           >
             <AceroIcon id="i-exportar" size="sm" />
@@ -140,7 +145,7 @@ export const ParticipantManager: React.FC = () => {
 
           <button
             onClick={handlePrint}
-            className="btn btn--secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5"
+            className="acero-btn acero-btn--secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5"
             title="Imprimir planilla de check-in para mesa"
           >
             <Printer className="w-3.5 h-3.5" />
@@ -150,16 +155,18 @@ export const ParticipantManager: React.FC = () => {
           {currentRole !== 'public' && (
             <>
               <button
-                onClick={() => checkInAll(activeTournament!.id)}
-                className="btn btn--secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5"
+                onClick={() => activeTournament && checkInAll(activeTournament.id)}
+                disabled={!activeTournament}
+                className="acero-btn acero-btn--secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <AceroIcon id="i-checkin" size="sm" className="text-emerald-400" />
                 Check-in a Todos
               </button>
 
               <button
-                onClick={() => randomizeParticipants(activeTournament!.id)}
-                className="btn btn--secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5"
+                onClick={() => activeTournament && randomizeParticipants(activeTournament.id)}
+                disabled={!activeTournament}
+                className="acero-btn acero-btn--secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Shuffle className="w-3.5 h-3.5" />
                 Siembra Aleatoria
@@ -167,7 +174,7 @@ export const ParticipantManager: React.FC = () => {
 
               <button
                 onClick={() => setShowBulkModal(true)}
-                className="btn btn--primary text-xs px-3 py-1.5 flex items-center gap-1.5"
+                className="acero-btn acero-btn--primary text-xs px-3 py-1.5 flex items-center gap-1.5"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
                 Importar en Bloque (Walk-in)
@@ -206,7 +213,7 @@ export const ParticipantManager: React.FC = () => {
 
           <button
             type="submit"
-            className="w-full sm:w-auto btn btn--primary text-xs px-4 py-2 flex items-center justify-center gap-1.5 shrink-0"
+            className="w-full sm:w-auto acero-btn acero-btn--primary text-xs px-4 py-2 flex items-center justify-center gap-1.5 shrink-0"
           >
             <AceroIcon id="i-anadir" size="sm" />
             Añadir Blader
@@ -233,7 +240,7 @@ export const ParticipantManager: React.FC = () => {
             <tbody>
               {tParticipants.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-xs text-[var(--acero)]">
+                  <td colSpan={currentRole !== 'public' ? 6 : 5} className="py-8 text-center text-xs text-[var(--acero)]">
                     No hay bladers registrados en este torneo. Añade participantes arriba o impórtalos en bloque.
                   </td>
                 </tr>
@@ -368,13 +375,13 @@ export const ParticipantManager: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowBulkModal(false)}
-                  className="btn btn--secondary text-xs px-3.5 py-1.5"
+                  className="acero-btn acero-btn--secondary text-xs px-3.5 py-1.5"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="btn btn--primary text-xs px-4 py-1.5"
+                  className="acero-btn acero-btn--primary text-xs px-4 py-1.5"
                 >
                   Importar Bladers
                 </button>
