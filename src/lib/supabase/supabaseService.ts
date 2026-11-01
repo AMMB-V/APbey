@@ -272,8 +272,29 @@ export async function syncTournamentToSupabase(
       created_at: tournament.createdAt,
     };
 
-    const { error: tourneyError } = await supabase.from('tournaments').upsert(tourneyPayload);
-    if (tourneyError) throw new Error(`Error al sincronizar torneo: ${tourneyError.message}`);
+    const { error: tourneyError } = await supabase.rpc('publish_tournament', {
+      p_id: tourneyPayload.id,
+      p_slug: tourneyPayload.slug,
+      p_name: tourneyPayload.name,
+      p_description: tourneyPayload.description,
+      p_organizer_id: tourneyPayload.organizer_id,
+      p_status: tourneyPayload.status,
+      p_is_public: tourneyPayload.is_public,
+      p_max_participants: tourneyPayload.max_participants,
+      p_check_in_required: tourneyPayload.check_in_required,
+      p_entry_fee: tourneyPayload.entry_fee,
+      p_foul_points: tourneyPayload.foul_points,
+      p_fouls_per_point: tourneyPayload.fouls_per_point,
+      p_points_to_win_group: tourneyPayload.points_to_win_group,
+      p_points_to_win_playoffs: tourneyPayload.points_to_win_playoffs,
+      p_points_to_win_final: tourneyPayload.points_to_win_final,
+      p_venue_name: tourneyPayload.venue_name,
+      p_venue_address: tourneyPayload.venue_address,
+      p_country: tourneyPayload.country,
+      p_starts_at: tourneyPayload.starts_at,
+      p_created_at: tourneyPayload.created_at,
+    });
+    if (tourneyError) throw new Error(`Error al publicar torneo: ${tourneyError.message}`);
 
     const finishPointsPayload = (Object.keys(tournament.finishPoints) as FinishType[]).map((finish) => ({
       tournament_id: tournament.id,
