@@ -350,7 +350,7 @@ export const TournamentWizard: React.FC = () => {
       {/* Top Bar with actions */}
       <div className="bg-[var(--chasis)] rounded-xl border border-[var(--costura)] p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-[var(--hueso)] tracking-tight flex items-center gap-2">
+          <h2 className="text-base font-bold text-[var(--hueso)] tracking-tight flex items-center gap-2">
             <Settings className="w-5 h-5 text-[var(--acero)]" />
             Diseñador & Parámetros de Torneo
           </h2>

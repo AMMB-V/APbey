@@ -75,7 +75,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-[var(--costura)]">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-[var(--hueso)] tracking-tight font-display">
+            <h2 className="text-lg font-bold text-[var(--hueso)] tracking-tight font-display">
               {stage.name}
             </h2>
             <span

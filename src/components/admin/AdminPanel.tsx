@@ -156,7 +156,7 @@ export const AdminPanel: React.FC = () => {
       <div className="bg-[var(--chasis)] rounded-[var(--r-card)] border border-[var(--costura)] p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold text-[var(--hueso)] tracking-tight flex items-center gap-2 font-display">
+            <h2 className="text-base font-bold text-[var(--hueso)] tracking-tight flex items-center gap-2 font-display">
               <ShieldCheck className="w-5 h-5 text-[var(--cobalto)]" />
               Panel de Administración, Asignación & Supabase
             </h2>
