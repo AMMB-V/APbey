@@ -71,6 +71,10 @@ export function applyBattle(
     throw new Error('El match no tiene ambos participantes definidos.');
   }
 
+  if ((scorerId === null) !== (finish === null)) {
+    throw new Error('Un empate debe registrarse sin anotador ni tipo de finish.');
+  }
+
   if (scorerId && scorerId !== p1Id && scorerId !== p2Id) {
     throw new Error('El anotador no corresponde a ninguno de los participantes.');
   }
@@ -159,8 +163,14 @@ export function applyPenalty(
     throw new Error('El match ya está completado.');
   }
 
-  const p1Id = match.participant1Id!;
-  const p2Id = match.participant2Id!;
+  const p1Id = match.participant1Id;
+  const p2Id = match.participant2Id;
+  if (!p1Id || !p2Id) {
+    throw new Error('El match no tiene ambos participantes definidos.');
+  }
+  if (offenderId !== p1Id && offenderId !== p2Id) {
+    throw new Error('El infractor no corresponde a ninguno de los participantes.');
+  }
   const rivalId = offenderId === p1Id ? p2Id : p1Id;
   const rivalIsP1 = rivalId === p1Id;
 
@@ -259,49 +269,32 @@ export function undoLastBattle(
   const setsNeeded = Math.floor(stage.bestOf / 2) + 1;
   const matchTargetPoints = tournament ? getMatchPointsToWin(match, stage, tournament, round) : (stage.pointsToWin || 4);
 
-  for (const b of remainingBattles) {
-    if (b.scorerId && b.finish) {
-      if (b.scorerId === match.participant1Id) {
-        score1 += b.points;
-      } else if (b.scorerId === match.participant2Id) {
-        score2 += b.points;
+  const remainingEvents = [
+    ...remainingBattles.map((battle) => ({ kind: 'battle' as const, createdAt: battle.createdAt, battle })),
+    ...matchPenalties.map((penalty) => ({ kind: 'penalty' as const, createdAt: penalty.createdAt, penalty })),
+  ].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+  for (const event of remainingEvents) {
+    const awardedTo = event.kind === 'battle'
+      ? event.battle.scorerId
+      : event.penalty.awardedTo;
+    const points = event.kind === 'battle' ? event.battle.points : event.penalty.pointsAwarded;
+    if (!awardedTo || points <= 0) continue;
+
+    if (awardedTo === match.participant1Id) score1 += points;
+    if (awardedTo === match.participant2Id) score2 += points;
+
+    if (Math.max(score1, score2) >= matchTargetPoints) {
+      if (score1 > score2) sets1++;
+      else if (score2 > score1) sets2++;
+
+      if (sets1 >= setsNeeded || sets2 >= setsNeeded) {
+        status = 'completed';
+        winnerId = sets1 >= setsNeeded ? match.participant1Id! : match.participant2Id!;
+        break;
       }
-
-      if (Math.max(score1, score2) >= matchTargetPoints) {
-        if (score1 > score2) sets1++;
-        else sets2++;
-
-        if (sets1 >= setsNeeded || sets2 >= setsNeeded) {
-          status = 'completed';
-          winnerId = sets1 >= setsNeeded ? match.participant1Id! : match.participant2Id!;
-          break;
-        } else {
-          score1 = 0;
-          score2 = 0;
-        }
-      }
-    }
-  }
-
-  // Recalculate penalties
-  for (const p of matchPenalties) {
-    if (p.pointsAwarded > 0 && p.awardedTo) {
-      if (p.awardedTo === match.participant1Id) score1 += p.pointsAwarded;
-      else if (p.awardedTo === match.participant2Id) score2 += p.pointsAwarded;
-
-      if (Math.max(score1, score2) >= matchTargetPoints) {
-        if (score1 > score2) sets1++;
-        else sets2++;
-
-        if (sets1 >= setsNeeded || sets2 >= setsNeeded) {
-          status = 'completed';
-          winnerId = sets1 >= setsNeeded ? match.participant1Id! : match.participant2Id!;
-          break;
-        } else {
-          score1 = 0;
-          score2 = 0;
-        }
-      }
+      score1 = 0;
+      score2 = 0;
     }
   }
 

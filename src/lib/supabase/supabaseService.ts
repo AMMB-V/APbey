@@ -739,17 +739,10 @@ export async function persistBattleToSupabase(
   try {
     const identity = await getAuthenticatedSupabaseUser();
     if ('error' in identity) return { success: false, message: identity.error };
-    if (!battle.scorerId || !battle.finish) {
-      return {
-        success: false,
-        message: 'El RPC transaccional actual sólo admite batallas con finish y anotador.',
-      };
-    }
-
     const { error } = await supabase.rpc('record_battle', {
       p_match: battle.matchId,
-      p_scorer: battle.scorerId,
-      p_finish: battle.finish,
+      p_scorer: battle.scorerId || null,
+      p_finish: battle.finish || null,
       p_expected_version: expectedVersion,
     });
     if (error) {
@@ -794,8 +787,11 @@ export async function persistPenaltyToSupabase(
       p_expected_version: expectedVersion,
     });
     if (error) {
-      const message = error.message.toLowerCase().includes('conflicto')
+      const lowerMessage = error.message.toLowerCase();
+      const message = lowerMessage.includes('conflicto') || lowerMessage.includes('version_conflict')
         ? 'El match cambió en otra sesión. Recarga el torneo antes de registrar la penalización.'
+        : lowerMessage.includes('invalid_offender')
+        ? 'El participante seleccionado no pertenece a este match.'
         : `No se pudo registrar la penalización de forma transaccional: ${error.message}`;
       return { success: false, message };
     }

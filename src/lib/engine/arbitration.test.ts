@@ -146,4 +146,62 @@ describe('arbitration engine', () => {
     expect(first.updatedMatch.status).toBe('in_progress');
     expect(first.updatedMatch.winnerId).toBeNull();
   });
+
+  it('records a draw without assigning a scorer or points', () => {
+    const result = applyBattle(match(), stage, tournament, null, null, 'referee-1', []);
+
+    expect(result.newBattle.scorerId).toBeNull();
+    expect(result.newBattle.points).toBe(0);
+    expect(result.updatedMatch.score1).toBe(0);
+    expect(result.updatedMatch.score2).toBe(0);
+    expect(result.updatedMatch.status).toBe('in_progress');
+  });
+
+  it('rejects a penalty for a participant outside the match', () => {
+    expect(() => applyPenalty(
+      match(),
+      stage,
+      tournament,
+      'other-participant',
+      'yellow',
+      true,
+      'No contacto',
+      'referee-1',
+      []
+    )).toThrow('El infractor no corresponde');
+  });
+
+  it('replays battles and penalties in chronological order when undoing', () => {
+    const first = applyBattle(match(), stage, tournament, 'p1', 'spin', 'referee-1', []);
+    const penalty: Penalty = {
+      id: 'penalty-later',
+      matchId: 'match-1',
+      participantId: 'p1',
+      card: 'yellow',
+      isFoul: true,
+      pointsAwarded: 1,
+      awardedTo: 'p2',
+      issuedBy: 'referee-1',
+      createdAt: '2026-01-01T00:00:02.000Z',
+    };
+    const second = applyBattle(
+      first.updatedMatch,
+      stage,
+      tournament,
+      'p1',
+      'spin',
+      'referee-1',
+      [first.newBattle]
+    );
+    const undo = undoLastBattle(
+      second.updatedMatch,
+      stage,
+      [first.newBattle, second.newBattle],
+      [penalty],
+      tournament
+    );
+
+    expect(undo.updatedMatch.score1).toBe(1);
+    expect(undo.updatedMatch.score2).toBe(1);
+  });
 });
