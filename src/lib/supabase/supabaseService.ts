@@ -32,7 +32,7 @@ export async function loadAdminProfiles(): Promise<UserProfile[] | null> {
   if (!supabase) return null;
 
   const { data, error } = await supabase.rpc('list_admin_profiles');
-  if (!error && data) {
+  if (!error && data && data.length > 0) {
     return data.map((profile) => ({
       id: profile.id,
       displayName: profile.display_name,
@@ -43,7 +43,9 @@ export async function loadAdminProfiles(): Promise<UserProfile[] | null> {
     }));
   }
 
-  console.warn('[Supabase] RPC de perfiles administrativos no disponible:', error?.message);
+  if (error) {
+    console.warn('[Supabase] RPC de perfiles administrativos no disponible:', error.message);
+  }
   const [{ data: profiles, error: profilesError }, { data: invitations, error: invitationsError }] = await Promise.all([
     supabase
       .from('profiles')

@@ -410,7 +410,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             emailStatus: 'not_sent' as const,
           })));
         }
-        if (remoteUsers) setUsers(remoteUsers);
+        if (remoteUsers && remoteUsers.length > 0) setUsers(remoteUsers);
         if (remoteAuditLogs) {
           setAuditLogs((current) => {
             const merged = [...remoteAuditLogs, ...current]
@@ -537,13 +537,16 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const checkInitialConnection = async () => {
       const config = getStoredSupabaseConfig();
       if (config.anonKey) {
-        const test = await testSupabaseConnection(config.url, config.anonKey);
-        setSupabaseSyncInfo({
+        const test = await testSupabaseConnection(config.url, config.anonKey, false);
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
           isConfigured: true,
-          isConnected: test.success,
-          lastSync: test.success ? new Date().toLocaleTimeString() : null,
+          isConnected: test.success || previous.isConnected,
+          lastSync: test.success
+            ? previous.lastSync || new Date().toLocaleTimeString()
+            : previous.lastSync,
           message: test.message,
-        });
+        }));
       }
     };
     checkInitialConnection();
@@ -554,7 +557,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     let active = true;
     void Promise.all([loadAdminProfiles(), loadAdminAuditLogs()]).then(([remoteUsers, remoteAuditLogs]) => {
       if (!active) return;
-      if (remoteUsers) setUsers(remoteUsers);
+      if (remoteUsers && remoteUsers.length > 0) setUsers(remoteUsers);
       if (remoteAuditLogs) setAuditLogs(remoteAuditLogs);
     });
     return () => {

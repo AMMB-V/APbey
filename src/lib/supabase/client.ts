@@ -91,7 +91,11 @@ export async function getSupabaseAccessToken(): Promise<string | null> {
   return data.session?.access_token || null;
 }
 
-export async function testSupabaseConnection(url?: string, anonKey?: string): Promise<{ success: boolean; message: string }> {
+export async function testSupabaseConnection(
+  url?: string,
+  anonKey?: string,
+  validateSession = true
+): Promise<{ success: boolean; message: string }> {
   const targetUrl = url || getStoredSupabaseConfig().url;
   const targetKey = anonKey || getStoredSupabaseConfig().anonKey;
 
@@ -124,6 +128,13 @@ export async function testSupabaseConnection(url?: string, anonKey?: string): Pr
       return {
         success: false,
         message: `Error de Supabase [${error.code || 'ERR'}]: ${error.message}`,
+      };
+    }
+
+    if (!validateSession) {
+      return {
+        success: true,
+        message: 'Conexión a Supabase verificada. La sesión se validará desde el cliente activo.',
       };
     }
 
