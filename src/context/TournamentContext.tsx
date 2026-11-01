@@ -167,7 +167,7 @@ interface TournamentContextType {
   // Admin actions
   createInvitation: (email: string, role: 'organizer' | 'referee', tournamentId?: string) => Promise<Invitation>;
   revokeInvitation: (id: string) => Promise<void>;
-  changeUserRole: (userId: string, newRole: UserRole) => void;
+  changeUserRole: (userId: string, newRole: UserRole) => Promise<{ success: boolean; message: string }>;
   rankings: BladerRanking[];
   hallOfFame: HallOfFameEntry[];
   importRankingWorkbook: (file: File) => Promise<{ rankings: number; hallOfFame: number }>;
@@ -294,6 +294,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [inviteCodePrefill, setInviteCodePrefill] = useState<string>('');
   const [authRevision, setAuthRevision] = useState(0);
   const [remoteRefreshVersion, setRemoteRefreshVersion] = useState(0);
+  const hydrationRequestRef = useRef(0);
 
   const openAuthModal = (tab: 'login' | 'invite' = 'login', initialCode: string = '') => {
     setAuthModalInitialTab(tab);
@@ -412,7 +413,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             emailStatus: 'not_sent' as const,
           })));
         }
-        if (remoteUsers && remoteUsers.length > 0) setUsers(remoteUsers);
+        if (remoteUsers) {
+          setUsers(remoteUsers);
+          localStorage.setItem('apbey_users', JSON.stringify(remoteUsers));
+        }
         if (remoteAuditLogs) {
           setAuditLogs((current) => {
             const merged = [...remoteAuditLogs, ...current]
@@ -559,7 +563,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     let active = true;
     void Promise.all([loadAdminProfiles(), loadAdminAuditLogs()]).then(([remoteUsers, remoteAuditLogs]) => {
       if (!active) return;
-      if (remoteUsers && remoteUsers.length > 0) setUsers(remoteUsers);
+      if (remoteUsers) {
+        setUsers(remoteUsers);
+        localStorage.setItem('apbey_users', JSON.stringify(remoteUsers));
+      }
       if (remoteAuditLogs) setAuditLogs(remoteAuditLogs);
     });
     return () => {
@@ -574,7 +581,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     if (!supabaseSyncInfo.isConfigured) return;
 
-    const unsubscribe = subscribeToTournamentRealtime(activeTournamentId || undefined, {
+    const unsubscribe = subscribeToTournamentRealtime(undefined, {
       onMatchUpdate: (incomingMatch) => {
         if (!incomingMatch.id) return;
         setMatches((current) => current.map((match) => (
@@ -635,11 +642,19 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       },
       onRemoteDataChange: () => {
         setRemoteRefreshVersion((version) => version + 1);
+        if (currentRole === 'admin') {
+          void loadAdminProfiles().then((remoteUsers) => {
+            if (remoteUsers) {
+              setUsers(remoteUsers);
+              localStorage.setItem('apbey_users', JSON.stringify(remoteUsers));
+            }
+          });
+        }
       },
     });
 
     return unsubscribe;
-  }, [activeTournamentId, supabaseSyncInfo.isConfigured]);
+  }, [activeTournamentId, currentRole, supabaseSyncInfo.isConfigured]);
 
   // Sync to localStorage
   useEffect(() => {
@@ -681,6 +696,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const hydrateFromSupabase = async () => {
       if (!supabaseSyncInfo.isConfigured) return;
+      const requestId = ++hydrationRequestRef.current;
       const supabase = getSupabaseClient();
       const { data: sessionData } = supabase
         ? await supabase.auth.getSession()
@@ -700,7 +716,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       // Do not add a client-side organizer filter or organizers miss public
       // tournaments created by other accounts.
       const remote = await loadTournamentsFromSupabase();
-      if (!active) return;
+      if (!active || requestId !== hydrationRequestRef.current) return;
       if (remote && remote.tournaments.length === 0) {
         const saved = localStorage.getItem(STORAGE_KEY);
         const persisted = saved ? migratePersistedTournamentData(JSON.parse(saved)).data : null;
@@ -809,6 +825,36 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       active = false;
     };
   }, [supabaseSyncInfo.isConfigured, authRevision, remoteRefreshVersion]);
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEY && event.newValue) {
+        try {
+          const { data } = migratePersistedTournamentData(JSON.parse(event.newValue));
+          setTournaments(data.tournaments);
+          setStages(data.stages);
+          setGroups(data.groups);
+          setRounds(data.rounds);
+          setMatches(data.matches);
+          setParticipants(data.participants);
+          setBattles(data.battles);
+          setPenalties(data.penalties);
+        } catch (error) {
+          console.error('[Storage] No se pudo sincronizar otra pestaña:', error);
+        }
+      }
+      if (event.key === 'apbey_users' && event.newValue) {
+        try {
+          setUsers(JSON.parse(event.newValue) as UserProfile[]);
+        } catch (error) {
+          console.error('[Storage] No se pudieron sincronizar usuarios:', error);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -2833,12 +2879,32 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     logAudit('invitations', id, 'delete', 'Invitación revocada y retirada de las invitaciones activas.');
   };
 
-  const changeUserRole = (userId: string, newRole: UserRole) => {
-    setUsers(prev => {
-      const updated = prev.map(u => u.id === userId ? { ...u, role: newRole } : u);
-      return updated;
-    });
+  const changeUserRole = async (
+    userId: string,
+    newRole: UserRole
+  ): Promise<{ success: boolean; message: string }> => {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { error } = await supabase.rpc('update_profile_role', {
+        p_user_id: userId,
+        p_role: newRole,
+      });
+      if (error) {
+        return { success: false, message: `No se pudo actualizar el rol: ${error.message}` };
+      }
+    }
+
+    const updatedList = users.map((user) => user.id === userId ? { ...user, role: newRole } : user);
+    setUsers(updatedList);
+    localStorage.setItem('apbey_users', JSON.stringify(updatedList));
+    if (currentUser?.id === userId) {
+      const updatedCurrentUser = { ...currentUser, role: newRole };
+      setCurrentUser(updatedCurrentUser);
+      setCurrentRole(newRole);
+      localStorage.setItem(SESSION_USER_KEY, JSON.stringify(updatedCurrentUser));
+    }
     logAudit('profiles', userId, 'update', `Rol de usuario cambiado a ${newRole}.`);
+    return { success: true, message: 'Rol actualizado correctamente.' };
   };
 
   

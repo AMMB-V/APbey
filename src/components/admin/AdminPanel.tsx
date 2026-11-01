@@ -509,7 +509,16 @@ export const AdminPanel: React.FC = () => {
                     <td className="py-2.5 px-3">
                       <select
                         value={u.role}
-                        onChange={(e) => changeUserRole(u.id, e.target.value as UserRole)}
+                        onChange={(e) => {
+                          void changeUserRole(u.id, e.target.value as UserRole).then((result) => {
+                            if (!result.success) {
+                              setErrorMsg(result.message);
+                            } else {
+                              setSuccessMsg(result.message);
+                              setTimeout(() => setSuccessMsg(null), 3000);
+                            }
+                          });
+                        }}
                         className="text-xs border border-[var(--costura)] rounded-[var(--r-control)] px-2 py-1 bg-[var(--grafito)] font-medium text-[var(--hueso)] focus:outline-hidden"
                       >
                         <option value="admin">Admin</option>
