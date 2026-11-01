@@ -475,6 +475,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [localStorageHydrated, setLocalStorageHydrated] = useState(hasConfiguredSupabase);
   const autoSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSyncRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const remoteRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSyncInFlightRef = useRef(false);
   const autoSyncQueuedSnapshotRef = useRef<{
     tournaments: Tournament[];
@@ -641,7 +642,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }));
       },
       onRemoteDataChange: () => {
-        setRemoteRefreshVersion((version) => version + 1);
+        if (remoteRefreshTimerRef.current) clearTimeout(remoteRefreshTimerRef.current);
+        remoteRefreshTimerRef.current = setTimeout(() => {
+          setRemoteRefreshVersion((version) => version + 1);
+          remoteRefreshTimerRef.current = null;
+        }, 200);
         if (currentRole === 'admin') {
           void loadAdminProfiles().then((remoteUsers) => {
             if (remoteUsers) {
@@ -653,7 +658,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       },
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      if (remoteRefreshTimerRef.current) {
+        clearTimeout(remoteRefreshTimerRef.current);
+        remoteRefreshTimerRef.current = null;
+      }
+    };
   }, [activeTournamentId, currentRole, supabaseSyncInfo.isConfigured]);
 
   // Sync to localStorage
@@ -697,19 +708,6 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const hydrateFromSupabase = async () => {
       if (!supabaseSyncInfo.isConfigured) return;
       const requestId = ++hydrationRequestRef.current;
-      const supabase = getSupabaseClient();
-      const { data: sessionData } = supabase
-        ? await supabase.auth.getSession()
-        : { data: { session: null } };
-      let authenticatedRole: UserRole | undefined;
-      if (sessionData.session) {
-        const { data: profile } = await supabase!
-          .from('profiles')
-          .select('id, role')
-          .eq('id', sessionData.session.user.id)
-          .maybeSingle();
-        authenticatedRole = profile?.role as UserRole | undefined;
-      }
 
       // Supabase RLS decides which tournaments this session can see:
       // public tournaments, owned tournaments, and assigned-referee tournaments.
@@ -718,41 +716,20 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const remote = await loadTournamentsFromSupabase();
       if (!active || requestId !== hydrationRequestRef.current) return;
       if (remote && remote.tournaments.length === 0) {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        const persisted = saved ? migratePersistedTournamentData(JSON.parse(saved)).data : null;
-        const pendingSnapshot = persisted?.tournaments?.length
-          ? {
-              tournaments: persisted.tournaments,
-              stages: persisted.stages || [],
-              groups: persisted.groups || [],
-              rounds: persisted.rounds || [],
-              matches: persisted.matches || [],
-              participants: persisted.participants || [],
-              battles: persisted.battles || [],
-              penalties: persisted.penalties || [],
-            }
-          : null;
-        if (pendingSnapshot) {
-          setTournaments(pendingSnapshot.tournaments);
-          setStages(pendingSnapshot.stages);
-          setGroups(pendingSnapshot.groups);
-          setRounds(pendingSnapshot.rounds);
-          setMatches(pendingSnapshot.matches);
-          setParticipants(pendingSnapshot.participants);
-          setBattles(pendingSnapshot.battles);
-          setPenalties(pendingSnapshot.penalties);
-          setActiveTournamentId(pendingSnapshot.tournaments[0]?.id || '');
-          if (authenticatedRole === 'admin' || authenticatedRole === 'organizer') {
-            void syncAllTournamentsToSupabase(pendingSnapshot);
-          }
-        }
+        setTournaments([]);
+        setStages([]);
+        setGroups([]);
+        setRounds([]);
+        setMatches([]);
+        setParticipants([]);
+        setBattles([]);
+        setPenalties([]);
+        setActiveTournamentId('');
         setSupabaseSyncInfo((previous) => ({
           ...previous,
           isConnected: true,
           lastSync: new Date().toLocaleTimeString(),
-          message: pendingSnapshot
-            ? 'Se conservaron torneos locales mientras se sincronizan con Supabase.'
-            : 'Supabase está conectado y no contiene torneos disponibles para esta cuenta.',
+          message: 'Supabase está conectado y no contiene torneos disponibles para esta cuenta.',
         }));
         return;
       }
@@ -779,9 +756,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             setSupabaseSyncInfo((previous) => ({
               ...previous,
               isConnected: false,
-              message: remote
-                ? 'Supabase no contiene torneos; se restauró la copia local pendiente de sincronización.'
-                : 'Supabase no respondió; se restauró la copia local pendiente de sincronización.',
+              message: 'Supabase no respondió; se restauró la copia local pendiente de sincronización.',
             }));
             if (migrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             return;

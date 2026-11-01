@@ -534,8 +534,14 @@ export async function loadTournamentsFromSupabase(): Promise<{
       supabase.from('penalties').select('*').order('created_at', { ascending: true }),
     ]);
 
-    const errors = [
-      tournamentsError,
+    if (tournamentsError) {
+      console.warn(
+        '[Supabase] No se pudo cargar el catálogo de torneos:',
+        tournamentsError.message
+      );
+      return null;
+    }
+    const relatedErrors = [
       finishPointsError,
       refereesError,
       participantsError,
@@ -547,12 +553,11 @@ export async function loadTournamentsFromSupabase(): Promise<{
       battlesError,
       penaltiesError,
     ].filter(Boolean);
-    if (errors.length > 0) {
+    if (relatedErrors.length > 0) {
       console.warn(
-        '[Supabase] Snapshot incompleto; no se aplicarán datos parciales:',
-        errors.map((error) => error?.message).filter(Boolean).join('; ')
+        '[Supabase] Se cargaron torneos, pero faltan datos relacionados:',
+        relatedErrors.map((error) => error?.message).filter(Boolean).join('; ')
       );
-      return null;
     }
 
     const tournamentIds = new Set((tourneys || []).map((row) => String(row.id)));
