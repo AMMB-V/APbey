@@ -139,6 +139,31 @@ export async function syncTournamentToSupabase(
     const { error: tourneyError } = await supabase.from('tournaments').upsert(tourneyPayload);
     if (tourneyError) throw new Error(`Error al sincronizar torneo: ${tourneyError.message}`);
 
+    const finishPointsPayload = (Object.keys(tournament.finishPoints) as FinishType[]).map((finish) => ({
+      tournament_id: tournament.id,
+      finish,
+      points: tournament.finishPoints[finish],
+    }));
+    const { error: finishPointsError } = await supabase
+      .from('tournament_finish_points')
+      .upsert(finishPointsPayload);
+    if (finishPointsError) {
+      throw new Error(`Error al sincronizar puntos de finish: ${finishPointsError.message}`);
+    }
+
+    if (tournament.assignedReferees.length > 0) {
+      const refereesPayload = tournament.assignedReferees.map((profileId) => ({
+        tournament_id: tournament.id,
+        profile_id: profileId,
+      }));
+      const { error: refereesError } = await supabase
+        .from('tournament_referees')
+        .upsert(refereesPayload);
+      if (refereesError) {
+        throw new Error(`Error al sincronizar árbitros: ${refereesError.message}`);
+      }
+    }
+
     // 2. Upsert Participants
     const tourneyParticipants = participants.filter(p => p.tournamentId === tournament.id);
     if (tourneyParticipants.length > 0) {
@@ -187,6 +212,21 @@ export async function syncTournamentToSupabase(
       }));
       const { error: groupsError } = await supabase.from('groups').upsert(groupsPayload);
       if (groupsError) throw new Error(`Error al sincronizar grupos: ${groupsError.message}`);
+
+      const groupParticipantsPayload = tourneyGroups.flatMap((group) =>
+        group.participantIds.map((participantId) => ({
+          group_id: group.id,
+          participant_id: participantId,
+        }))
+      );
+      if (groupParticipantsPayload.length > 0) {
+        const { error: groupParticipantsError } = await supabase
+          .from('group_participants')
+          .upsert(groupParticipantsPayload);
+        if (groupParticipantsError) {
+          throw new Error(`Error al sincronizar participantes de grupos: ${groupParticipantsError.message}`);
+        }
+      }
     }
 
     // 5. Upsert Rounds

@@ -71,6 +71,7 @@ import {
   INITIAL_TOURNAMENTS,
 } from '../lib/storage/mockData';
 import { parseRankingWorkbook } from '../lib/storage/rankingWorkbook';
+import { createEntityId } from '../lib/storage/entityIds';
 import { BladerRanking, HallOfFameEntry } from '../types/rankings';
 
 export interface SupabaseSyncInfo {
@@ -968,7 +969,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const tParticipants = participants.filter(p => p.tournamentId === tournamentId);
     const newSeed = tParticipants.length + 1;
     const newP: Participant = {
-      id: `p_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: createEntityId(),
       tournamentId,
       displayName: sanitizeStr(displayName),
       seed: newSeed,
@@ -998,7 +999,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const name = rawName.trim();
       if (!name) continue;
       createdList.push({
-        id: `p_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        id: createEntityId(),
         tournamentId,
         displayName: name,
         seed: nextSeed++,
@@ -1122,7 +1123,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       serpentineGroups.forEach((groupBladers, idx) => {
         const groupLetter = String.fromCharCode(65 + idx); // 'A', 'B', 'C'...
-        const groupId = `${stage.id}_grp_${groupLetter.toLowerCase()}`;
+        const groupId = createEntityId();
         const groupName = `Grupo ${groupLetter}`;
 
         createdGroups.push({
@@ -1734,7 +1735,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     serpentine.forEach((groupBladers, idx) => {
       const groupLetter = String.fromCharCode(65 + idx);
-      const groupId = `${stage.id}_grp_${groupLetter.toLowerCase()}`;
+      const groupId = createEntityId();
       const groupName = `Grupo ${groupLetter}`;
       const assignedRef = existingReferees[idx % existingReferees.length] || null;
 
@@ -1860,7 +1861,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     stageType: StageType,
     stageConfig: StageConfig
   ): Tournament => {
-    const tId = `tourney_${Date.now()}`;
+    const tId = createEntityId();
     const baseSlug = (data.name || 'torneo')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -1902,7 +1903,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
 
     const initialStage: Stage = {
-      id: `stage_${Date.now()}_1`,
+      id: createEntityId(),
       tournamentId: tId,
       position: 1,
       name: stageType === 'group_stage' ? 'Fase de Grupos' : 'Cuadro Principal',
@@ -1925,21 +1926,72 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     setActiveTournamentId(tId);
     logAudit('tournaments', tId, 'insert', `Torneo "${newTournament.name}" creado.`);
+
+    if (getSupabaseClient()) {
+      void syncTournamentToSupabase(
+        newTournament,
+        updatedStages,
+        groups,
+        rounds,
+        matches,
+        participants,
+        battles,
+        penalties
+      ).then((result) => {
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConnected: result.success,
+          lastSync: result.success ? new Date().toLocaleTimeString() : previous.lastSync,
+          message: result.message,
+        }));
+        if (!result.success) {
+          console.error('[Supabase] No se pudo guardar el torneo recién creado:', result.message);
+        }
+      });
+    }
+
     return newTournament;
   };
 
   const updateTournament = (id: string, updates: Partial<Tournament>) => {
+    const currentTournament = tournaments.find(t => t.id === id);
+    if (!currentTournament) return;
+    const updatedTournament = { ...currentTournament, ...updates };
+
     setTournaments(prev => {
-      const updated = prev.map(t => t.id === id ? { ...t, ...updates } : t);
+      const updated = prev.map(t => t.id === id ? updatedTournament : t);
       saveState({ tournaments: updated });
       return updated;
     });
+
+    if (getSupabaseClient()) {
+      void syncTournamentToSupabase(
+        updatedTournament,
+        stages,
+        groups,
+        rounds,
+        matches,
+        participants,
+        battles,
+        penalties
+      ).then((result) => {
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConnected: result.success,
+          lastSync: result.success ? new Date().toLocaleTimeString() : previous.lastSync,
+          message: result.message,
+        }));
+        if (!result.success) {
+          console.error('[Supabase] No se pudo guardar la configuración del torneo:', result.message);
+        }
+      });
+    }
     logAudit('tournaments', id, 'update', 'Configuración de torneo actualizada.');
   };
 
   const duplicateTournament = (id: string): Tournament => {
     const source = tournaments.find(t => t.id === id) || tournaments[0];
-    const newId = `tourney_${Date.now()}`;
+    const newId = createEntityId();
     const duplicated: Tournament = {
       ...source,
       id: newId,
@@ -1954,7 +2006,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const sourceStages = stages.filter(s => s.tournamentId === id);
     const newStages = sourceStages.map((s, idx) => ({
       ...s,
-      id: `stage_${newId}_${idx + 1}`,
+      id: createEntityId(),
       tournamentId: newId,
       status: 'pending' as const,
     }));
@@ -1970,6 +2022,30 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     setActiveTournamentId(newId);
     logAudit('tournaments', newId, 'insert', `Torneo duplicado a partir de ${source.name}.`);
+
+    if (getSupabaseClient()) {
+      void syncTournamentToSupabase(
+        duplicated,
+        newStages,
+        groups,
+        rounds,
+        matches,
+        participants,
+        battles,
+        penalties
+      ).then((result) => {
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConnected: result.success,
+          lastSync: result.success ? new Date().toLocaleTimeString() : previous.lastSync,
+          message: result.message,
+        }));
+        if (!result.success) {
+          console.error('[Supabase] No se pudo guardar el torneo duplicado:', result.message);
+        }
+      });
+    }
+
     return duplicated;
   };
 
