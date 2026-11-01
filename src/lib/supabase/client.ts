@@ -11,8 +11,10 @@ export function getStoredSupabaseConfig(): { url: string; anonKey: string } {
   const storedKey = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_ANON_KEY) : null;
 
   return {
-    url: (storedUrl || envUrl || '').trim(),
-    anonKey: (storedKey || envKey || '').trim(),
+    // A deployed build's environment is authoritative. Local overrides are
+    // only a fallback for development builds without Vite environment values.
+    url: (envUrl || storedUrl || '').trim(),
+    anonKey: (envKey || storedKey || '').trim(),
   };
 }
 
