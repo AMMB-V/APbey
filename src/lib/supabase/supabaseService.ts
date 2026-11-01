@@ -7,6 +7,7 @@ import {
   Match,
   Participant,
   Battle,
+  AuditLog,
   Penalty,
   UserProfile,
   FinishPointsConfig,
@@ -24,6 +25,66 @@ export interface SupabaseSyncState {
 export interface RankingData {
   rankings: BladerRanking[];
   hallOfFame: HallOfFameEntry[];
+}
+
+export async function loadAdminProfiles(): Promise<UserProfile[] | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase.rpc('list_admin_profiles');
+  if (error || !data) {
+    console.warn('[Supabase] No se pudieron cargar los perfiles administrativos:', error?.message);
+    return null;
+  }
+
+  return data.map((profile) => ({
+    id: profile.id,
+    displayName: profile.display_name,
+    email: profile.email || '',
+    role: profile.role as UserProfile['role'],
+    avatarUrl: profile.avatar_url || undefined,
+    createdAt: profile.created_at,
+  }));
+}
+
+export async function loadAdminAuditLogs(): Promise<AuditLog[] | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase.rpc('list_admin_audit_logs');
+  if (error || !data) {
+    console.warn('[Supabase] No se pudo cargar la bitácora administrativa:', error?.message);
+    return null;
+  }
+
+  return data.map((entry) => ({
+    id: entry.id,
+    tableName: entry.table_name,
+    recordId: entry.record_id,
+    action: entry.action as AuditLog['action'],
+    actor: entry.actor || 'system',
+    createdAt: entry.created_at,
+    note: entry.note || undefined,
+    oldData: entry.old_data || undefined,
+    newData: entry.new_data || undefined,
+  }));
+}
+
+export async function persistAuditLogToSupabase(entry: AuditLog): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+
+  const { error } = await supabase.rpc('record_audit_log', {
+    p_table_name: entry.tableName,
+    p_record_id: entry.recordId,
+    p_action: entry.action,
+    p_note: entry.note || null,
+    p_old_data: entry.oldData || null,
+    p_new_data: entry.newData || null,
+  });
+  if (error) {
+    console.warn('[Supabase] No se pudo guardar la entrada de auditoría:', error.message);
+  }
 }
 
 async function getAuthenticatedSupabaseUser(): Promise<

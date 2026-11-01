@@ -26,6 +26,9 @@ import {
   persistPenaltyToSupabase,
   syncRankingsToSupabase,
   loadRankingsFromSupabase,
+  loadAdminProfiles,
+  loadAdminAuditLogs,
+  persistAuditLogToSupabase,
 } from '../lib/supabase/supabaseService';
 import {
   getSupabaseClient,
@@ -364,10 +367,14 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }));
 
       if (authenticatedUser.role === 'admin') {
-        const { data: invitationRows, error: invitationsError } = await supabase
+        const [{ data: invitationRows, error: invitationsError }, remoteUsers, remoteAuditLogs] = await Promise.all([
+          supabase
           .from('invitations')
           .select('id, email, role, tournament_id, status, invited_by, created_at, code')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false }),
+          loadAdminProfiles(),
+          loadAdminAuditLogs(),
+        ]);
 
         if (!invitationsError && invitationRows) {
           setInvitations(invitationRows.map((row) => ({
@@ -381,6 +388,16 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             code: row.code,
             emailStatus: 'not_sent' as const,
           })));
+        }
+        if (remoteUsers) setUsers(remoteUsers);
+        if (remoteAuditLogs) {
+          setAuditLogs((current) => {
+            const merged = [...remoteAuditLogs, ...current]
+              .filter((entry, index, entries) => entries.findIndex((candidate) => candidate.id === entry.id) === index)
+              .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+            saveState({ auditLogs: merged });
+            return merged;
+          });
         }
       }
     };
@@ -408,7 +425,15 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [battles, setBattles] = useState<Battle[]>(hasConfiguredSupabase ? [] : INITIAL_BATTLES);
   const [penalties, setPenalties] = useState<Penalty[]>(hasConfiguredSupabase ? [] : INITIAL_PENALTIES);
   const [invitations, setInvitations] = useState<Invitation[]>(INITIAL_INVITATIONS);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      const parsed = saved ? JSON.parse(saved) : null;
+      return Array.isArray(parsed?.auditLogs) ? parsed.auditLogs : [];
+    } catch {
+      return [];
+    }
+  });
   const [activeStationAlert, setActiveStationAlert] = useState<{ matchId: string; message: string; timestamp: number } | null>(null);
   const [showStadiumModal, setShowStadiumModal] = useState<boolean>(false);
   const matchesRef = useRef<Match[]>([]);
@@ -1322,6 +1347,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       saveState({ auditLogs: updated });
       return updated;
     });
+    void persistAuditLogToSupabase(entry);
   };
 
   // Add Participant
