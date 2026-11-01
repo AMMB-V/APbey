@@ -51,7 +51,10 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
     users,
   } = useTournament();
 
-  const canArbitrate = currentRole === 'referee' || currentRole === 'organizer' || currentRole === 'admin';
+  const canArbitrate = Boolean(
+    currentUser &&
+    (currentRole === 'referee' || currentRole === 'organizer' || currentRole === 'admin')
+  );
 
   const [filterMode, setFilterMode] = useState<'all' | 'mine' | 'group'>('all');
   const [filterGroupId, setFilterGroupId] = useState<string>('');
@@ -64,7 +67,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
   // Filtered matches based on referee selection
   const filteredMatches = allTournamentMatches.filter((m) => {
     if (filterMode === 'mine') {
-      return m.refereeId === currentUser.id;
+      return Boolean(currentUser?.id) && m.refereeId === currentUser.id;
     }
     if (filterMode === 'group' && filterGroupId) {
       return m.groupId === filterGroupId;
@@ -72,7 +75,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
     return true;
   });
 
-  const activeMatches = filteredMatches.length > 0 ? filteredMatches : allTournamentMatches;
+  const activeMatches = filteredMatches;
 
   const [selectedMatchId, setSelectedMatchId] = useState<string>(
     initialMatchId || activeMatches.find(m => m.status === 'in_progress')?.id || activeMatches[0]?.id || ''

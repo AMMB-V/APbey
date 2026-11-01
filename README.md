@@ -81,6 +81,8 @@ Variables disponibles en `.env.example`:
 
 Para que las invitaciones creen el perfil después de confirmar el correo, configura en Supabase **Authentication > URL Configuration** la URL pública de la aplicación como **Site URL** y añade también la URL local de desarrollo como **Redirect URL**. El registro envía una redirección explícita a la ruta actual de la aplicación con el código de invitación; si el dominio no está permitido, Supabase rechazará o alterará el enlace de confirmación.
 
+Aplica también la migración `supabase/migrations/20261101_invitation_profile_activation.sql` en el proyecto Supabase. Esta crea perfiles de invitación al registrar la cuenta Auth y corrige la persistencia de empates en arbitraje.
+
 ## Comandos
 
 ```powershell

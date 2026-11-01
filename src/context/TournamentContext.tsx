@@ -441,6 +441,18 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     supabase: NonNullable<ReturnType<typeof getSupabaseClient>>,
     pending: PendingInvitation
   ): Promise<{ role: UserRole; displayName: string } | null> => {
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('role, display_name')
+      .eq('id', (await supabase.auth.getUser()).data.user?.id || '')
+      .maybeSingle();
+    if (existingProfile) {
+      return {
+        role: existingProfile.role as UserRole,
+        displayName: existingProfile.display_name,
+      };
+    }
+
     const { data, error } = await supabase.rpc('claim_invitation', {
       p_code: pending.code,
       p_display_name: pending.displayName,
@@ -455,6 +467,24 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       role: data[0].role as UserRole,
       displayName: data[0].display_name,
     };
+  };
+
+  const getInvitationForAuthUser = (authUser: {
+    id: string;
+    email?: string;
+    user_metadata?: Record<string, unknown>;
+  }): PendingInvitation | null => {
+    const pending = readPendingInvitation();
+    const email = (authUser.email || '').trim().toLowerCase();
+    if (pending && pending.email === email) return pending;
+
+    const metadata = authUser.user_metadata || {};
+    const code = typeof metadata.invitation_code === 'string' ? metadata.invitation_code : '';
+    const displayName = typeof metadata.display_name === 'string' ? metadata.display_name : '';
+    if (code && displayName && email) {
+      return { code: code.trim().toUpperCase(), displayName: displayName.trim(), email };
+    }
+    return null;
   };
 
   useEffect(() => {
@@ -719,8 +749,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           .maybeSingle();
 
         if (profileError || !profile) {
-          const pendingInvitation = readPendingInvitation();
-          if (pendingInvitation && pendingInvitation.email === (session.user.email || '').toLowerCase()) {
+          const pendingInvitation = getInvitationForAuthUser(session.user);
+          if (pendingInvitation) {
             const claimedProfile = await claimInvitationForUser(supabase, pendingInvitation);
             if (claimedProfile) {
               clearPendingInvitation();
@@ -917,6 +947,29 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       .eq('id', authData.user.id)
       .single();
     if (profileError || !profile) {
+      const pendingInvitation = getInvitationForAuthUser(authData.user);
+      if (pendingInvitation) {
+        const claimedProfile = await claimInvitationForUser(supabase, pendingInvitation);
+        if (claimedProfile) {
+          clearPendingInvitation();
+          const authenticatedUser: UserProfile = {
+            id: authData.user.id,
+            displayName: claimedProfile.displayName,
+            avatarUrl: undefined,
+            email: authData.user.email || cleanEmail,
+            role: claimedProfile.role,
+            createdAt: new Date().toISOString(),
+          };
+          setCurrentUser(authenticatedUser);
+          setCurrentRole(authenticatedUser.role);
+          localStorage.setItem(SESSION_USER_KEY, JSON.stringify(authenticatedUser));
+          return {
+            success: true,
+            message: `Perfil de torneo activado como ${authenticatedUser.displayName}.`,
+            user: authenticatedUser,
+          };
+        }
+      }
       await supabase.auth.signOut();
       const detail = profileError
         ? ` Detalle de Supabase: ${profileError.message}`
@@ -997,6 +1050,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         password,
         options: {
           emailRedirectTo: getAuthRedirectUrl(cleanCode),
+          data: {
+            invitation_code: cleanCode,
+            display_name: cleanName,
+          },
         },
       });
       if (signUpResult.error || !signUpResult.data.user) {
@@ -2255,6 +2312,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Undo last battle
   const undoBattle = (matchId: string) => {
+    if (!currentUser || !['referee', 'organizer', 'admin'].includes(currentRole)) {
+      throw new Error('No tienes permisos para deshacer batallas.');
+    }
     const match = matches.find(m => m.id === matchId);
     if (!match) return;
     const stage = stages.find(s => s.id === match.stageId);

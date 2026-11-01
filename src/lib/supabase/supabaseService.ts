@@ -739,17 +739,10 @@ export async function persistBattleToSupabase(
   try {
     const identity = await getAuthenticatedSupabaseUser();
     if ('error' in identity) return { success: false, message: identity.error };
-    if (!battle.scorerId || !battle.finish) {
-      return {
-        success: false,
-        message: 'El RPC transaccional actual sólo admite batallas con finish y anotador.',
-      };
-    }
-
     const { error } = await supabase.rpc('record_battle', {
       p_match: battle.matchId,
-      p_scorer: battle.scorerId,
-      p_finish: battle.finish,
+      p_scorer: battle.scorerId || null,
+      p_finish: battle.finish || null,
       p_expected_version: expectedVersion,
     });
     if (error) {
