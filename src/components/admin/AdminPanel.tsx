@@ -169,7 +169,7 @@ export const AdminPanel: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setShowDbModal(true)}
-            className="btn btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5"
+            className="acero-btn acero-btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5"
           >
             <Database className="w-3.5 h-3.5 text-emerald-400" />
             Configurar Supabase
@@ -185,7 +185,7 @@ export const AdminPanel: React.FC = () => {
                   }
                 }
               }}
-              className="btn btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5 hover:text-rose-400"
+              className="acero-btn acero-btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5 hover:text-rose-400"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               Restablecer Demo
@@ -234,7 +234,7 @@ export const AdminPanel: React.FC = () => {
             <button
               onClick={handleManualSync}
               disabled={isSyncing}
-              className="btn btn--primary text-xs py-1 px-3 flex items-center gap-1"
+              className="acero-btn acero-btn--primary text-xs py-1 px-3 flex items-center gap-1"
             >
               <UploadCloud className={`w-3.5 h-3.5 ${isSyncing ? 'animate-bounce' : ''}`} />
               {isSyncing ? 'Sincronizando...' : 'Sincronizar a Supabase'}
@@ -242,7 +242,7 @@ export const AdminPanel: React.FC = () => {
           ) : (
             <button
               onClick={() => setShowDbModal(true)}
-              className="btn btn--primary text-xs py-1 px-3"
+              className="acero-btn acero-btn--primary text-xs py-1 px-3"
             >
               Conectar Supabase
             </button>
@@ -385,7 +385,7 @@ export const AdminPanel: React.FC = () => {
 
             <button
               type="submit"
-              className="w-full mt-2 btn btn--primary text-xs py-2.5 flex items-center justify-center gap-1.5 shadow-xs"
+              className="w-full mt-2 acero-btn acero-btn--primary text-xs py-2.5 flex items-center justify-center gap-1.5 shadow-xs"
             >
               <KeyRound className="w-3.5 h-3.5" />
               Generar Invitación & Código

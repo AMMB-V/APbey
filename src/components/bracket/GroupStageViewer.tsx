@@ -108,7 +108,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
               <button
                 onClick={() => rebalanceGroups(stage.id, stage.config.groupSize || 4)}
                 disabled={tourneyParticipants.length < 2}
-                className="btn btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-50"
+                className="acero-btn acero-btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-50"
                 title="Subdivide y equilibra automáticamente los grupos según el número de bladers totales"
               >
                 <Shuffle className="w-3.5 h-3.5" />
@@ -125,7 +125,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
                   className={`text-xs px-3.5 py-1.5 flex items-center gap-1.5 rounded-[var(--r-control)] font-semibold transition-all ${
                     tourneyParticipants.length < 2
                       ? 'bg-[var(--grafito)] text-[var(--acero)] border border-[var(--costura)] opacity-50 cursor-not-allowed'
-                      : 'btn btn--primary'
+                      : 'acero-btn acero-btn--primary'
                   }`}
                   title={
                     tourneyParticipants.length < 2
@@ -141,7 +141,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
               {stage.status === 'in_progress' && (
                 <button
                   onClick={() => advanceCurrentStage(stage.id)}
-                  className="btn btn--primary text-xs px-3.5 py-1.5 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs"
+                  className="acero-btn acero-btn--primary text-xs px-3.5 py-1.5 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs"
                   title="Calcula los clasificados y genera el cuadro de playoffs de eliminación directa"
                 >
                   <AceroIcon id="i-trofeo" size="sm" />
@@ -232,7 +232,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
             {currentRole === 'referee' && activeGroup.refereeId !== currentUser.id && (
               <button
                 onClick={() => assignRefereeToGroup(activeGroup.id, currentUser.id)}
-                className="btn btn--secondary text-[11px] px-2 py-0.5 flex items-center gap-1 font-bold"
+                className="acero-btn acero-btn--secondary text-[11px] px-2 py-0.5 flex items-center gap-1 font-bold"
                 title="Asignarme a mí mismo como árbitro de este grupo completo"
               >
                 <UserCheck className="w-3 h-3 text-[var(--cobalto)]" />

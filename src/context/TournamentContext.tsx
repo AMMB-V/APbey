@@ -361,6 +361,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       message: hasConfiguredSupabase ? 'Cargando datos desde Supabase...' : 'Modo local (Sin clave Supabase)',
     };
   });
+  const [localStorageHydrated, setLocalStorageHydrated] = useState(hasConfiguredSupabase);
 
   useEffect(() => {
     const checkInitialConnection = async () => {
@@ -456,20 +457,31 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const { data, migrated } = migratePersistedTournamentData(JSON.parse(saved));
-        if (data.tournaments.length) setTournaments(data.tournaments);
-        if (data.stages.length) setStages(data.stages);
-        if (data.groups.length) setGroups(data.groups);
-        if (data.rounds.length) setRounds(data.rounds);
-        if (data.matches.length) setMatches(data.matches);
-        if (data.participants.length) setParticipants(data.participants);
-        if (data.battles.length) setBattles(data.battles);
-        if (data.penalties.length) setPenalties(data.penalties);
-        if (data.invitations?.length) setInvitations(data.invitations);
-        if (data.auditLogs?.length) setAuditLogs(data.auditLogs);
+        const tournamentIds = new Set(data.tournaments.map((tournament) => tournament.id));
+        const savedParticipants = data.participants.filter((participant) => tournamentIds.has(participant.tournamentId));
+        setTournaments(data.tournaments);
+        setStages(data.stages);
+        setGroups(data.groups);
+        setRounds(data.rounds);
+        setMatches(data.matches);
+        setParticipants(savedParticipants);
+        setBattles(data.battles);
+        setPenalties(data.penalties);
+        setInvitations(data.invitations || []);
+        setAuditLogs(data.auditLogs || []);
         if (migrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+
+        const savedActiveTournamentId = localStorage.getItem('apbey_active_tournament_id');
+        setActiveTournamentId(
+          savedActiveTournamentId && tournamentIds.has(savedActiveTournamentId)
+            ? savedActiveTournamentId
+            : data.tournaments[0]?.id || ''
+        );
       }
-    } catch {
-      // ignore
+    } catch (error) {
+      console.error('[Storage] No se pudo cargar el estado local:', error);
+    } finally {
+      setLocalStorageHydrated(true);
     }
   }, [supabaseSyncInfo.isConfigured]);
 
@@ -616,12 +628,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [supabaseSyncInfo.isConfigured]);
 
   useEffect(() => {
+    if (!supabaseSyncInfo.isConfigured && !localStorageHydrated) return;
     if (activeTournamentId) {
       localStorage.setItem('apbey_active_tournament_id', activeTournamentId);
     } else {
       localStorage.removeItem('apbey_active_tournament_id');
     }
-  }, [activeTournamentId]);
+  }, [activeTournamentId, localStorageHydrated, supabaseSyncInfo.isConfigured]);
 
   useEffect(() => {
     if (getSupabaseClient()) return;
@@ -2012,6 +2025,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     saveState({
       tournaments: updatedTournaments,
       stages: updatedStages,
+      groups,
+      rounds,
+      matches,
+      participants,
+      battles,
+      penalties,
     });
 
     setActiveTournamentId(tId);
