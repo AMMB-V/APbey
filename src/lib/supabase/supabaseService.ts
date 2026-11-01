@@ -482,6 +482,31 @@ export async function syncTournamentToSupabase(
   }
 }
 
+export async function deleteTournamentFromSupabase(
+  tournamentId: string
+): Promise<{ success: boolean; message: string }> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return {
+      success: false,
+      message: 'Supabase no está configurado con una URL y Anon Key válidas.',
+    };
+  }
+
+  const { error } = await supabase.rpc('delete_tournament', {
+    p_tournament_id: tournamentId,
+  });
+  if (error) {
+    console.error('[Supabase] No se pudo eliminar el torneo:', error);
+    return {
+      success: false,
+      message: `No se pudo eliminar el torneo en Supabase: ${error.message}`,
+    };
+  }
+
+  return { success: true, message: 'Torneo eliminado de Supabase.' };
+}
+
 /**
  * Loads tournaments from Supabase if connected.
  */

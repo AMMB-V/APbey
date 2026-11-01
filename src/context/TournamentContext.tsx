@@ -20,6 +20,7 @@ import {
 import { persistStageTiebreakers } from '../lib/storage/backendPersistence';
 import {
   syncTournamentToSupabase,
+  deleteTournamentFromSupabase,
   loadTournamentsFromSupabase,
   subscribeToTournamentRealtime,
   persistBattleToSupabase,
@@ -114,7 +115,7 @@ interface TournamentContextType {
   createTournament: (data: Partial<Tournament>, stageType: StageType, stageConfig: StageConfig) => Tournament;
   updateTournament: (id: string, updates: Partial<Tournament>) => void;
   duplicateTournament: (id: string) => Tournament | null;
-  deleteTournament: (id: string) => void;
+  deleteTournament: (id: string) => Promise<{ success: boolean; message: string }>;
 
   // Stages & Brackets
   stages: Stage[];
@@ -2707,20 +2708,60 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return duplicated;
   };
 
-  const deleteTournament = (id: string) => {
-    if (tournaments.length <= 1) {
-      return;
+  const deleteTournament = async (id: string): Promise<{ success: boolean; message: string }> => {
+    if (!tournaments.some((tournament) => tournament.id === id)) {
+      return { success: false, message: 'El torneo ya no está disponible.' };
     }
+
+    if (getSupabaseClient()) {
+      const result = await deleteTournamentFromSupabase(id);
+      if (!result.success) {
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConnected: false,
+          message: result.message,
+        }));
+        return result;
+      }
+    }
+
+    const deletedStageIds = new Set(
+      stages.filter((stage) => stage.tournamentId === id).map((stage) => stage.id)
+    );
+    const deletedMatchIds = new Set(
+      matches.filter((match) => match.tournamentId === id).map((match) => match.id)
+    );
     const filtered = tournaments.filter(t => t.id !== id);
+    const filteredStages = stages.filter((stage) => stage.tournamentId !== id);
+    const filteredGroups = groups.filter((group) => !deletedStageIds.has(group.stageId));
+    const filteredRounds = rounds.filter((round) => !deletedStageIds.has(round.stageId));
+    const filteredMatches = matches.filter((match) => match.tournamentId !== id);
+    const filteredParticipants = participants.filter((participant) => participant.tournamentId !== id);
+    const filteredBattles = battles.filter((battle) => !deletedMatchIds.has(battle.matchId));
+    const filteredPenalties = penalties.filter((penalty) => !deletedMatchIds.has(penalty.matchId));
     setTournaments(filtered);
     if (activeTournamentId === id) {
-      setActiveTournamentId(filtered[0].id);
+      setActiveTournamentId(filtered[0]?.id || '');
     }
-    setStages(prev => prev.filter(s => s.tournamentId !== id));
-    setMatches(prev => prev.filter(m => m.tournamentId !== id));
-    setParticipants(prev => prev.filter(p => p.tournamentId !== id));
-    saveState({ tournaments: filtered });
+    setStages(filteredStages);
+    setGroups(filteredGroups);
+    setRounds(filteredRounds);
+    setMatches(filteredMatches);
+    setParticipants(filteredParticipants);
+    setBattles(filteredBattles);
+    setPenalties(filteredPenalties);
+    saveState({
+      tournaments: filtered,
+      stages: filteredStages,
+      groups: filteredGroups,
+      rounds: filteredRounds,
+      matches: filteredMatches,
+      participants: filteredParticipants,
+      battles: filteredBattles,
+      penalties: filteredPenalties,
+    });
     logAudit('tournaments', id, 'delete', 'Torneo eliminado.');
+    return { success: true, message: 'Torneo eliminado.' };
   };
 
   // Invitations
