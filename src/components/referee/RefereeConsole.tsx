@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTournament } from '../../context/TournamentContext';
 import { FinishType, Match, Participant } from '../../types/tournament';
 import { getMatchPointsToWin } from '../../lib/engine/arbitration';
+import { Snackbar } from '../common/Snackbar';
 import { AceroIcon } from '../common/AceroIcon';
 import {
   RotateCcw,
@@ -31,6 +32,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
   const {
     matches,
     stages,
+    rounds,
     groups,
     activeTournament,
     participants,
@@ -80,6 +82,8 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
   const [foulReason, setFoulReason] = useState<string>('Lanzamiento sin contacto reglamentario');
   const [showFoulModal, setShowFoulModal] = useState<boolean>(false);
   const [penaltyTarget, setPenaltyTarget] = useState<'p1' | 'p2'>('p1');
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
   const match = matches.find((m) => m.id === selectedMatchId) || activeMatches[0];
   const stage = match ? stages.find((s) => s.id === match.stageId) : undefined;
@@ -106,7 +110,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
   const p2Fouls = matchPenalties.filter((p) => p.participantId === p2?.id && p.isFoul).length;
 
   const targetPointsToWin = match && stage && activeTournament
-    ? getMatchPointsToWin(match, stage, activeTournament)
+    ? getMatchPointsToWin(match, stage, activeTournament, rounds.find((round) => round.id === match.roundId))
     : 4;
 
   const isCompleted = match?.status === 'completed';
@@ -115,12 +119,18 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
     if (!canArbitrate || !match || !selectedScorer || isCompleted) return;
     const scorerId = (selectedScorer === 'p1' ? match.participant1Id : match.participant2Id) ?? null;
     recordBattle(match.id, scorerId, finish);
+    const scorer = participants.find((participant) => participant.id === scorerId);
+    const finishPoints = activeTournament.finishPoints[finish] || 0;
+    setSnackbarMessage(`Punto registrado: ${scorer?.displayName || 'Blader'} +${finishPoints} puntos (${finish} finish).`);
+    setSnackbarOpen(true);
     setSelectedScorer(null);
   };
 
   const handleDrawClick = () => {
     if (!canArbitrate || !match || isCompleted) return;
     recordBattle(match.id, null, null, 'Empate simultáneo (ambos conservan combo)');
+    setSnackbarMessage('Empate registrado: no se asignaron puntos.');
+    setSnackbarOpen(true);
     setSelectedScorer(null);
   };
 
@@ -129,6 +139,8 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
     const offenderId = penaltyTarget === 'p1' ? match.participant1Id! : match.participant2Id!;
     // Register foul without card selection: rival gets point on every 3 accumulated fouls
     recordPenalty(match.id, offenderId, undefined, true, foulReason);
+    setSnackbarMessage(`Falta registrada a ${penaltyTarget === 'p1' ? p1?.displayName : p2?.displayName}.`);
+    setSnackbarOpen(true);
     setShowFoulModal(false);
   };
 
@@ -749,6 +761,13 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
           </div>
         </div>
       )}
+
+      <Snackbar
+        message={snackbarMessage}
+        isOpen={snackbarOpen}
+        onClose={() => setSnackbarOpen(false)}
+        duration={5000}
+      />
     </div>
   );
 };

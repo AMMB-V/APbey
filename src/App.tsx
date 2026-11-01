@@ -97,19 +97,28 @@ function TournamentApp() {
     : [];
 
   const [activeStageId, setActiveStageId] = useState<string>(tournamentStages[0]?.id || '');
+  const initializedStageForTournament = useRef<string | null>(null);
 
-  // Keep activeStageId in sync when tournament changes
+  // Restore a deep-linked stage once per tournament. Afterwards, stage clicks
+  // are authoritative and should not be overwritten by the previous URL value.
   useEffect(() => {
     if (tournamentStages.length === 0) return;
+    const tournamentId = activeTournament?.id || '';
+    if (initializedStageForTournament.current === tournamentId) {
+      if (!tournamentStages.some((stage) => stage.id === activeStageId)) {
+        setActiveStageId(tournamentStages[0].id);
+      }
+      return;
+    }
+
     const requestedStageId = new URLSearchParams(window.location.search).get('stage');
     if (requestedStageId && tournamentStages.some((stage) => stage.id === requestedStageId)) {
       setActiveStageId(requestedStageId);
-      return;
-    }
-    if (!tournamentStages.some((s) => s.id === activeStageId)) {
+    } else {
       setActiveStageId(tournamentStages[0].id);
     }
-  }, [tournamentStages, activeStageId]);
+    initializedStageForTournament.current = tournamentId;
+  }, [activeStageId, activeTournament?.id, tournamentStages]);
 
   const currentStage = tournamentStages.find((s) => s.id === activeStageId) || tournamentStages[0];
 

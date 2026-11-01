@@ -121,7 +121,11 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
               )}
               <div className="space-y-1">
                 <div className="font-bold text-sm">
-                  {supabaseSyncInfo.isConnected ? 'Supabase Conectado y Operativo' : 'Modo Local / Esperando Credenciales'}
+                  {supabaseSyncInfo.isConnected
+                    ? 'Supabase Conectado y Operativo'
+                    : supabaseSyncInfo.isConfigured
+                    ? 'Supabase Configurado / Sesión Requerida'
+                    : 'Modo Local / Esperando Credenciales'}
                 </div>
                 <div className="text-xs text-[var(--acero)] leading-relaxed">
                   {supabaseSyncInfo.message}

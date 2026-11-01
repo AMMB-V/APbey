@@ -1390,7 +1390,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       tParts,
       {
         name: 'Fase Final (Eliminación Directa)',
-        pointsToWin: tournaments.find(t => t.id === stage.tournamentId)?.pointsToWinFinal || 7,
+        pointsToWin: tournaments.find(t => t.id === stage.tournamentId)?.pointsToWinPlayoffs || 5,
         bestOf: 1,      // default best of 1
         thirdPlaceMatch: true,
       }
@@ -1543,7 +1543,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       scorerId,
       finish,
       currentUser.id,
-      battles
+      battles,
+      rounds.find((round) => round.id === match.roundId)
     );
 
     if (note) newBattle.note = note;
@@ -1667,7 +1668,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       isFoul,
       reason || 'Infracción de lanzamiento o contacto reglamentario',
       currentUser.id,
-      penalties
+      penalties,
+      rounds.find((round) => round.id === match.roundId)
     );
 
     const nextMatches = matches.map(m => m.id === matchId ? updatedMatch : m);
@@ -1950,7 +1952,14 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     try {
       const tourney = tournaments.find(t => t.id === match.tournamentId);
-      const { updatedMatch, removedBattleId } = undoLastBattle(match, stage, battles, penalties, tourney);
+      const { updatedMatch, removedBattleId } = undoLastBattle(
+        match,
+        stage,
+        battles,
+        penalties,
+        tourney,
+        rounds.find((round) => round.id === match.roundId)
+      );
       const nextMatches = matches.map(m => m.id === matchId ? updatedMatch : m);
       const nextBattles = battles.filter(b => b.id !== removedBattleId);
 
@@ -2401,6 +2410,18 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }): Promise<{ success: boolean; message: string }> => {
     if (!getSupabaseClient()) {
       return { success: false, message: 'Supabase no está configurado.' };
+    }
+    const supabase = getSupabaseClient();
+    const { data: userData, error: userError } = await supabase!.auth.getUser();
+    if (userError || !userData.user) {
+      const message = 'Supabase está configurado, pero no hay una sesión activa. Inicia sesión para sincronizar los torneos locales.';
+      setSupabaseSyncInfo((previous) => ({
+        ...previous,
+        isConnected: false,
+        lastSync: previous.lastSync,
+        message,
+      }));
+      return { success: false, message };
     }
     if (snapshot.tournaments.length === 0) {
       return { success: true, message: 'No hay torneos locales pendientes de sincronización.' };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyBattle, applyPenalty, undoLastBattle } from './arbitration';
-import { Battle, Match, Penalty, Stage, Tournament } from '../../types/tournament';
+import { Battle, Match, Penalty, Round, Stage, Tournament } from '../../types/tournament';
 
 const tournament: Tournament = {
   id: 'tournament-1',
@@ -115,5 +115,35 @@ describe('arbitration engine', () => {
     expect(undo.updatedMatch.score1).toBe(1);
     expect(undo.updatedMatch.score2).toBe(0);
     expect(undo.updatedMatch.status).toBe('in_progress');
+  });
+
+  it('uses the playoff target instead of the group target', () => {
+    const playoffStage: Stage = {
+      ...stage,
+      type: 'single_elimination',
+      name: 'Fase Final (Eliminación Directa)',
+      pointsToWin: tournament.pointsToWinPlayoffs,
+    };
+    const playoffRound: Round = {
+      id: 'round-playoff',
+      stageId: playoffStage.id,
+      number: 1,
+      bracket: 'winners',
+      name: 'Semifinales',
+    };
+    const first = applyBattle(
+      match({ stageId: playoffStage.id, roundId: playoffRound.id }),
+      playoffStage,
+      tournament,
+      'p1',
+      'xtreme',
+      'referee-1',
+      [],
+      playoffRound
+    );
+
+    expect(first.updatedMatch.score1).toBe(3);
+    expect(first.updatedMatch.status).toBe('in_progress');
+    expect(first.updatedMatch.winnerId).toBeNull();
   });
 });

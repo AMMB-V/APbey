@@ -4,6 +4,7 @@ import {
   FinishType,
   Match,
   Penalty,
+  Round,
   Stage,
   Tournament,
 } from '../../types/tournament';
@@ -28,8 +29,13 @@ export interface ApplyPenaltyResult {
  * 2. Cuartos / Semifinales / Playoffs (pointsToWinPlayoffs, ej. 5)
  * 3. Gran Final (pointsToWinFinal, ej. 7)
  */
-export function getMatchPointsToWin(match: Match, stage: Stage, tournament: Tournament): number {
-  const isFinal = match.id.includes('gf') || match.roundId.toLowerCase().includes('final') || (stage.name.toLowerCase().includes('final') && !match.roundId.toLowerCase().includes('cuartos'));
+export function getMatchPointsToWin(
+  match: Match,
+  stage: Stage,
+  tournament: Tournament,
+  round?: Round
+): number {
+  const isFinal = round?.bracket === 'grand_final' || round?.name.toLowerCase() === 'gran final';
   const isPlayoff = stage.type === 'single_elimination' || stage.type === 'double_elimination';
 
   if (isFinal && tournament.pointsToWinFinal) {
@@ -51,7 +57,8 @@ export function applyBattle(
   scorerId: string | null,
   finish: FinishType | null,
   recordedBy: string,
-  existingBattles: Battle[]
+  existingBattles: Battle[],
+  round?: Round
 ): ApplyBattleResult {
   if (match.status === 'completed') {
     throw new Error('El match ya está completado y cerrado.');
@@ -99,7 +106,7 @@ export function applyBattle(
     status: 'in_progress',
   };
 
-  const matchTargetPoints = getMatchPointsToWin(match, stage, tournament);
+  const matchTargetPoints = getMatchPointsToWin(match, stage, tournament, round);
 
   if (!isEmpate) {
     if (scorerIsP1) {
@@ -145,7 +152,8 @@ export function applyPenalty(
   isFoul: boolean,
   reason: string,
   issuedBy: string,
-  existingPenalties: Penalty[]
+  existingPenalties: Penalty[],
+  round?: Round
 ): ApplyPenaltyResult {
   if (match.status === 'completed') {
     throw new Error('El match ya está completado.');
@@ -189,7 +197,7 @@ export function applyPenalty(
     status: 'in_progress',
   };
 
-  const matchTargetPoints = getMatchPointsToWin(match, stage, tournament);
+  const matchTargetPoints = getMatchPointsToWin(match, stage, tournament, round);
 
   if (pointsAwarded > 0) {
     if (rivalIsP1) {
@@ -228,7 +236,8 @@ export function undoLastBattle(
   stage: Stage,
   battles: Battle[],
   penalties: Penalty[],
-  tournament?: Tournament
+  tournament?: Tournament,
+  round?: Round
 ): { updatedMatch: Match; removedBattleId: string } {
   const matchBattles = battles.filter(b => b.matchId === match.id && !b.voided);
   if (matchBattles.length === 0) {
@@ -248,7 +257,7 @@ export function undoLastBattle(
   let status: Match['status'] = remainingBattles.length > 0 || matchPenalties.length > 0 ? 'in_progress' : 'pending';
 
   const setsNeeded = Math.floor(stage.bestOf / 2) + 1;
-  const matchTargetPoints = tournament ? getMatchPointsToWin(match, stage, tournament) : (stage.pointsToWin || 4);
+  const matchTargetPoints = tournament ? getMatchPointsToWin(match, stage, tournament, round) : (stage.pointsToWin || 4);
 
   for (const b of remainingBattles) {
     if (b.scorerId && b.finish) {
