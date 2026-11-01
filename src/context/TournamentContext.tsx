@@ -1215,6 +1215,50 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return { stageId: finalStage.id, tournamentComplete: true };
   };
 
+  useEffect(() => {
+    const completedTournamentIds = tournaments
+      .filter((tournament) => tournament.status !== 'completed')
+      .map((tournament) => ({
+        tournament,
+        completion: getTournamentCompletionState(tournament.id, stages, matches),
+      }))
+      .filter(({ completion }) => completion?.tournamentComplete);
+
+    if (completedTournamentIds.length === 0) return;
+
+    const completedStageIds = new Set(
+      completedTournamentIds.map(({ completion }) => completion!.stageId)
+    );
+    const completedIds = new Set(completedTournamentIds.map(({ tournament }) => tournament.id));
+    const nextStages = stages.map((stage) => (
+      completedStageIds.has(stage.id)
+        ? { ...stage, status: 'completed' as const }
+        : stage
+    ));
+    const nextTournaments = tournaments.map((tournament) => (
+      completedIds.has(tournament.id)
+        ? { ...tournament, status: 'completed' as const }
+        : tournament
+    ));
+
+    setStages(nextStages);
+    setTournaments(nextTournaments);
+    saveState({ stages: nextStages, tournaments: nextTournaments });
+
+    completedTournamentIds.forEach(({ tournament }) => {
+      void syncTournamentToSupabase(
+        nextTournaments.find((candidate) => candidate.id === tournament.id)!,
+        nextStages,
+        groups,
+        rounds,
+        matches,
+        participants,
+        battles,
+        penalties
+      );
+    });
+  }, [tournaments, stages, matches, groups, rounds, participants, battles, penalties]);
+
   const reorderParticipants = (tournamentId: string, reordered: Participant[]) => {
     const normalized = normalizeSeeds(reordered);
     setParticipants(prev => {
