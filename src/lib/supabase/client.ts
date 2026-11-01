@@ -127,14 +127,14 @@ export async function testSupabaseConnection(url?: string, anonKey?: string): Pr
       };
     }
 
-    const { data: sessionData, error: sessionError } = await testClient.auth.getSession();
-    if (sessionError) {
+    const { data: userData, error: userError } = await testClient.auth.getUser();
+    if (userError) {
       return {
         success: false,
-        message: `La base responde, pero no se pudo restaurar la sesión: ${sessionError.message}`,
+        message: `La base responde, pero la sesión no es válida: ${userError.message}`,
       };
     }
-    if (!sessionData.session) {
+    if (!userData.user) {
       return {
         success: false,
         message: 'Supabase responde correctamente. Inicia sesión para publicar torneos y registrar arbitrajes.',
@@ -144,7 +144,7 @@ export async function testSupabaseConnection(url?: string, anonKey?: string): Pr
     const { data: profile, error: profileError } = await testClient
       .from('profiles')
       .select('role')
-      .eq('id', sessionData.session.user.id)
+      .eq('id', userData.user.id)
       .maybeSingle();
     if (profileError) {
       return {
