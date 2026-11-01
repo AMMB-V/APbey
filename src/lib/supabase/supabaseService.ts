@@ -787,8 +787,11 @@ export async function persistPenaltyToSupabase(
       p_expected_version: expectedVersion,
     });
     if (error) {
-      const message = error.message.toLowerCase().includes('conflicto')
+      const lowerMessage = error.message.toLowerCase();
+      const message = lowerMessage.includes('conflicto') || lowerMessage.includes('version_conflict')
         ? 'El match cambió en otra sesión. Recarga el torneo antes de registrar la penalización.'
+        : lowerMessage.includes('invalid_offender')
+        ? 'El participante seleccionado no pertenece a este match.'
         : `No se pudo registrar la penalización de forma transaccional: ${error.message}`;
       return { success: false, message };
     }

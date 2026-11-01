@@ -152,3 +152,133 @@ $$;
 revoke all on function public.record_battle(uuid, uuid, finish_type, integer) from public, anon, authenticated;
 grant execute on function public.record_battle(uuid, uuid, finish_type, integer) to authenticated;
 
+-- Derive foul points on the server and update the match atomically.
+create or replace function public.record_penalty(
+  p_match_id uuid,
+  p_offender_id uuid,
+  p_card card_type,
+  p_is_foul boolean,
+  p_points_awarded int,
+  p_awarded_to uuid,
+  p_reason text,
+  p_issued_by uuid,
+  p_expected_version int
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  m matches;
+  t tournaments;
+  s stages;
+  r rounds;
+  rival_id uuid;
+  fouls_count int := 0;
+  awarded_points int := 0;
+  target_points int;
+  sets_needed int;
+  new_penalty_id uuid;
+begin
+  if p_issued_by <> auth.uid() then raise exception 'issuer_mismatch'; end if;
+
+  select * into m from matches where id = p_match_id for update;
+  if not found then raise exception 'match_not_found'; end if;
+  if not (referees_match(p_match_id) or manages_tournament(m.tournament_id)) then
+    raise exception 'forbidden';
+  end if;
+  if m.status = 'completed' then raise exception 'match_closed'; end if;
+  if m.version <> p_expected_version then raise exception 'version_conflict'; end if;
+  if m.participant1_id is null or m.participant2_id is null then raise exception 'match_not_ready'; end if;
+  if p_offender_id not in (m.participant1_id, m.participant2_id) then
+    raise exception 'invalid_offender';
+  end if;
+
+  rival_id := case when p_offender_id = m.participant1_id
+    then m.participant2_id else m.participant1_id end;
+
+  select * into t from tournaments where id = m.tournament_id;
+  select * into s from stages where id = m.stage_id;
+  select * into r from rounds where id = m.round_id;
+
+  if p_is_foul then
+    select count(*) + 1
+      into fouls_count
+      from penalties
+     where match_id = p_match_id
+       and participant_id = p_offender_id
+       and is_foul;
+
+    if fouls_count % greatest(t.fouls_per_point, 1) = 0 then
+      awarded_points := t.foul_points;
+    end if;
+  end if;
+
+  target_points := case
+    when lower(coalesce(r.name, '')) = 'gran final' or r.bracket::text = 'grand_final'
+      then t.points_to_win_final
+    when s.type::text in ('single_elimination', 'double_elimination')
+      then t.points_to_win_playoffs
+    when s.type::text = 'group_stage'
+      then t.points_to_win_group
+    else s.points_to_win
+  end;
+
+  insert into penalties (
+    match_id, participant_id, card, is_foul, points_awarded, awarded_to, reason, issued_by, created_at
+  ) values (
+    p_match_id, p_offender_id, p_card, p_is_foul, awarded_points,
+    case when awarded_points > 0 then rival_id else null end,
+    p_reason, auth.uid(), now()
+  ) returning id into new_penalty_id;
+
+  if awarded_points > 0 then
+    if rival_id = m.participant1_id then m.score1 := m.score1 + awarded_points;
+    else m.score2 := m.score2 + awarded_points;
+    end if;
+
+    if greatest(m.score1, m.score2) >= target_points then
+      if rival_id = m.participant1_id then m.sets1 := m.sets1 + 1;
+      else m.sets2 := m.sets2 + 1;
+      end if;
+      sets_needed := floor(s.best_of / 2) + 1;
+      if m.sets1 >= sets_needed or m.sets2 >= sets_needed then
+        m.status := 'completed';
+        m.winner_id := case when m.sets1 >= sets_needed
+          then m.participant1_id else m.participant2_id end;
+        m.finished_at := now();
+      else
+        m.score1 := 0;
+        m.score2 := 0;
+      end if;
+    end if;
+  end if;
+
+  m.status := case when m.status = 'completed' then 'completed' else 'in_progress' end;
+  update matches set
+    score1 = m.score1,
+    score2 = m.score2,
+    sets1 = m.sets1,
+    sets2 = m.sets2,
+    status = m.status,
+    winner_id = m.winner_id,
+    finished_at = m.finished_at,
+    started_at = coalesce(started_at, now()),
+    version = version + 1
+  where id = p_match_id;
+
+  return jsonb_build_object(
+    'success', true,
+    'penalty_id', new_penalty_id,
+    'points_awarded', awarded_points,
+    'awarded_to', case when awarded_points > 0 then rival_id else null end,
+    'new_version', m.version + 1
+  );
+end;
+$$;
+
+revoke all on function public.record_penalty(uuid, uuid, card_type, boolean, integer, uuid, text, uuid, integer)
+  from public, anon, authenticated;
+grant execute on function public.record_penalty(uuid, uuid, card_type, boolean, integer, uuid, text, uuid, integer)
+  to authenticated;
