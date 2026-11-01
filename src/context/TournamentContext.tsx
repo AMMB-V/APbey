@@ -529,6 +529,19 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   useEffect(() => {
+    if (currentRole !== 'admin') return;
+    let active = true;
+    void Promise.all([loadAdminProfiles(), loadAdminAuditLogs()]).then(([remoteUsers, remoteAuditLogs]) => {
+      if (!active) return;
+      if (remoteUsers) setUsers(remoteUsers);
+      if (remoteAuditLogs) setAuditLogs(remoteAuditLogs);
+    });
+    return () => {
+      active = false;
+    };
+  }, [currentRole, currentUser?.id]);
+
+  useEffect(() => {
     matchesRef.current = matches;
   }, [matches]);
 
