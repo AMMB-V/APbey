@@ -292,6 +292,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'invite'>('login');
   const [inviteCodePrefill, setInviteCodePrefill] = useState<string>('');
+  const [authRevision, setAuthRevision] = useState(0);
+  const [remoteRefreshVersion, setRemoteRefreshVersion] = useState(0);
 
   const openAuthModal = (tab: 'login' | 'invite' = 'login', initialCode: string = '') => {
     setAuthModalInitialTab(tab);
@@ -570,9 +572,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [matches]);
 
   useEffect(() => {
-    if (!activeTournamentId || !supabaseSyncInfo.isConfigured) return;
+    if (!supabaseSyncInfo.isConfigured) return;
 
-    const unsubscribe = subscribeToTournamentRealtime(activeTournamentId, {
+    const unsubscribe = subscribeToTournamentRealtime(activeTournamentId || undefined, {
       onMatchUpdate: (incomingMatch) => {
         if (!incomingMatch.id) return;
         setMatches((current) => current.map((match) => (
@@ -631,6 +633,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             : `Canal realtime: ${status.toLowerCase()}.`,
         }));
       },
+      onRemoteDataChange: () => {
+        setRemoteRefreshVersion((version) => version + 1);
+      },
     });
 
     return unsubscribe;
@@ -681,6 +686,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         ? await supabase.auth.getSession()
         : { data: { session: null } };
       let organizerId: string | undefined;
+      let authenticatedRole: UserRole | undefined;
       if (sessionData.session) {
         const { data: profile } = await supabase!
           .from('profiles')
@@ -690,27 +696,51 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (profile?.role === 'organizer') {
           organizerId = profile.id;
         }
+        authenticatedRole = profile?.role as UserRole | undefined;
       }
 
       const remote = await loadTournamentsFromSupabase({ organizerId });
       if (!active) return;
       if (remote && remote.tournaments.length === 0) {
-        setTournaments([]);
-        setStages([]);
-        setGroups([]);
-        setRounds([]);
-        setMatches([]);
-        setParticipants([]);
-        setBattles([]);
-        setPenalties([]);
-        setActiveTournamentId('');
+        const saved = localStorage.getItem(STORAGE_KEY);
+        const persisted = saved ? migratePersistedTournamentData(JSON.parse(saved)).data : null;
+        const pendingSnapshot = persisted?.tournaments?.length
+          ? {
+              tournaments: persisted.tournaments,
+              stages: persisted.stages || [],
+              groups: persisted.groups || [],
+              rounds: persisted.rounds || [],
+              matches: persisted.matches || [],
+              participants: persisted.participants || [],
+              battles: persisted.battles || [],
+              penalties: persisted.penalties || [],
+            }
+          : null;
+        if (pendingSnapshot) {
+          setTournaments(pendingSnapshot.tournaments);
+          setStages(pendingSnapshot.stages);
+          setGroups(pendingSnapshot.groups);
+          setRounds(pendingSnapshot.rounds);
+          setMatches(pendingSnapshot.matches);
+          setParticipants(pendingSnapshot.participants);
+          setBattles(pendingSnapshot.battles);
+          setPenalties(pendingSnapshot.penalties);
+          setActiveTournamentId(pendingSnapshot.tournaments[0]?.id || '');
+          if (authenticatedRole === 'admin' || authenticatedRole === 'organizer') {
+            void syncAllTournamentsToSupabase(pendingSnapshot);
+          }
+        }
         setSupabaseSyncInfo((previous) => ({
           ...previous,
           isConnected: true,
           lastSync: new Date().toLocaleTimeString(),
           message: organizerId
-            ? 'Supabase está conectado; no hay torneos creados por esta cuenta.'
-            : 'Supabase está conectado y no contiene torneos disponibles para esta cuenta.',
+            ? pendingSnapshot
+              ? 'No había torneos remotos para esta cuenta; se conservaron y sincronizarán los cambios locales pendientes.'
+              : 'Supabase está conectado; no hay torneos creados por esta cuenta.'
+            : pendingSnapshot
+              ? 'Se conservaron torneos locales mientras se sincronizan con Supabase.'
+              : 'Supabase está conectado y no contiene torneos disponibles para esta cuenta.',
         }));
         return;
       }
@@ -782,13 +812,14 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return () => {
       active = false;
     };
-  }, [supabaseSyncInfo.isConfigured]);
+  }, [supabaseSyncInfo.isConfigured, authRevision, remoteRefreshVersion]);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
     if (!supabase) return;
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      setAuthRevision((revision) => revision + 1);
       if (!session) {
         setCurrentUser(null);
         setCurrentRole('public');
