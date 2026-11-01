@@ -1,4 +1,5 @@
 import { Match, Participant, Round } from '../../../types/tournament';
+import { createEntityId, isEntityIdUuid } from '../../storage/entityIds';
 
 export interface RoundRobinResult {
   rounds: Round[];
@@ -41,6 +42,8 @@ export function generateRoundRobin(
 
   const rounds: Round[] = [];
   const matches: Match[] = [];
+  const useUuidIds = isEntityIdUuid(stageId);
+  const newId = (fallback: string) => useUuidIds ? createEntityId() : fallback;
 
   // Circle algorithm rotation
   // Keep first participant fixed at index 0, rotate the rest
@@ -54,9 +57,9 @@ export function generateRoundRobin(
 
     for (let r = 0; r < roundsCountPerLeg; r++) {
       const roundNum = (leg - 1) * roundsCountPerLeg + (r + 1);
-      const roundId = options.groupId
+      const roundId = newId(options.groupId
         ? `${options.groupId}_r_${roundNum}`
-        : `${stageId}_r_${roundNum}`;
+        : `${stageId}_r_${roundNum}`);
 
       const roundName = options.groupName
         ? `${options.groupName} - Fecha ${roundNum}`
@@ -93,9 +96,9 @@ export function generateRoundRobin(
         const autoWinnerId = isABye ? realP2Id : (isBBye ? realP1Id : null);
 
         matches.push({
-          id: options.groupId
+          id: newId(options.groupId
             ? `${options.groupId}_m_r${roundNum}_p${m + 1}`
-            : `${stageId}_m_r${roundNum}_p${m + 1}`,
+            : `${stageId}_m_r${roundNum}_p${m + 1}`),
           tournamentId,
           stageId,
           roundId,
