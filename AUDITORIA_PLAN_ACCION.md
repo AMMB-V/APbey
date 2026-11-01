@@ -181,8 +181,8 @@ Estos cambios son deliberadamente acotados: no se implementó una migración inc
 
 ### Fase 3 — Operación y mantenimiento
 
-1. Elegir npm o Bun y fijar la estrategia en CI.
-2. Añadir `npm run test`, cobertura, E2E, pruebas RLS y auditoría de dependencias.
+1. Mantener npm como gestor único y validar `package-lock.json` en CI.
+2. Ampliar cobertura, E2E, pruebas RLS y auditoría automatizada de dependencias.
 3. Activar `strict` progresivamente y eliminar dependencias no usadas.
 4. Añadir logging estructurado, request IDs, alertas y documentación de despliegue.
 5. Publicar API de overlays/streaming sólo después de cerrar autenticación y límites.

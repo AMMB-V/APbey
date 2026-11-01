@@ -53,7 +53,7 @@ El backend Express no es una segunda fuente de verdad: sirve el frontend, expone
 ## Requisitos
 
 - Node.js compatible con TypeScript/Vite del proyecto.
-- npm o Bun; el repositorio contiene `bun.lock`, por lo que debe definirse una estrategia única para CI y despliegue.
+- Node.js y npm; `package-lock.json` es el lockfile canónico usado por CI y despliegue.
 - Variables de entorno de Supabase sólo si se necesita persistencia remota.
 
 ## Instalación y ejecución
@@ -92,7 +92,7 @@ npm run lint      # TypeScript sin emitir archivos
 npm run preview   # Previsualización del bundle
 ```
 
-El repositorio contiene `bun.lock`, mientras que los scripts y CI usan npm. Debe elegirse un gestor único y generar su lockfile reproducible antes de usar `npm ci` en CI. El pipeline referencia `npm run test`, pero actualmente no existe ese script ni una suite de pruebas registrada. Esta discrepancia es un bloqueo de calidad documentado en `AUDITORIA_PLAN_ACCION.md`.
+El repositorio usa npm como gestor único: `package-lock.json` se valida con `npm ci` en CI. `npm run test` ejecuta la suite Vitest y `npm run build` valida el bundle de producción.
 
 ## Navegación y vistas
 
