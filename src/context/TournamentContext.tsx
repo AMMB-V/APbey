@@ -685,7 +685,6 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const { data: sessionData } = supabase
         ? await supabase.auth.getSession()
         : { data: { session: null } };
-      let organizerId: string | undefined;
       let authenticatedRole: UserRole | undefined;
       if (sessionData.session) {
         const { data: profile } = await supabase!
@@ -693,13 +692,14 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           .select('id, role')
           .eq('id', sessionData.session.user.id)
           .maybeSingle();
-        if (profile?.role === 'organizer') {
-          organizerId = profile.id;
-        }
         authenticatedRole = profile?.role as UserRole | undefined;
       }
 
-      const remote = await loadTournamentsFromSupabase({ organizerId });
+      // Supabase RLS decides which tournaments this session can see:
+      // public tournaments, owned tournaments, and assigned-referee tournaments.
+      // Do not add a client-side organizer filter or organizers miss public
+      // tournaments created by other accounts.
+      const remote = await loadTournamentsFromSupabase();
       if (!active) return;
       if (remote && remote.tournaments.length === 0) {
         const saved = localStorage.getItem(STORAGE_KEY);
@@ -734,13 +734,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           ...previous,
           isConnected: true,
           lastSync: new Date().toLocaleTimeString(),
-          message: organizerId
-            ? pendingSnapshot
-              ? 'No había torneos remotos para esta cuenta; se conservaron y sincronizarán los cambios locales pendientes.'
-              : 'Supabase está conectado; no hay torneos creados por esta cuenta.'
-            : pendingSnapshot
-              ? 'Se conservaron torneos locales mientras se sincronizan con Supabase.'
-              : 'Supabase está conectado y no contiene torneos disponibles para esta cuenta.',
+          message: pendingSnapshot
+            ? 'Se conservaron torneos locales mientras se sincronizan con Supabase.'
+            : 'Supabase está conectado y no contiene torneos disponibles para esta cuenta.',
         }));
         return;
       }

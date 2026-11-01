@@ -464,9 +464,7 @@ export async function syncTournamentToSupabase(
 /**
  * Loads tournaments from Supabase if connected.
  */
-export async function loadTournamentsFromSupabase(scope?: {
-  organizerId?: string;
-}): Promise<{
+export async function loadTournamentsFromSupabase(): Promise<{
   tournaments: Tournament[];
   stages: Stage[];
   groups: Group[];
@@ -488,9 +486,6 @@ export async function loadTournamentsFromSupabase(scope?: {
       .from('tournaments')
       .select('*')
       .order('created_at', { ascending: true });
-    if (scope?.organizerId) {
-      tournamentQuery.eq('organizer_id', scope.organizerId);
-    }
 
     const [
       { data: tourneys, error: tournamentsError },
