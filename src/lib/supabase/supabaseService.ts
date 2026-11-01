@@ -704,7 +704,7 @@ export async function loadTournamentsFromSupabase(scope?: {
 
 /**
  * Realtime Subscription for Live Scoring and Stadium Displays.
- * Listens to postgres_changes on matches and battles tables.
+ * Listens to postgres_changes on all tables that affect a live tournament.
  */
 export function subscribeToTournamentRealtime(
   tournamentId: string | undefined,
@@ -724,7 +724,7 @@ export function subscribeToTournamentRealtime(
     .on(
       'postgres_changes',
       {
-        event: 'UPDATE',
+        event: '*',
         schema: 'public',
         table: 'matches',
         ...(tournamentId ? { filter: `tournament_id=eq.${tournamentId}` } : {}),
@@ -732,7 +732,7 @@ export function subscribeToTournamentRealtime(
       (payload) => {
         const m = payload.new as Record<string, unknown>;
         callbacks.onRemoteDataChange?.();
-        if (callbacks.onMatchUpdate) {
+        if (payload.eventType !== 'DELETE' && callbacks.onMatchUpdate) {
           callbacks.onMatchUpdate({
             id: String(m.id),
             score1: Number(m.score1) || 0,
@@ -742,6 +742,7 @@ export function subscribeToTournamentRealtime(
             status: m.status as Match['status'],
             winnerId: (m.winner_id as string) || undefined,
             refereeId: (m.referee_id as string) || undefined,
+            version: Number(m.version) || 0,
           });
         }
       }
@@ -749,14 +750,14 @@ export function subscribeToTournamentRealtime(
     .on(
       'postgres_changes',
       {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'battles',
       },
       (payload) => {
         const b = payload.new as Record<string, unknown>;
         callbacks.onRemoteDataChange?.();
-        if (callbacks.onBattleInsert) {
+        if (payload.eventType === 'INSERT' && callbacks.onBattleInsert) {
           callbacks.onBattleInsert({
             id: String(b.id),
             matchId: String(b.match_id),
@@ -775,14 +776,14 @@ export function subscribeToTournamentRealtime(
     .on(
       'postgres_changes',
       {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'penalties',
       },
       (payload) => {
         const p = payload.new as Record<string, unknown>;
         callbacks.onRemoteDataChange?.();
-        if (callbacks.onPenaltyInsert) {
+        if (payload.eventType === 'INSERT' && callbacks.onPenaltyInsert) {
           callbacks.onPenaltyInsert({
             id: String(p.id),
             matchId: String(p.match_id),
@@ -806,6 +807,24 @@ export function subscribeToTournamentRealtime(
         schema: 'public',
         table: 'tournaments',
         ...(tournamentId ? { filter: `id=eq.${tournamentId}` } : {}),
+      },
+      () => callbacks.onRemoteDataChange?.()
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'groups',
+      },
+      () => callbacks.onRemoteDataChange?.()
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'rounds',
       },
       () => callbacks.onRemoteDataChange?.()
     )
