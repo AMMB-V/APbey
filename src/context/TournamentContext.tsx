@@ -176,6 +176,52 @@ interface TournamentContextType {
 const STORAGE_KEY = 'bey_tournament_arena_v1';
 const SESSION_USER_KEY = 'apbey_session_user';
 const RANKINGS_STORAGE_KEY = 'apbey_rankings_v1';
+const PENDING_INVITATION_KEY = 'apbey_pending_invitation';
+
+type PendingInvitation = {
+  code: string;
+  displayName: string;
+  email: string;
+};
+
+function getAuthRedirectUrl(inviteCode?: string): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+
+  const url = new URL(window.location.origin + window.location.pathname);
+  if (inviteCode) url.searchParams.set('invite', inviteCode);
+  url.searchParams.set('auth', 'confirmed');
+  return url.toString();
+}
+
+function savePendingInvitation(invitation: PendingInvitation): void {
+  localStorage.setItem(PENDING_INVITATION_KEY, JSON.stringify(invitation));
+}
+
+function readPendingInvitation(): PendingInvitation | null {
+  try {
+    const raw = localStorage.getItem(PENDING_INVITATION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PendingInvitation>;
+    if (
+      typeof parsed.code !== 'string' ||
+      typeof parsed.displayName !== 'string' ||
+      typeof parsed.email !== 'string'
+    ) {
+      return null;
+    }
+    return {
+      code: parsed.code,
+      displayName: parsed.displayName,
+      email: parsed.email,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearPendingInvitation(): void {
+  localStorage.removeItem(PENDING_INVITATION_KEY);
+}
 
 const TournamentContext = createContext<TournamentContextType | null>(null);
 
@@ -391,6 +437,26 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const lastSyncedSnapshotRef = useRef('');
   const skipInitialAutoSyncRef = useRef(true);
 
+  const claimInvitationForUser = async (
+    supabase: NonNullable<ReturnType<typeof getSupabaseClient>>,
+    pending: PendingInvitation
+  ): Promise<{ role: UserRole; displayName: string } | null> => {
+    const { data, error } = await supabase.rpc('claim_invitation', {
+      p_code: pending.code,
+      p_display_name: pending.displayName,
+      p_email: pending.email,
+    });
+    if (error || !data?.[0]) {
+      console.error('[Invitations] No se pudo crear el perfil invitado:', error?.message || 'respuesta vacía');
+      return null;
+    }
+
+    return {
+      role: data[0].role as UserRole,
+      displayName: data[0].display_name,
+    };
+  };
+
   useEffect(() => {
     const checkInitialConnection = async () => {
       const config = getStoredSupabaseConfig();
@@ -518,38 +584,25 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const hydrateFromSupabase = async () => {
       if (!supabaseSyncInfo.isConfigured) return;
-      const remote = await loadTournamentsFromSupabase();
+      const supabase = getSupabaseClient();
+      const { data: sessionData } = supabase
+        ? await supabase.auth.getSession()
+        : { data: { session: null } };
+      let organizerId: string | undefined;
+      if (sessionData.session) {
+        const { data: profile } = await supabase!
+          .from('profiles')
+          .select('id, role')
+          .eq('id', sessionData.session.user.id)
+          .maybeSingle();
+        if (profile?.role === 'organizer') {
+          organizerId = profile.id;
+        }
+      }
+
+      const remote = await loadTournamentsFromSupabase({ organizerId });
       if (!active) return;
       if (remote && remote.tournaments.length === 0) {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        const persisted = saved ? JSON.parse(saved) : null;
-        const { data, migrated } = migratePersistedTournamentData(persisted);
-        const supabase = getSupabaseClient();
-        const sessionData = supabase ? await supabase.auth.getSession() : { data: { session: null } };
-
-        if (data.tournaments.length > 0 && sessionData.data.session) {
-          if (migrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-          setTournaments(data.tournaments);
-          setStages(data.stages);
-          setGroups(data.groups);
-          setRounds(data.rounds);
-          setMatches(data.matches);
-          setParticipants(data.participants);
-          setBattles(data.battles);
-          setPenalties(data.penalties);
-          setActiveTournamentId(data.tournaments[0].id);
-          const result = await syncAllTournamentsToSupabase(data);
-          if (result.success) {
-            setSupabaseSyncInfo((previous) => ({
-              ...previous,
-              isConnected: true,
-              lastSync: new Date().toLocaleTimeString(),
-              message: result.message,
-            }));
-          }
-          return;
-        }
-
         setTournaments([]);
         setStages([]);
         setGroups([]);
@@ -563,9 +616,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           ...previous,
           isConnected: true,
           lastSync: new Date().toLocaleTimeString(),
-          message: data.tournaments.length > 0
-            ? 'Supabase está conectado, pero debes iniciar sesión para publicar los torneos locales de este dispositivo.'
-            : 'Supabase está conectado y no contiene torneos para esta cuenta.',
+          message: organizerId
+            ? 'Supabase está conectado; no hay torneos creados por esta cuenta.'
+            : 'Supabase está conectado y no contiene torneos disponibles para esta cuenta.',
         }));
         return;
       }
@@ -597,22 +650,6 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 : 'Supabase no respondió; se restauró la copia local pendiente de sincronización.',
             }));
             if (migrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-            const supabase = getSupabaseClient();
-            if (supabase) {
-              const { data: sessionData } = await supabase.auth.getSession();
-              if (sessionData.session) {
-                void syncAllTournamentsToSupabase({
-                  tournaments: data.tournaments,
-                  stages: data.stages || [],
-                  groups: data.groups || [],
-                  rounds: data.rounds || [],
-                  matches: data.matches || [],
-                  participants: data.participants || [],
-                  battles: data.battles || [],
-                  penalties: data.penalties || [],
-                });
-              }
-            }
             return;
           }
         } catch (error) {
@@ -682,6 +719,32 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           .maybeSingle();
 
         if (profileError || !profile) {
+          const pendingInvitation = readPendingInvitation();
+          if (pendingInvitation && pendingInvitation.email === (session.user.email || '').toLowerCase()) {
+            const claimedProfile = await claimInvitationForUser(supabase, pendingInvitation);
+            if (claimedProfile) {
+              clearPendingInvitation();
+              const authenticatedUser: UserProfile = {
+                id: session.user.id,
+                displayName: claimedProfile.displayName,
+                avatarUrl: undefined,
+                email: session.user.email || pendingInvitation.email,
+                role: claimedProfile.role,
+                createdAt: new Date().toISOString(),
+              };
+              setCurrentUser(authenticatedUser);
+              setCurrentRole(authenticatedUser.role);
+              localStorage.setItem(SESSION_USER_KEY, JSON.stringify(authenticatedUser));
+              setSupabaseSyncInfo((previous) => ({
+                ...previous,
+                isConfigured: true,
+                isConnected: true,
+                lastSync: new Date().toLocaleTimeString(),
+                message: `Cuenta confirmada y perfil de torneo habilitado como ${authenticatedUser.role}.`,
+              }));
+              return;
+            }
+          }
           setSupabaseSyncInfo((previous) => ({
             ...previous,
             isConnected: false,
@@ -917,43 +980,69 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       };
     }
 
-    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+    savePendingInvitation({
+      code: cleanCode,
+      displayName: cleanName,
+      email: cleanEmail,
+    });
+
+    let authData = await supabase.auth.signInWithPassword({
       email: cleanEmail,
       password,
     });
-    if (signUpError || !authData.user) {
+
+    if (authData.error) {
+      const signUpResult = await supabase.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: {
+          emailRedirectTo: getAuthRedirectUrl(cleanCode),
+        },
+      });
+      if (signUpResult.error || !signUpResult.data.user) {
+        clearPendingInvitation();
+        return {
+          success: false,
+          message: signUpResult.error?.message || 'No se pudo crear la cuenta invitada.',
+        };
+      }
+      authData = signUpResult;
+    }
+
+    if (!authData.data.user) {
+      clearPendingInvitation();
       return {
         success: false,
-        message: signUpError?.message || 'No se pudo crear la cuenta invitada.',
+        message: 'Supabase no devolvió la cuenta creada.',
       };
     }
-    if (!authData.session) {
+    if (!authData.data.session) {
       return {
-        success: false,
-        message: 'Cuenta creada. Confirma tu correo y vuelve a iniciar sesión para activar la invitación.',
+        success: true,
+        message: 'Cuenta creada. Revisa tu correo y abre el enlace de verificación para activar tu perfil de torneo.',
       };
     }
 
-    const { data: claimData, error: claimError } = await supabase.rpc('claim_invitation', {
-      p_code: cleanCode,
-      p_display_name: cleanName,
-      p_email: cleanEmail,
+    const claimedProfile = await claimInvitationForUser(supabase, {
+      code: cleanCode,
+      displayName: cleanName,
+      email: cleanEmail,
     });
-    if (claimError || !claimData?.[0]) {
+    if (!claimedProfile) {
       await supabase.auth.signOut();
       return {
         success: false,
-        message: claimError?.message || 'La invitación no pudo validarse o ya fue utilizada.',
+        message: 'La invitación no pudo validarse o ya fue utilizada.',
       };
     }
+    clearPendingInvitation();
 
-    const profile = claimData[0];
     const authenticatedUser: UserProfile = {
-      id: authData.user.id,
-      displayName: profile.display_name,
-      avatarUrl: profile.avatar_url || undefined,
+      id: authData.data.user.id,
+      displayName: claimedProfile.displayName,
+      avatarUrl: undefined,
       email: cleanEmail,
-      role: profile.role as UserRole,
+      role: claimedProfile.role,
       createdAt: new Date().toISOString(),
     };
     setCurrentUser(authenticatedUser);

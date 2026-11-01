@@ -79,6 +79,8 @@ Variables disponibles en `.env.example`:
 - `SUPABASE_SERVICE_ROLE_KEY` (sólo backend/mantenimiento; nunca exponerla al navegador)
 - `GEMINI_API_KEY` (opcional)
 
+Para que las invitaciones creen el perfil después de confirmar el correo, configura en Supabase **Authentication > URL Configuration** la URL pública de la aplicación como **Site URL** y añade también la URL local de desarrollo como **Redirect URL**. El registro envía una redirección explícita a la ruta actual de la aplicación con el código de invitación; si el dominio no está permitido, Supabase rechazará o alterará el enlace de confirmación.
+
 ## Comandos
 
 ```powershell

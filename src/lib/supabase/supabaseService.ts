@@ -376,7 +376,9 @@ export async function syncTournamentToSupabase(
 /**
  * Loads tournaments from Supabase if connected.
  */
-export async function loadTournamentsFromSupabase(): Promise<{
+export async function loadTournamentsFromSupabase(scope?: {
+  organizerId?: string;
+}): Promise<{
   tournaments: Tournament[];
   stages: Stage[];
   groups: Group[];
@@ -394,6 +396,14 @@ export async function loadTournamentsFromSupabase(): Promise<{
     // private organizer/referee tournaments from disappearing on first load.
     await supabase.auth.getSession();
 
+    const tournamentQuery = supabase
+      .from('tournaments')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (scope?.organizerId) {
+      tournamentQuery.eq('organizer_id', scope.organizerId);
+    }
+
     const [
       { data: tourneys, error: tournamentsError },
       { data: finishPointRows, error: finishPointsError },
@@ -407,7 +417,7 @@ export async function loadTournamentsFromSupabase(): Promise<{
       { data: battleRows, error: battlesError },
       { data: penaltyRows, error: penaltiesError },
     ] = await Promise.all([
-      supabase.from('tournaments').select('*').order('created_at', { ascending: true }),
+      tournamentQuery,
       supabase.from('tournament_finish_points').select('*'),
       supabase.from('tournament_referees').select('*'),
       supabase.from('participants').select('*').order('seed', { ascending: true }),
@@ -441,16 +451,31 @@ export async function loadTournamentsFromSupabase(): Promise<{
       return null;
     }
 
+    const tournamentIds = new Set((tourneys || []).map((row) => String(row.id)));
+    const scopedFinishPointRows = (finishPointRows || []).filter((row) => tournamentIds.has(String(row.tournament_id)));
+    const scopedRefereeRows = (refereeRows || []).filter((row) => tournamentIds.has(String(row.tournament_id)));
+    const scopedParticipantRows = (participantRows || []).filter((row) => tournamentIds.has(String(row.tournament_id)));
+    const scopedStageRows = (stageRows || []).filter((row) => tournamentIds.has(String(row.tournament_id)));
+    const stageIds = new Set(scopedStageRows.map((row) => String(row.id)));
+    const scopedGroupRows = (groupRows || []).filter((row) => stageIds.has(String(row.stage_id)));
+    const groupIds = new Set(scopedGroupRows.map((row) => String(row.id)));
+    const scopedGroupParticipantRows = (groupParticipantRows || []).filter((row) => groupIds.has(String(row.group_id)));
+    const scopedRoundRows = (roundRows || []).filter((row) => stageIds.has(String(row.stage_id)));
+    const scopedMatchRows = (matchRows || []).filter((row) => tournamentIds.has(String(row.tournament_id)));
+    const matchIds = new Set(scopedMatchRows.map((row) => String(row.id)));
+    const scopedBattleRows = (battleRows || []).filter((row) => matchIds.has(String(row.match_id)));
+    const scopedPenaltyRows = (penaltyRows || []).filter((row) => matchIds.has(String(row.match_id)));
+
     const defaultFinishPoints: FinishPointsConfig = { spin: 1, over: 2, burst: 2, xtreme: 3 };
     const finishPointsByTournament = new Map<string, FinishPointsConfig>();
-    for (const row of finishPointRows || []) {
+    for (const row of scopedFinishPointRows) {
       const points = finishPointsByTournament.get(row.tournament_id) || { ...defaultFinishPoints };
       points[row.finish as FinishType] = Number(row.points) || 0;
       finishPointsByTournament.set(row.tournament_id, points);
     }
 
     const refereesByTournament = new Map<string, string[]>();
-    for (const row of refereeRows || []) {
+    for (const row of scopedRefereeRows) {
       const referees = refereesByTournament.get(row.tournament_id) || [];
       referees.push(row.profile_id);
       refereesByTournament.set(row.tournament_id, referees);
@@ -481,7 +506,7 @@ export async function loadTournamentsFromSupabase(): Promise<{
       assignedReferees: refereesByTournament.get(t.id) || [],
     }));
 
-    const participants: Participant[] = (participantRows || []).map((p) => ({
+    const participants: Participant[] = scopedParticipantRows.map((p) => ({
       id: p.id,
       tournamentId: p.tournament_id,
       profileId: p.profile_id || undefined,
@@ -493,13 +518,13 @@ export async function loadTournamentsFromSupabase(): Promise<{
     }));
 
     const participantsByGroup = new Map<string, string[]>();
-    for (const row of groupParticipantRows || []) {
+    for (const row of scopedGroupParticipantRows) {
       const participantIds = participantsByGroup.get(row.group_id) || [];
       participantIds.push(row.participant_id);
       participantsByGroup.set(row.group_id, participantIds);
     }
 
-    const stages: Stage[] = (stageRows || []).map((s) => ({
+    const stages: Stage[] = scopedStageRows.map((s) => ({
       id: s.id,
       tournamentId: s.tournament_id,
       position: s.position,
@@ -512,7 +537,7 @@ export async function loadTournamentsFromSupabase(): Promise<{
       config: s.config || { tiebreakers: [] },
     }));
 
-    const groups: Group[] = (groupRows || []).map((g) => ({
+    const groups: Group[] = scopedGroupRows.map((g) => ({
       id: g.id,
       stageId: g.stage_id,
       name: g.name,
@@ -521,7 +546,7 @@ export async function loadTournamentsFromSupabase(): Promise<{
       refereeId: g.referee_id || undefined,
     }));
 
-    const rounds: Round[] = (roundRows || []).map((r) => ({
+    const rounds: Round[] = scopedRoundRows.map((r) => ({
       id: r.id,
       stageId: r.stage_id,
       groupId: r.group_id || undefined,
@@ -530,7 +555,7 @@ export async function loadTournamentsFromSupabase(): Promise<{
       name: r.name || '',
     }));
 
-    const matches: Match[] = (matchRows || []).map((m) => ({
+    const matches: Match[] = scopedMatchRows.map((m) => ({
       id: m.id,
       tournamentId: m.tournament_id,
       stageId: m.stage_id,
@@ -555,7 +580,7 @@ export async function loadTournamentsFromSupabase(): Promise<{
       finishedAt: m.finished_at || undefined,
     }));
 
-    const battles: Battle[] = (battleRows || []).map((b) => ({
+    const battles: Battle[] = scopedBattleRows.map((b) => ({
       id: b.id,
       matchId: b.match_id,
       battleNumber: b.battle_number,
@@ -568,7 +593,7 @@ export async function loadTournamentsFromSupabase(): Promise<{
       createdAt: b.created_at,
     }));
 
-    const penalties: Penalty[] = (penaltyRows || []).map((p) => ({
+    const penalties: Penalty[] = scopedPenaltyRows.map((p) => ({
       id: p.id,
       matchId: p.match_id,
       battleId: p.battle_id || undefined,
