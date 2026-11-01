@@ -201,7 +201,7 @@ function TournamentApp() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[var(--grafito)] text-[var(--hueso)] flex flex-col font-sans antialiased selection:bg-[var(--cobalto)] selection:text-[var(--tinta)] pb-16 md:pb-0">
+    <div className="min-h-screen overflow-x-hidden bg-[var(--grafito)] text-[var(--hueso)] flex flex-col font-sans antialiased selection:bg-[var(--cobalto)] selection:text-[var(--tinta)] pb-20 lg:pb-0">
       {/* WCAG 2.2 AA Skip to Content Link */}
       <a
         href="#main-content"
