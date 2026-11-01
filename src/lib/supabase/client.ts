@@ -113,18 +113,16 @@ export async function testSupabaseConnection(
     const { error } = await testClient.from('tournaments').select('id').limit(1);
 
     if (error) {
-      // If error is code 42P01 (relation does not exist), tables haven't been migrated yet, but connection works!
       if (error.code === '42P01') {
         return {
-          success: true,
-          message: 'Conexión a Supabase exitosa (Las tablas aún no han sido creadas. Ejecuta el SQL de inicialización).',
+          success: false,
+          message: 'Supabase responde, pero faltan tablas requeridas. Ejecuta las migraciones del repositorio.',
         };
       }
-      // If error is code 42501 (insufficient privilege / RLS active), connection is valid but requires grant permissions
       if (error.code === '42501') {
         return {
-          success: true,
-          message: 'Conexión con Supabase verificada; la instancia respondió con RLS activo. Comprueba que las migraciones del repositorio estén aplicadas.',
+          success: false,
+          message: 'Supabase responde, pero las políticas RLS impiden validar el esquema con esta sesión.',
         };
       }
       return {

@@ -46,28 +46,22 @@ export async function loadAdminProfiles(): Promise<UserProfile[] | null> {
   if (error) {
     console.warn('[Supabase] RPC de perfiles administrativos no disponible:', error.message);
   }
-  const [{ data: profiles, error: profilesError }, { data: invitations, error: invitationsError }] = await Promise.all([
-    supabase
-      .from('profiles')
-      .select('id, display_name, role, avatar_url, created_at')
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('invitations')
-      .select('email, role, status')
-      .eq('status', 'accepted'),
-  ]);
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profiles')
+    .select('id, display_name, role, avatar_url, created_at')
+    .order('created_at', { ascending: false });
   if (profilesError || !profiles) {
     console.warn('[Supabase] No se pudieron cargar los perfiles administrativos:', profilesError?.message);
     return null;
   }
 
-  const acceptedEmailsByRole = new Map(
-    (invitations || []).map((invitation) => [invitation.role, invitation.email])
-  );
   return profiles.map((profile) => ({
     id: profile.id,
     displayName: profile.display_name,
-    email: acceptedEmailsByRole.get(profile.role) || '',
+    // Invitations do not identify a profile reliably when multiple users share
+    // the same role. Keep the email empty rather than assigning another user's
+    // address to this profile.
+    email: '',
     role: profile.role as UserProfile['role'],
     avatarUrl: profile.avatar_url || undefined,
     createdAt: profile.created_at,

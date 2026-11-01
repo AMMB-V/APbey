@@ -479,6 +479,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const remoteRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipAutoSyncAfterRemoteHydrationRef = useRef(false);
   const deletedTournamentIdsRef = useRef(new Set<string>());
+  const remoteHydrationAvailableRef = useRef(!hasConfiguredSupabase);
   const autoSyncInFlightRef = useRef(false);
   const autoSyncQueuedSnapshotRef = useRef<{
     tournaments: Tournament[];
@@ -719,6 +720,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const remote = await loadTournamentsFromSupabase();
       if (!active || requestId !== hydrationRequestRef.current) return;
       if (remote && remote.tournaments.length === 0) {
+        remoteHydrationAvailableRef.current = true;
         skipAutoSyncAfterRemoteHydrationRef.current = true;
         setTournaments([]);
         setStages([]);
@@ -738,6 +740,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return;
       }
       if (!remote) {
+        remoteHydrationAvailableRef.current = false;
         try {
           const saved = localStorage.getItem(STORAGE_KEY);
           const persisted = saved ? JSON.parse(saved) : null;
@@ -777,6 +780,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return;
       }
 
+      remoteHydrationAvailableRef.current = true;
       setTournaments(remote.tournaments);
       skipAutoSyncAfterRemoteHydrationRef.current = true;
       setStages(remote.stages);
@@ -3098,6 +3102,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     if (!supabaseSyncInfo.isConfigured || !localStorageHydrated) return;
     if (!currentUser || !['admin', 'organizer'].includes(currentRole)) return;
+    if (!remoteHydrationAvailableRef.current) return;
 
     const snapshot = getCurrentSyncSnapshot();
     const fingerprint = getSyncSnapshotFingerprint(snapshot);
@@ -3167,12 +3172,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       lastSync: test.success ? new Date().toLocaleTimeString() : null,
       message: test.message,
     });
-    if (test.success) {
-      const syncResult = await syncAllTournamentsToSupabase();
-      if (!syncResult.success) {
-        return syncResult;
-      }
-    }
+    // Changing projects must not publish the current local snapshot into the
+    // new backend before that backend has been hydrated and explicitly chosen
+    // as the target for a sync.
     return test;
   };
 
