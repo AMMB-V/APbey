@@ -22,6 +22,7 @@ import { SyncBadge } from '../common/SyncBadge';
 import { Snackbar } from '../common/Snackbar';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { CardType, FinishType } from '../../types/tournament';
+import { getMatchPointsToWin } from '../../lib/engine/arbitration';
 
 interface ScoreboardViewProps {
   initialMatchId?: string;
@@ -32,6 +33,8 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
   const {
     matches,
     activeTournament,
+    stages,
+    rounds,
     participants,
     battles,
     penalties,
@@ -84,7 +87,11 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
   const officialP2 = participants.find((participant) => participant.id === officialMatch?.participant2Id);
   const activeP1Score = officialMatch?.score1 || 0;
   const activeP2Score = officialMatch?.score2 || 0;
-  const target = 4;
+  const activeStage = officialMatch ? stages.find((stage) => stage.id === officialMatch.stageId) : undefined;
+  const activeRound = officialMatch ? rounds.find((round) => round.id === officialMatch.roundId) : undefined;
+  const target = officialMatch && activeStage && activeTournament
+    ? getMatchPointsToWin(officialMatch, activeStage, activeTournament, activeRound)
+    : 4;
   const p1Winner = activeP1Score >= target;
   const p2Winner = activeP2Score >= target;
 

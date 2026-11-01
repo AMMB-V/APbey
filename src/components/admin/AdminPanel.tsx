@@ -221,6 +221,8 @@ export const AdminPanel: React.FC = () => {
             <div className="text-xs font-bold font-mono">
               Base de Datos: {supabaseSyncInfo.isConnected
                 ? `Supabase conectado${configuredSupabaseUrl ? ` (${configuredSupabaseUrl})` : ''}`
+                : supabaseSyncInfo.isConfigured
+                ? 'Supabase configurado (inicia sesión para sincronizar)'
                 : 'Modo local (sin conexión a Supabase)'}
             </div>
             <div className="text-[11px] text-[var(--acero)]">

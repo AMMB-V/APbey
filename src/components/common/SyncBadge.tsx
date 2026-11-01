@@ -82,7 +82,7 @@ export const SyncBadge: React.FC<SyncBadgeProps> = ({
         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-950/80 text-amber-300 border border-amber-800/80 shadow-xs ${className}`}
       >
         <CloudOff className="w-3.5 h-3.5 text-amber-400 shrink-0" aria-hidden="true" />
-        <span>No sincronizado</span>
+        <span>Sesión requerida</span>
       </div>
     );
   }
