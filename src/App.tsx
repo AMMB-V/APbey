@@ -212,12 +212,12 @@ function TournamentApp() {
       {activeStationAlert && (
         <aside
           aria-label="Convocatoria Activa"
-          className="bg-[var(--tarjeta-amarilla)] text-[var(--tinta)] px-4 py-2.5 shadow-md border-b border-amber-600 flex items-center justify-between text-xs font-bold"
+          className="bg-[var(--tarjeta-amarilla)] text-[var(--tinta)] px-3 sm:px-4 py-2.5 shadow-md border-b border-amber-600 flex items-start sm:items-center justify-between text-xs font-bold"
         >
-          <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Volume2 className="w-4 h-4 animate-bounce text-[var(--tinta)]" />
-              <span>{activeStationAlert.message}</span>
+          <div className="max-w-7xl mx-auto w-full flex items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-2 min-w-0">
+              <Volume2 className="w-4 h-4 mt-0.5 shrink-0 animate-bounce text-[var(--tinta)]" />
+              <span className="min-w-0 break-words">{activeStationAlert.message}</span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <button
@@ -243,7 +243,7 @@ function TournamentApp() {
       {/* Main Container */}
       <main id="main-content" tabIndex={-1} className="grow min-w-0 max-w-screen-2xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 outline-hidden">
         {/* Breadcrumbs & Active Tournament Bar */}
-        <div className="mb-4 flex flex-wrap items-center justify-between text-xs text-[var(--acero)] bg-[var(--chasis)] border border-[var(--costura)] px-4 py-2 rounded-2xl shadow-xs gap-3">
+        <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-[var(--acero)] bg-[var(--chasis)] border border-[var(--costura)] px-3 sm:px-4 py-2.5 rounded-2xl shadow-xs gap-2 sm:gap-3">
           <div className="flex items-center gap-2">
             <Trophy className="w-4 h-4 text-amber-400 shrink-0" aria-hidden="true" />
             {activeTournament ? (
@@ -265,7 +265,7 @@ function TournamentApp() {
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
             {currentUser ? (
               <div className="flex items-center gap-1.5 font-mono text-[11px]">
                 <Shield className="w-3.5 h-3.5 text-emerald-400" />

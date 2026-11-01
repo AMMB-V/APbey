@@ -270,7 +270,7 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={() => setShowStadiumModal(true)}
             title="Abrir Pantalla de Estadio en Vivo para TV o Proyector"
-            className="p-2 text-amber-300 hover:text-amber-200 bg-amber-950/30 border border-amber-800/60 rounded-xl min-w-[38px] min-h-[38px] flex items-center justify-center transition-colors"
+            className="hidden sm:flex p-2 text-amber-300 hover:text-amber-200 bg-amber-950/30 border border-amber-800/60 rounded-xl min-w-[38px] min-h-[38px] items-center justify-center transition-colors"
           >
             <Tv className="w-4 h-4" />
           </button>
@@ -292,7 +292,7 @@ export const Header: React.FC<HeaderProps> = ({
                 className="px-3 py-1.5 text-xs font-bold rounded-xl bg-[var(--hueso)] hover:bg-white text-[var(--tinta)] transition-all flex items-center gap-1.5 shadow-sm min-h-[38px]"
               >
                 <LogIn className="w-3.5 h-3.5" />
-                <span>Entrar</span>
+                <span className="hidden sm:inline">Entrar</span>
               </button>
             </div>
           ) : (
