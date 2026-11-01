@@ -477,6 +477,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const autoSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSyncRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const remoteRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipAutoSyncAfterRemoteHydrationRef = useRef(false);
+  const deletedTournamentIdsRef = useRef(new Set<string>());
   const autoSyncInFlightRef = useRef(false);
   const autoSyncQueuedSnapshotRef = useRef<{
     tournaments: Tournament[];
@@ -717,6 +719,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const remote = await loadTournamentsFromSupabase();
       if (!active || requestId !== hydrationRequestRef.current) return;
       if (remote && remote.tournaments.length === 0) {
+        skipAutoSyncAfterRemoteHydrationRef.current = true;
         setTournaments([]);
         setStages([]);
         setGroups([]);
@@ -775,6 +778,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
 
       setTournaments(remote.tournaments);
+      skipAutoSyncAfterRemoteHydrationRef.current = true;
       setStages(remote.stages);
       setGroups(remote.groups);
       setRounds(remote.rounds);
@@ -2712,10 +2716,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!tournaments.some((tournament) => tournament.id === id)) {
       return { success: false, message: 'El torneo ya no está disponible.' };
     }
+    deletedTournamentIdsRef.current.add(id);
 
     if (getSupabaseClient()) {
       const result = await deleteTournamentFromSupabase(id);
       if (!result.success) {
+        deletedTournamentIdsRef.current.delete(id);
         setSupabaseSyncInfo((previous) => ({
           ...previous,
           isConnected: false,
@@ -2980,6 +2986,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const failures: string[] = [];
     let syncedCount = 0;
     for (const tournament of snapshot.tournaments) {
+      if (deletedTournamentIdsRef.current.has(tournament.id)) continue;
       const result = await syncTournamentToSupabase(
         tournament,
         snapshot.stages,
@@ -3094,6 +3101,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const snapshot = getCurrentSyncSnapshot();
     const fingerprint = getSyncSnapshotFingerprint(snapshot);
+    if (skipAutoSyncAfterRemoteHydrationRef.current) {
+      skipAutoSyncAfterRemoteHydrationRef.current = false;
+      autoSyncQueuedSnapshotRef.current = null;
+      lastSyncedSnapshotRef.current = fingerprint;
+      if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current);
+      return;
+    }
     if (skipInitialAutoSyncRef.current) {
       skipInitialAutoSyncRef.current = false;
       lastSyncedSnapshotRef.current = fingerprint;
