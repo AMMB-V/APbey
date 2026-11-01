@@ -287,7 +287,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, display_name, avatar_url, role, created_at')
+        .select('id, display_name, role, created_at')
         .eq('id', authUser.id)
         .single();
       if (!profile || !active) return;
@@ -295,7 +295,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const authenticatedUser: UserProfile = {
         id: profile.id,
         displayName: profile.display_name,
-        avatarUrl: profile.avatar_url || undefined,
+        avatarUrl: undefined,
         email: authUser.email || '',
         role: profile.role as UserRole,
         createdAt: profile.created_at,
@@ -677,7 +677,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       void (async () => {
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('id, display_name, avatar_url, role, created_at')
+          .select('id, display_name, role, created_at')
           .eq('id', session.user.id)
           .maybeSingle();
 
@@ -695,7 +695,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const authenticatedUser: UserProfile = {
           id: profile.id,
           displayName: profile.display_name,
-          avatarUrl: profile.avatar_url || undefined,
+          avatarUrl: undefined,
           email: session.user.email || '',
           role: profile.role as UserRole,
           createdAt: profile.created_at,
@@ -850,21 +850,24 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, display_name, avatar_url, role, created_at')
+      .select('id, display_name, role, created_at')
       .eq('id', authData.user.id)
       .single();
     if (profileError || !profile) {
       await supabase.auth.signOut();
+      const detail = profileError
+        ? ` Detalle de Supabase: ${profileError.message}`
+        : ' No existe una fila en public.profiles con el mismo ID de auth.users.';
       return {
         success: false,
-        message: 'La cuenta no tiene un perfil de torneo habilitado.',
+        message: `La cuenta no tiene un perfil de torneo habilitado.${detail}`,
       };
     }
 
     const authenticatedUser: UserProfile = {
       id: profile.id,
       displayName: profile.display_name,
-      avatarUrl: profile.avatar_url || undefined,
+      avatarUrl: undefined,
       email: authData.user.email || cleanEmail,
       role: profile.role as UserRole,
       createdAt: profile.created_at,

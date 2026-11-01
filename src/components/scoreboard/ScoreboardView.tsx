@@ -46,6 +46,10 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
     openAuthModal,
     supabaseSyncInfo,
   } = useTournament();
+  const canArbitrate = Boolean(
+    currentUser &&
+    ['referee', 'organizer', 'admin'].includes(currentRole)
+  );
 
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [selectedOfficialMatchId, setSelectedOfficialMatchId] = useState(initialMatchId || '');
@@ -145,7 +149,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
 
   const handleRecordBattle = (scorer: 'p1' | 'p2', finish: FinishType, points: number) => {
     if (!officialMatch || !officialP1 || !officialP2) return;
-    if (currentRole === 'public') {
+    if (!canArbitrate) {
       openAuthModal('login');
       return;
     }
@@ -164,6 +168,10 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
 
   const handleApplyPenalty = () => {
     if (!officialMatch || !officialP1 || !officialP2) return;
+    if (!canArbitrate) {
+      openAuthModal('login');
+      return;
+    }
     const offender = foulTarget === 'p1' ? officialP1 : officialP2;
     const cardParam = foulCard === 'none' ? undefined : foulCard;
     recordPenalty(officialMatch.id, offender.id, cardParam, true, foulReason);
@@ -185,7 +193,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
     <button
       type="button"
       onClick={() => handleRecordBattle(scorer, finish, points)}
-      disabled={!officialMatch || officialMatch.status === 'completed'}
+      disabled={!canArbitrate || !officialMatch || officialMatch.status === 'completed'}
       className={`w-full min-h-[56px] py-3 px-4 rounded-2xl bg-[var(--chasis)] border-2 ${borderColor} hover:opacity-90 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-between shadow-md group`}
     >
       <div className="flex items-center gap-3 text-left">
@@ -258,7 +266,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
 
             {currentRole === 'public' && (
               <span className="text-[11px] text-amber-400 font-semibold">
-                Modo visor. Inicia sesión para arbitrar.
+                Modo visor. Inicia sesión con un rol oficial para arbitrar.
               </span>
             )}
           </div>
@@ -378,7 +386,14 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
 
             <button
               type="button"
-              onClick={() => setShowFoulModal(true)}
+              onClick={() => {
+                if (!canArbitrate) {
+                  openAuthModal('login');
+                  return;
+                }
+                setShowFoulModal(true);
+              }}
+              disabled={!canArbitrate || officialMatch.status === 'completed'}
               className="px-3 py-1.5 rounded-xl bg-amber-950/50 border border-amber-800 text-xs font-bold text-amber-300 hover:bg-amber-950 flex items-center gap-1.5 transition-colors min-h-[36px]"
             >
               <AlertTriangle className="w-3.5 h-3.5" />
@@ -502,11 +517,16 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
                 <button
                   type="button"
                   onClick={() => {
+                    if (!canArbitrate) {
+                      openAuthModal('login');
+                      return;
+                    }
                     setCloseSummary(
                       `Resultado final: Gana ${p1Winner ? officialP1.displayName : officialP2.displayName} con marcador de ${activeP1Score} a ${activeP2Score}.\n¿Confirmas cerrar el combate y sellar el acta?`
                     );
                     setShowConfirmClose(true);
                   }}
+                  disabled={!canArbitrate || officialMatch.status === 'completed'}
                   className="flex-1 sm:flex-initial px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-xl min-h-[44px] transition-all"
                 >
                   Cerrar Partido
@@ -538,7 +558,10 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
               {matchBattles.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => undoBattle(officialMatch.id)}
+                  onClick={() => {
+                    if (canArbitrate) undoBattle(officialMatch.id);
+                  }}
+                  disabled={!canArbitrate}
                   className="text-xs text-[var(--acero)] hover:text-rose-400 flex items-center gap-1 min-h-[32px] px-2"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -591,7 +614,10 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
 
                       <button
                         type="button"
-                        onClick={() => undoBattle(officialMatch.id)}
+                        onClick={() => {
+                          if (canArbitrate) undoBattle(officialMatch.id);
+                        }}
+                        disabled={!canArbitrate}
                         title="Anular esta batalla"
                         className="p-1.5 text-[var(--acero)] hover:text-rose-400 rounded-lg min-w-[36px] min-h-[36px] flex items-center justify-center transition-colors"
                       >
