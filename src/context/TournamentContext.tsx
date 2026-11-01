@@ -72,6 +72,7 @@ import {
 } from '../lib/storage/mockData';
 import { parseRankingWorkbook } from '../lib/storage/rankingWorkbook';
 import { createEntityId } from '../lib/storage/entityIds';
+import { migratePersistedTournamentData } from '../lib/storage/localDataMigration';
 import { BladerRanking, HallOfFameEntry } from '../types/rankings';
 
 export interface SupabaseSyncInfo {
@@ -454,17 +455,18 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const data = JSON.parse(saved);
-        if (data.tournaments?.length) setTournaments(data.tournaments);
-        if (data.stages?.length) setStages(data.stages);
-        if (data.groups?.length) setGroups(data.groups);
-        if (data.rounds?.length) setRounds(data.rounds);
-        if (data.matches?.length) setMatches(data.matches);
-        if (data.participants?.length) setParticipants(data.participants);
-        if (data.battles?.length) setBattles(data.battles);
-        if (data.penalties?.length) setPenalties(data.penalties);
+        const { data, migrated } = migratePersistedTournamentData(JSON.parse(saved));
+        if (data.tournaments.length) setTournaments(data.tournaments);
+        if (data.stages.length) setStages(data.stages);
+        if (data.groups.length) setGroups(data.groups);
+        if (data.rounds.length) setRounds(data.rounds);
+        if (data.matches.length) setMatches(data.matches);
+        if (data.participants.length) setParticipants(data.participants);
+        if (data.battles.length) setBattles(data.battles);
+        if (data.penalties.length) setPenalties(data.penalties);
         if (data.invitations?.length) setInvitations(data.invitations);
         if (data.auditLogs?.length) setAuditLogs(data.auditLogs);
+        if (migrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       }
     } catch {
       // ignore
@@ -478,10 +480,60 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (!supabaseSyncInfo.isConfigured) return;
       const remote = await loadTournamentsFromSupabase();
       if (!active) return;
-      if (!remote || remote.tournaments.length === 0) {
+      if (remote && remote.tournaments.length === 0) {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        const persisted = saved ? JSON.parse(saved) : null;
+        const { data, migrated } = migratePersistedTournamentData(persisted);
+        const supabase = getSupabaseClient();
+        const sessionData = supabase ? await supabase.auth.getSession() : { data: { session: null } };
+
+        if (data.tournaments.length > 0 && sessionData.data.session) {
+          if (migrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+          setTournaments(data.tournaments);
+          setStages(data.stages);
+          setGroups(data.groups);
+          setRounds(data.rounds);
+          setMatches(data.matches);
+          setParticipants(data.participants);
+          setBattles(data.battles);
+          setPenalties(data.penalties);
+          setActiveTournamentId(data.tournaments[0].id);
+          const result = await syncAllTournamentsToSupabase(data);
+          if (result.success) {
+            setSupabaseSyncInfo((previous) => ({
+              ...previous,
+              isConnected: true,
+              lastSync: new Date().toLocaleTimeString(),
+              message: result.message,
+            }));
+          }
+          return;
+        }
+
+        setTournaments([]);
+        setStages([]);
+        setGroups([]);
+        setRounds([]);
+        setMatches([]);
+        setParticipants([]);
+        setBattles([]);
+        setPenalties([]);
+        setActiveTournamentId('');
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConnected: true,
+          lastSync: new Date().toLocaleTimeString(),
+          message: data.tournaments.length > 0
+            ? 'Supabase está conectado, pero debes iniciar sesión para publicar los torneos locales de este dispositivo.'
+            : 'Supabase está conectado y no contiene torneos para esta cuenta.',
+        }));
+        return;
+      }
+      if (!remote) {
         try {
           const saved = localStorage.getItem(STORAGE_KEY);
-          const data = saved ? JSON.parse(saved) : null;
+          const persisted = saved ? JSON.parse(saved) : null;
+          const { data, migrated } = migratePersistedTournamentData(persisted);
           if (data?.tournaments?.length) {
             setTournaments(data.tournaments);
             setStages(data.stages || []);
@@ -504,16 +556,23 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 ? 'Supabase no contiene torneos; se restauró la copia local pendiente de sincronización.'
                 : 'Supabase no respondió; se restauró la copia local pendiente de sincronización.',
             }));
-            void syncAllTournamentsToSupabase({
-              tournaments: data.tournaments,
-              stages: data.stages || [],
-              groups: data.groups || [],
-              rounds: data.rounds || [],
-              matches: data.matches || [],
-              participants: data.participants || [],
-              battles: data.battles || [],
-              penalties: data.penalties || [],
-            });
+            if (migrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            const supabase = getSupabaseClient();
+            if (supabase) {
+              const { data: sessionData } = await supabase.auth.getSession();
+              if (sessionData.session) {
+                void syncAllTournamentsToSupabase({
+                  tournaments: data.tournaments,
+                  stages: data.stages || [],
+                  groups: data.groups || [],
+                  rounds: data.rounds || [],
+                  matches: data.matches || [],
+                  participants: data.participants || [],
+                  battles: data.battles || [],
+                  penalties: data.penalties || [],
+                });
+              }
+            }
             return;
           }
         } catch (error) {

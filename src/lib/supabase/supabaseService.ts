@@ -112,13 +112,23 @@ export async function syncTournamentToSupabase(
   }
 
   try {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      return { success: false, message: `No se pudo restaurar la sesión de Supabase: ${sessionError.message}` };
+    }
+    if (!sessionData.session) {
+      return { success: false, message: 'Inicia sesión en Supabase antes de sincronizar torneos.' };
+    }
+
     // 1. Upsert Tournament
     const tourneyPayload = {
       id: tournament.id,
       slug: tournament.slug,
       name: tournament.name,
       description: tournament.description || null,
-      organizer_id: tournament.organizerId,
+      organizer_id: tournament.organizerId === 'user_admin'
+        ? sessionData.session.user.id
+        : tournament.organizerId,
       status: tournament.status,
       is_public: tournament.isPublic,
       max_participants: tournament.maxParticipants || null,
