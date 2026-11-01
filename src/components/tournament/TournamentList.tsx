@@ -177,11 +177,11 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
     setTimeout(() => setSuccessMsg(null), 3000);
   };
 
-  const handleDelete = (id: string, name: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, name: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm(`¿Estás seguro de que deseas eliminar el torneo "${name}"?`)) {
-      deleteTournament(id);
-      setSuccessMsg(`Torneo eliminado.`);
+      const result = await deleteTournament(id);
+      setSuccessMsg(result.message);
       setTimeout(() => setSuccessMsg(null), 3000);
     }
   };
