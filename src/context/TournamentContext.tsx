@@ -375,6 +375,21 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
   });
   const [localStorageHydrated, setLocalStorageHydrated] = useState(hasConfiguredSupabase);
+  const autoSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSyncRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSyncInFlightRef = useRef(false);
+  const autoSyncQueuedSnapshotRef = useRef<{
+    tournaments: Tournament[];
+    stages: Stage[];
+    groups: Group[];
+    rounds: Round[];
+    matches: Match[];
+    participants: Participant[];
+    battles: Battle[];
+    penalties: Penalty[];
+  } | null>(null);
+  const lastSyncedSnapshotRef = useRef('');
+  const skipInitialAutoSyncRef = useRef(true);
 
   useEffect(() => {
     const checkInitialConnection = async () => {
@@ -639,6 +654,71 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       active = false;
     };
   }, [supabaseSyncInfo.isConfigured]);
+
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        setCurrentUser(null);
+        setCurrentRole('public');
+        localStorage.removeItem(SESSION_USER_KEY);
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConnected: false,
+          message: event === 'SIGNED_OUT'
+            ? 'Supabase configurado; inicia sesión para sincronizar.'
+            : 'Sesión de Supabase no disponible; los cambios quedan pendientes localmente.',
+        }));
+        return;
+      }
+
+      void (async () => {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, display_name, avatar_url, role, created_at')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (profileError || !profile) {
+          setSupabaseSyncInfo((previous) => ({
+            ...previous,
+            isConnected: false,
+            message: profileError
+              ? `La sesión existe, pero no se pudo validar el perfil: ${profileError.message}`
+              : 'La sesión existe, pero no hay un perfil asociado en public.profiles.',
+          }));
+          return;
+        }
+
+        const authenticatedUser: UserProfile = {
+          id: profile.id,
+          displayName: profile.display_name,
+          avatarUrl: profile.avatar_url || undefined,
+          email: session.user.email || '',
+          role: profile.role as UserRole,
+          createdAt: profile.created_at,
+        };
+        setCurrentUser(authenticatedUser);
+        setCurrentRole(authenticatedUser.role);
+        localStorage.setItem(SESSION_USER_KEY, JSON.stringify(authenticatedUser));
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConfigured: true,
+          isConnected: true,
+          lastSync: new Date().toLocaleTimeString(),
+          message: event === 'SIGNED_IN'
+            ? 'Sesión iniciada; sincronización automática habilitada.'
+            : 'Sesión de Supabase renovada; sincronización automática activa.',
+        }));
+      })();
+    });
+
+    return () => {
+      data.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (!supabaseSyncInfo.isConfigured && !localStorageHydrated) return;
@@ -2603,6 +2683,134 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }));
     return result;
   };
+
+  const getCurrentSyncSnapshot = () => ({
+    tournaments,
+    stages,
+    groups,
+    rounds,
+    matches,
+    participants,
+    battles,
+    penalties,
+  });
+
+  const getSyncSnapshotFingerprint = (snapshot: ReturnType<typeof getCurrentSyncSnapshot>) => (
+    JSON.stringify(snapshot)
+  );
+
+  const runQueuedAutoSync = async () => {
+    if (autoSyncInFlightRef.current) return;
+    const snapshot = autoSyncQueuedSnapshotRef.current;
+    if (!snapshot || !getSupabaseClient() || !navigator.onLine) return;
+
+    const supabase = getSupabaseClient();
+    const { data: userData, error: userError } = await supabase!.auth.getUser();
+    if (userError || !userData.user) {
+      setSupabaseSyncInfo((previous) => ({
+        ...previous,
+        isConnected: false,
+        message: 'Supabase configurado; inicia sesión para sincronizar los cambios pendientes.',
+      }));
+      return;
+    }
+
+    autoSyncQueuedSnapshotRef.current = null;
+    autoSyncInFlightRef.current = true;
+    setSupabaseSyncInfo((previous) => ({
+      ...previous,
+      isConnected: true,
+      message: 'Sincronizando cambios automáticamente con Supabase...',
+    }));
+
+    try {
+      const result = await syncAllTournamentsToSupabase(snapshot);
+      if (result.success) {
+        lastSyncedSnapshotRef.current = getSyncSnapshotFingerprint(snapshot);
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConnected: true,
+          lastSync: new Date().toLocaleTimeString(),
+          message: result.message,
+        }));
+      } else {
+        autoSyncQueuedSnapshotRef.current = snapshot;
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConnected: false,
+          message: result.message,
+        }));
+        if (autoSyncRetryTimerRef.current) clearTimeout(autoSyncRetryTimerRef.current);
+        autoSyncRetryTimerRef.current = setTimeout(() => {
+          void runQueuedAutoSync();
+        }, 5000);
+      }
+    } finally {
+      autoSyncInFlightRef.current = false;
+      if (autoSyncQueuedSnapshotRef.current) {
+        if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current);
+        autoSyncTimerRef.current = setTimeout(() => {
+          void runQueuedAutoSync();
+        }, 250);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!supabaseSyncInfo.isConfigured || !localStorageHydrated) return;
+    if (!currentUser || !['admin', 'organizer'].includes(currentRole)) return;
+
+    const snapshot = getCurrentSyncSnapshot();
+    const fingerprint = getSyncSnapshotFingerprint(snapshot);
+    if (skipInitialAutoSyncRef.current) {
+      skipInitialAutoSyncRef.current = false;
+      lastSyncedSnapshotRef.current = fingerprint;
+      return;
+    }
+    if (fingerprint === lastSyncedSnapshotRef.current) return;
+
+    autoSyncQueuedSnapshotRef.current = snapshot;
+    if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current);
+    autoSyncTimerRef.current = setTimeout(() => {
+      void runQueuedAutoSync();
+    }, 800);
+  }, [
+    tournaments,
+    stages,
+    groups,
+    rounds,
+    matches,
+    participants,
+    battles,
+    penalties,
+    currentUser,
+    currentRole,
+    localStorageHydrated,
+    supabaseSyncInfo.isConfigured,
+  ]);
+
+  useEffect(() => {
+    if (!supabaseSyncInfo.isConfigured) return;
+
+    const retryPendingSync = () => {
+      if (!autoSyncQueuedSnapshotRef.current) {
+        autoSyncQueuedSnapshotRef.current = getCurrentSyncSnapshot();
+      }
+      void runQueuedAutoSync();
+    };
+
+    window.addEventListener('online', retryPendingSync);
+    const intervalId = window.setInterval(() => {
+      if (autoSyncQueuedSnapshotRef.current) retryPendingSync();
+    }, 30000);
+
+    return () => {
+      window.removeEventListener('online', retryPendingSync);
+      window.clearInterval(intervalId);
+      if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current);
+      if (autoSyncRetryTimerRef.current) clearTimeout(autoSyncRetryTimerRef.current);
+    };
+  }, [supabaseSyncInfo.isConfigured]);
 
   const updateSupabaseKeys = async (url: string, anonKey: string): Promise<{ success: boolean; message: string }> => {
     saveSupabaseConfig(url, anonKey);
