@@ -32,7 +32,7 @@ export async function loadAdminProfiles(): Promise<UserProfile[] | null> {
   if (!supabase) return null;
 
   const { data, error } = await supabase.rpc('list_admin_profiles');
-  if (!error && data) {
+  if (!error && data && data.length > 0) {
     return data.map((profile) => ({
       id: profile.id,
       displayName: profile.display_name,
@@ -43,7 +43,9 @@ export async function loadAdminProfiles(): Promise<UserProfile[] | null> {
     }));
   }
 
-  console.warn('[Supabase] RPC de perfiles administrativos no disponible:', error?.message);
+  if (error) {
+    console.warn('[Supabase] RPC de perfiles administrativos no disponible:', error.message);
+  }
   const [{ data: profiles, error: profilesError }, { data: invitations, error: invitationsError }] = await Promise.all([
     supabase
       .from('profiles')
@@ -702,14 +704,15 @@ export async function loadTournamentsFromSupabase(scope?: {
 
 /**
  * Realtime Subscription for Live Scoring and Stadium Displays.
- * Listens to postgres_changes on matches and battles tables.
+ * Listens to postgres_changes on all tables that affect a live tournament.
  */
 export function subscribeToTournamentRealtime(
-  tournamentId: string,
+  tournamentId: string | undefined,
   callbacks: {
     onMatchUpdate?: (match: Partial<Match>) => void;
     onBattleInsert?: (battle: Battle) => void;
     onPenaltyInsert?: (penalty: Penalty) => void;
+    onRemoteDataChange?: () => void;
     onStatusChange?: (status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED') => void;
   }
 ): () => void {
@@ -721,14 +724,15 @@ export function subscribeToTournamentRealtime(
     .on(
       'postgres_changes',
       {
-        event: 'UPDATE',
+        event: '*',
         schema: 'public',
         table: 'matches',
-        filter: `tournament_id=eq.${tournamentId}`,
+        ...(tournamentId ? { filter: `tournament_id=eq.${tournamentId}` } : {}),
       },
       (payload) => {
         const m = payload.new as Record<string, unknown>;
-        if (callbacks.onMatchUpdate) {
+        callbacks.onRemoteDataChange?.();
+        if (payload.eventType !== 'DELETE' && callbacks.onMatchUpdate) {
           callbacks.onMatchUpdate({
             id: String(m.id),
             score1: Number(m.score1) || 0,
@@ -738,6 +742,7 @@ export function subscribeToTournamentRealtime(
             status: m.status as Match['status'],
             winnerId: (m.winner_id as string) || undefined,
             refereeId: (m.referee_id as string) || undefined,
+            version: Number(m.version) || 0,
           });
         }
       }
@@ -745,13 +750,14 @@ export function subscribeToTournamentRealtime(
     .on(
       'postgres_changes',
       {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'battles',
       },
       (payload) => {
         const b = payload.new as Record<string, unknown>;
-        if (callbacks.onBattleInsert) {
+        callbacks.onRemoteDataChange?.();
+        if (payload.eventType === 'INSERT' && callbacks.onBattleInsert) {
           callbacks.onBattleInsert({
             id: String(b.id),
             matchId: String(b.match_id),
@@ -770,13 +776,14 @@ export function subscribeToTournamentRealtime(
     .on(
       'postgres_changes',
       {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'penalties',
       },
       (payload) => {
         const p = payload.new as Record<string, unknown>;
-        if (callbacks.onPenaltyInsert) {
+        callbacks.onRemoteDataChange?.();
+        if (payload.eventType === 'INSERT' && callbacks.onPenaltyInsert) {
           callbacks.onPenaltyInsert({
             id: String(p.id),
             matchId: String(p.match_id),
@@ -792,6 +799,54 @@ export function subscribeToTournamentRealtime(
           });
         }
       }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'tournaments',
+        ...(tournamentId ? { filter: `id=eq.${tournamentId}` } : {}),
+      },
+      () => callbacks.onRemoteDataChange?.()
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'groups',
+      },
+      () => callbacks.onRemoteDataChange?.()
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'rounds',
+      },
+      () => callbacks.onRemoteDataChange?.()
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'participants',
+        ...(tournamentId ? { filter: `tournament_id=eq.${tournamentId}` } : {}),
+      },
+      () => callbacks.onRemoteDataChange?.()
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'stages',
+        ...(tournamentId ? { filter: `tournament_id=eq.${tournamentId}` } : {}),
+      },
+      () => callbacks.onRemoteDataChange?.()
     )
     .subscribe((status) => {
       if (
