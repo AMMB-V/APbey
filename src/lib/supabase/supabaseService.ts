@@ -292,9 +292,28 @@ export async function syncTournamentToSupabase(
       if (battlesError) throw new Error(`Error al sincronizar batallas: ${battlesError.message}`);
     }
 
+    const tourneyPenalties = penalties.filter((penalty) => matchIds.has(penalty.matchId));
+    if (tourneyPenalties.length > 0) {
+      const penaltiesPayload = tourneyPenalties.map((penalty) => ({
+        id: penalty.id,
+        match_id: penalty.matchId,
+        battle_id: penalty.battleId || null,
+        participant_id: penalty.participantId,
+        card: penalty.card,
+        is_foul: penalty.isFoul,
+        points_awarded: penalty.pointsAwarded,
+        awarded_to: penalty.awardedTo || null,
+        reason: penalty.reason || null,
+        issued_by: penalty.issuedBy,
+        created_at: penalty.createdAt,
+      }));
+      const { error: penaltiesError } = await supabase.from('penalties').upsert(penaltiesPayload);
+      if (penaltiesError) throw new Error(`Error al sincronizar penalizaciones: ${penaltiesError.message}`);
+    }
+
     return {
       success: true,
-      message: `Torneo "${tournament.name}" sincronizado con Supabase (${tourneyMatches.length} partidas, ${tourneyParticipants.length} bladers).`,
+      message: `Torneo "${tournament.name}" sincronizado con Supabase (${tourneyMatches.length} partidas, ${tourneyParticipants.length} bladers, ${tourneyBattles.length} batallas, ${tourneyPenalties.length} penalizaciones).`,
     };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

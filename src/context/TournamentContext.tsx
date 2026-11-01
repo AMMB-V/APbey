@@ -478,16 +478,48 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (!supabaseSyncInfo.isConfigured) return;
       const remote = await loadTournamentsFromSupabase();
       if (!active) return;
-      if (!remote) {
-        setTournaments([]);
-        setStages([]);
-        setGroups([]);
-        setRounds([]);
-        setMatches([]);
-        setParticipants([]);
-        setBattles([]);
-        setPenalties([]);
-        setActiveTournamentId('');
+      if (!remote || remote.tournaments.length === 0) {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          const data = saved ? JSON.parse(saved) : null;
+          if (data?.tournaments?.length) {
+            setTournaments(data.tournaments);
+            setStages(data.stages || []);
+            setGroups(data.groups || []);
+            setRounds(data.rounds || []);
+            setMatches(data.matches || []);
+            setParticipants(data.participants || []);
+            setBattles(data.battles || []);
+            setPenalties(data.penalties || []);
+            const savedActiveTournamentId = localStorage.getItem('apbey_active_tournament_id');
+            setActiveTournamentId(
+              savedActiveTournamentId && data.tournaments.some((tournament: Tournament) => tournament.id === savedActiveTournamentId)
+                ? savedActiveTournamentId
+                : data.tournaments[0]?.id || ''
+            );
+            setSupabaseSyncInfo((previous) => ({
+              ...previous,
+              isConnected: false,
+              message: remote
+                ? 'Supabase no contiene torneos; se restauró la copia local pendiente de sincronización.'
+                : 'Supabase no respondió; se restauró la copia local pendiente de sincronización.',
+            }));
+            void syncAllTournamentsToSupabase({
+              tournaments: data.tournaments,
+              stages: data.stages || [],
+              groups: data.groups || [],
+              rounds: data.rounds || [],
+              matches: data.matches || [],
+              participants: data.participants || [],
+              battles: data.battles || [],
+              penalties: data.penalties || [],
+            });
+            return;
+          }
+        } catch (error) {
+          console.error('[Storage] No se pudo restaurar la copia local:', error);
+        }
+
         setSupabaseSyncInfo((previous) => ({
           ...previous,
           isConnected: false,
@@ -579,7 +611,6 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     invitations: Invitation[];
     auditLogs: AuditLog[];
   }>) => {
-    if (getSupabaseClient()) return;
     try {
       let persisted: Partial<{
         tournaments: Tournament[];
@@ -1464,7 +1495,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         lastSync: result.success ? new Date().toLocaleTimeString() : previous.lastSync,
         message: result.message,
       }));
-      if (hadRemoteConfig && !result.success) {
+      if (hadRemoteConfig && !result.success && result.message.includes('cambió en otra sesión')) {
         setMatches(previousMatches);
         setBattles(previousBattles);
         saveState({ matches: previousMatches, battles: previousBattles });
@@ -1526,7 +1557,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         lastSync: result.success ? new Date().toLocaleTimeString() : previous.lastSync,
         message: result.message,
       }));
-      if (hadRemoteConfig && !result.success) {
+      if (hadRemoteConfig && !result.success && result.message.includes('cambió en otra sesión')) {
         setMatches(previousMatches);
         setPenalties(previousPenalties);
         saveState({ matches: previousMatches, penalties: previousPenalties });
@@ -2224,19 +2255,64 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return result;
   };
 
+  const syncAllTournamentsToSupabase = async (snapshot = {
+    tournaments,
+    stages,
+    groups,
+    rounds,
+    matches,
+    participants,
+    battles,
+    penalties,
+  }): Promise<{ success: boolean; message: string }> => {
+    if (!getSupabaseClient()) {
+      return { success: false, message: 'Supabase no está configurado.' };
+    }
+    if (snapshot.tournaments.length === 0) {
+      return { success: true, message: 'No hay torneos locales pendientes de sincronización.' };
+    }
+
+    const failures: string[] = [];
+    let syncedCount = 0;
+    for (const tournament of snapshot.tournaments) {
+      const result = await syncTournamentToSupabase(
+        tournament,
+        snapshot.stages,
+        snapshot.groups,
+        snapshot.rounds,
+        snapshot.matches,
+        snapshot.participants,
+        snapshot.battles,
+        snapshot.penalties
+      );
+      if (result.success) {
+        syncedCount += 1;
+      } else {
+        failures.push(`${tournament.name}: ${result.message}`);
+      }
+    }
+
+    const result = failures.length > 0
+      ? {
+          success: false,
+          message: `Se sincronizaron ${syncedCount} de ${snapshot.tournaments.length} torneos. ${failures.join(' ')}`,
+        }
+      : {
+          success: true,
+          message: `${syncedCount} torneo(s) sincronizado(s) automáticamente con Supabase.`,
+        };
+
+    setSupabaseSyncInfo((previous) => ({
+      ...previous,
+      isConnected: result.success,
+      lastSync: result.success ? new Date().toLocaleTimeString() : previous.lastSync,
+      message: result.message,
+    }));
+    return result;
+  };
+
   const updateSupabaseKeys = async (url: string, anonKey: string): Promise<{ success: boolean; message: string }> => {
     saveSupabaseConfig(url, anonKey);
-    if (url.trim() && anonKey.trim()) {
-      setTournaments([]);
-      setActiveTournamentId('');
-      setStages([]);
-      setGroups([]);
-      setRounds([]);
-      setMatches([]);
-      setParticipants([]);
-      setBattles([]);
-      setPenalties([]);
-    }
     const test = await testSupabaseConnection(url, anonKey);
     setSupabaseSyncInfo({
       isConfigured: Boolean(url.trim() && anonKey.trim()),
@@ -2244,6 +2320,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       lastSync: test.success ? new Date().toLocaleTimeString() : null,
       message: test.message,
     });
+    if (test.success) {
+      const syncResult = await syncAllTournamentsToSupabase();
+      if (!syncResult.success) {
+        return syncResult;
+      }
+    }
     return test;
   };
 

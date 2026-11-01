@@ -210,7 +210,8 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
 
         <div className="flex items-center gap-2.5">
           <SyncBadge
-            isConnected={supabaseSyncInfo.isConfigured ? supabaseSyncInfo.isConnected : undefined}
+            isConfigured={supabaseSyncInfo.isConfigured}
+            isConnected={supabaseSyncInfo.isConnected}
             message={supabaseSyncInfo.message}
           />
           <button

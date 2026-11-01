@@ -49,6 +49,7 @@ export const Header: React.FC<HeaderProps> = ({
     logout,
     openAuthModal,
     setShowStadiumModal,
+    supabaseSyncInfo,
   } = useTournament();
 
   const [showProfile, setShowProfile] = useState(false);
@@ -245,7 +246,11 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-2 shrink-0">
           {/* Permanent Sync Badge */}
           <div className="hidden sm:block">
-            <SyncBadge />
+            <SyncBadge
+              isConfigured={supabaseSyncInfo.isConfigured}
+              isConnected={supabaseSyncInfo.isConnected}
+              message={supabaseSyncInfo.message}
+            />
           </div>
 
           {/* Command Palette Trigger (Ctrl+K) */}
