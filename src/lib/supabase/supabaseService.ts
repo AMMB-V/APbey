@@ -26,6 +26,35 @@ export interface RankingData {
   hallOfFame: HallOfFameEntry[];
 }
 
+async function getAuthenticatedSupabaseUser(): Promise<
+  { userId: string; role: string } | { error: string }
+> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { error: 'Supabase no está configurado.' };
+
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) {
+    return { error: `La sesión de Supabase no es válida: ${userError.message}` };
+  }
+  if (!userData.user) {
+    return { error: 'Inicia sesión en Supabase antes de sincronizar.' };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userData.user.id)
+    .maybeSingle();
+  if (profileError) {
+    return { error: `No se pudo validar el perfil de Supabase: ${profileError.message}` };
+  }
+  if (!profile) {
+    return { error: 'La cuenta autenticada no tiene un perfil en Supabase.' };
+  }
+
+  return { userId: userData.user.id, role: profile.role };
+}
+
 export async function syncRankingsToSupabase(data: RankingData): Promise<{ success: boolean; message: string }> {
   const supabase = getSupabaseClient();
   if (!supabase) return { success: true, message: 'Rankings guardados localmente; Supabase no está configurado.' };
@@ -112,34 +141,15 @@ export async function syncTournamentToSupabase(
   }
 
   try {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-      return { success: false, message: `No se pudo restaurar la sesión de Supabase: ${sessionError.message}` };
-    }
-    if (!sessionData.session) {
-      return { success: false, message: 'Inicia sesión en Supabase antes de sincronizar torneos.' };
-    }
-    const sessionUserId = sessionData.session.user.id;
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, role')
-      .eq('id', sessionUserId)
-      .maybeSingle();
-    if (profileError) {
-      return { success: false, message: `No se pudo validar el perfil de Supabase: ${profileError.message}` };
-    }
-    if (!profile) {
+    const identity = await getAuthenticatedSupabaseUser();
+    if ('error' in identity) return { success: false, message: identity.error };
+    if (identity.role !== 'admin' && identity.role !== 'organizer') {
       return {
         success: false,
-        message: 'La cuenta autenticada no tiene un perfil en Supabase. Crea o completa el perfil antes de sincronizar.',
+        message: `El rol "${identity.role}" no puede publicar torneos. Se requiere admin u organizer.`,
       };
     }
-    if (profile.role !== 'admin' && profile.role !== 'organizer') {
-      return {
-        success: false,
-        message: `El rol "${profile.role}" no puede publicar torneos. Se requiere admin u organizer.`,
-      };
-    }
+    const sessionUserId = identity.userId;
 
     const { data: existingTournament, error: existingTournamentError } = await supabase
       .from('tournaments')
@@ -702,6 +712,8 @@ export async function persistBattleToSupabase(
   }
 
   try {
+    const identity = await getAuthenticatedSupabaseUser();
+    if ('error' in identity) return { success: false, message: identity.error };
     if (!battle.scorerId || !battle.finish) {
       return {
         success: false,
@@ -716,7 +728,10 @@ export async function persistBattleToSupabase(
       p_expected_version: expectedVersion,
     });
     if (error) {
-      const message = error.message.includes('version_conflict')
+      const lowerMessage = error.message.toLowerCase();
+      const message = lowerMessage.includes('match_not_found')
+        ? 'El match aún no existe en Supabase. Sincroniza el torneo completo y vuelve a intentar.'
+        : lowerMessage.includes('version_conflict')
         ? 'El match cambió en otra sesión. Recarga el torneo antes de registrar otra batalla.'
         : `No se pudo registrar la batalla de forma transaccional: ${error.message}`;
       return { success: false, message };
@@ -740,6 +755,8 @@ export async function persistPenaltyToSupabase(
   }
 
   try {
+    const identity = await getAuthenticatedSupabaseUser();
+    if ('error' in identity) return { success: false, message: identity.error };
     const { error } = await supabase.rpc('record_penalty', {
       p_match_id: penalty.matchId,
       p_offender_id: penalty.participantId,

@@ -302,6 +302,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       };
       setCurrentUser(authenticatedUser);
       setCurrentRole(authenticatedUser.role);
+      setSupabaseSyncInfo((previous) => ({
+        ...previous,
+        isConfigured: true,
+        isConnected: true,
+        lastSync: new Date().toLocaleTimeString(),
+        message: `Sesión Supabase activa como ${authenticatedUser.role}.`,
+      }));
       localStorage.setItem(SESSION_USER_KEY, JSON.stringify(authenticatedUser));
       setSupabaseSyncInfo((previous) => ({
         ...previous,
@@ -784,6 +791,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
     setCurrentUser(authenticatedUser);
     setCurrentRole(authenticatedUser.role);
+    setSupabaseSyncInfo((previous) => ({
+      ...previous,
+      isConfigured: true,
+      isConnected: true,
+      lastSync: new Date().toLocaleTimeString(),
+      message: `Sesión Supabase activa como ${authenticatedUser.role}.`,
+    }));
     try {
       localStorage.setItem(SESSION_USER_KEY, JSON.stringify(authenticatedUser));
     } catch {}
@@ -1038,6 +1052,14 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const logout = () => {
     const supabase = getSupabaseClient();
     void supabase?.auth.signOut();
+    setSupabaseSyncInfo((previous) => ({
+      ...previous,
+      isConnected: false,
+      lastSync: null,
+      message: previous.isConfigured
+        ? 'Supabase configurado; inicia sesión para sincronizar.'
+        : 'Modo local (Sin clave Supabase)',
+    }));
     try {
       localStorage.removeItem(SESSION_USER_KEY);
     } catch {}
@@ -1566,7 +1588,35 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return updated;
     });
 
-    void persistBattleToSupabase(newBattle, updatedMatch, match.version).then((result) => {
+    void (async () => {
+      if (hadRemoteConfig) {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          const { data: remoteMatch, error: remoteMatchError } = await supabase
+            .from('matches')
+            .select('id')
+            .eq('id', matchId)
+            .maybeSingle();
+          if (!remoteMatch && !remoteMatchError) {
+            const syncResult = await syncTournamentToSupabase(
+              tournament,
+              stages,
+              groups,
+              rounds,
+              matches,
+              participants,
+              battles,
+              penalties
+            );
+            if (!syncResult.success) {
+              setSupabaseSyncInfo((previous) => ({ ...previous, isConnected: false, message: syncResult.message }));
+              return;
+            }
+          }
+        }
+      }
+
+      const result = await persistBattleToSupabase(newBattle, updatedMatch, match.version);
       setSupabaseSyncInfo((previous) => ({
         ...previous,
         isConnected: result.success,
@@ -1578,7 +1628,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setBattles(previousBattles);
         saveState({ matches: previousMatches, battles: previousBattles });
       }
-    });
+    })();
 
     logAudit(
       'battles',
