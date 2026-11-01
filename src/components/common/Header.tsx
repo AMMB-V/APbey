@@ -105,7 +105,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Zone 2: Desktop 7-Group Navigation (Hick's Law: grouped cleanly) */}
-        <nav aria-label="Navegación principal" className="hidden lg:flex flex-1 min-w-0 items-center justify-start xl:justify-center gap-1 overflow-x-auto overflow-y-visible tablet-scroll-nav">
+        <nav aria-label="Navegación principal" className="hidden lg:flex flex-1 min-w-0 items-center justify-start xl:justify-center gap-1 overflow-x-auto tablet-scroll-nav xl:overflow-visible">
           {/* 1. Torneos */}
           <button
             type="button"

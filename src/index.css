@@ -52,6 +52,12 @@ input[type='radio'] {
   flex-shrink: 0;
 }
 
+@media (min-width: 1280px) {
+  .tablet-scroll-nav {
+    overflow: visible;
+  }
+}
+
 @media (max-width: 639px) {
   .acero-card {
     padding: 0.875rem;
