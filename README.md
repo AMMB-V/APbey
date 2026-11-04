@@ -89,10 +89,38 @@ Aplica también la migración `supabase/migrations/20261105000016_invitation_pro
 npm run dev       # Vite + Express mediante server.ts
 npm run build     # Compilación de producción con Vite
 npm run lint      # TypeScript sin emitir archivos
+npm run test      # Suite Vitest
+npm run check:migrations
 npm run preview   # Previsualización del bundle
 ```
 
 El repositorio usa npm como gestor único: `package-lock.json` se valida con `npm ci` en CI. `npm run test` ejecuta la suite Vitest y `npm run build` valida el bundle de producción.
+
+### Supabase local en Windows
+
+Las migraciones y las pruebas RLS se ejecutan en los contenedores locales de Supabase. En Windows se necesita:
+
+1. Docker Desktop con **Use the WSL 2 based engine** habilitado y Docker Desktop iniciado.
+2. Node.js/npm instalado.
+3. Supabase CLI instalado con `npm install --global supabase`.
+
+Desde PowerShell, situado en la raíz del repositorio:
+
+```powershell
+npm run supabase:windows:test
+```
+
+Ese comando comprueba Docker, inicia los servicios locales, ejecuta `supabase db reset --local` para reconstruir todas las migraciones y ejecuta `supabase test db`. También se pueden ejecutar las fases por separado:
+
+```powershell
+npm run supabase:windows -- start
+npm run supabase:windows -- reset
+npm run supabase:windows -- test
+npm run supabase:windows -- status
+npm run supabase:windows -- stop
+```
+
+El script usa `supabase.cmd` y `ExecutionPolicy Bypass` sólo para ese proceso, por lo que funciona aunque PowerShell bloquee `supabase.ps1`. Si aparece `LocalDbRunningError`, abre Docker Desktop, verifica que el engine esté en ejecución y vuelve a ejecutar `npm run supabase:windows:test`; no es un error de SQL por sí mismo.
 
 ## Navegación y vistas
 

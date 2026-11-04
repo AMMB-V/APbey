@@ -10,6 +10,8 @@
     "start": "tsx server.ts",
     "clean": "node scripts/clean.mjs",
     "check:migrations": "node scripts/check-migration-versions.mjs",
+    "supabase:windows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/supabase-windows.ps1",
+    "supabase:windows:test": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/supabase-windows.ps1 test",
     "lint": "tsc --noEmit",
     "test": "vitest run"
   },
