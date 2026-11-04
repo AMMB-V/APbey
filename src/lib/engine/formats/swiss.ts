@@ -80,43 +80,35 @@ export function generateSwissRound(
 
   // Pair within identical score groups first, with deterministic float-downs only
   // when a score group has an odd number of players.
-  const pairedIds = new Set<string>();
-  const scoreGroups = new Map<number, Participant[]>();
-  for (const standing of standings) {
-    const group = scoreGroups.get(standing.points) || [];
-    group.push(standing.participant);
-    scoreGroups.set(standing.points, group);
-  }
-  const groupedParticipants = [...scoreGroups.entries()]
-    .sort(([left], [right]) => right - left)
-    .flatMap(([, group]) => group);
+  const byeId = matches.find((match) => match.isBye)?.participant1Id;
+  const remainingParticipants = standings
+    .map((standing) => standing.participant)
+    .filter((participant) => participant.id !== byeId);
+  const standingPoints = new Map(standings.map((standing) => [standing.participant.id, standing.points]));
 
-  for (let i = 0; i < groupedParticipants.length; i++) {
-    const p1 = groupedParticipants[i];
-    if (pairedIds.has(p1.id)) continue;
-    let opponent: Participant | null = null;
-    for (let j = i + 1; j < groupedParticipants.length; j++) {
-      const candidate = groupedParticipants[j];
-      if (pairedIds.has(candidate.id)) continue;
-      if (!playedPairs.has(`${p1.id}_${candidate.id}`)) {
-        opponent = candidate;
-        break;
-      }
-    }
-    if (!opponent) {
-      for (let j = i + 1; j < groupedParticipants.length; j++) {
-        const candidate = groupedParticipants[j];
-        if (!pairedIds.has(candidate.id)) {
-          opponent = candidate;
-          break;
-        }
-      }
-    }
-    if (opponent) {
-      pairedIds.add(p1.id);
-      pairedIds.add(opponent.id);
+  const findPairing = (unpaired: Participant[], avoidRematches: boolean): [Participant, Participant][] | null => {
+    if (unpaired.length === 0) return [];
+    const first = unpaired[0];
+    const candidates = unpaired
+      .slice(1)
+      .filter((candidate) => !avoidRematches || !playedPairs.has(`${first.id}_${candidate.id}`))
+      .sort((left, right) => {
+        const leftDelta = Math.abs((standingPoints.get(first.id) || 0) - (standingPoints.get(left.id) || 0));
+        const rightDelta = Math.abs((standingPoints.get(first.id) || 0) - (standingPoints.get(right.id) || 0));
+        return leftDelta - rightDelta || (left.seed - right.seed);
+      });
 
-      matches.push({
+    for (const opponent of candidates) {
+      const rest = unpaired.filter((participant) => participant.id !== first.id && participant.id !== opponent.id);
+      const pairing = findPairing(rest, avoidRematches);
+      if (pairing) return [[first, opponent], ...pairing];
+    }
+    return null;
+  };
+
+  const pairing = findPairing(remainingParticipants, true) || findPairing(remainingParticipants, false);
+  for (const [p1, opponent] of pairing || []) {
+    matches.push({
         id: createEntityId(),
         tournamentId,
         stageId,
@@ -137,7 +129,6 @@ export function generateSwissRound(
         nextMatchLoserId: null,
         version: 1,
       });
-    }
   }
 
   return { round, matches };
@@ -154,4 +145,28 @@ export function generateSwiss(
     rounds: [round1.round],
     matches: round1.matches,
   };
+}
+
+export function generateNextSwissRound(
+  tournamentId: string,
+  stageId: string,
+  previousRounds: Round[],
+  participants: Participant[],
+  previousMatches: Match[]
+): SwissRoundResult {
+  const nextRoundNumber = previousRounds
+    .filter((round) => round.stageId === stageId && round.bracket === 'swiss')
+    .reduce((highest, round) => Math.max(highest, round.number), 0) + 1;
+
+  if (previousMatches.some((match) => match.stageId === stageId && match.status !== 'completed')) {
+    throw new Error('No se puede generar la siguiente ronda Swiss mientras existan matches pendientes.');
+  }
+
+  return generateSwissRound(
+    tournamentId,
+    stageId,
+    nextRoundNumber,
+    participants,
+    previousMatches.filter((match) => match.stageId === stageId)
+  );
 }

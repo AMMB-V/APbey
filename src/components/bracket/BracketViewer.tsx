@@ -36,6 +36,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
     assignStationToMatch,
     callMatchToStation,
     startStage,
+    generateNextSwissRound,
   } = useTournament();
 
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
@@ -75,6 +76,14 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleGenerateSwissRound = () => {
+    try {
+      generateNextSwissRound(stage.id);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'No se pudo generar la ronda Swiss.');
+    }
   };
 
   return (
@@ -119,6 +128,15 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
 
         {/* Right: Ergonomic Zoom Controls & Print Button */}
         <div className="flex items-center gap-2">
+          {stage.type === 'swiss' && stage.status === 'in_progress' && (
+            <button
+              type="button"
+              onClick={handleGenerateSwissRound}
+              className="acero-btn acero-btn--primary text-xs px-3 py-1.5"
+            >
+              Generar siguiente ronda Swiss
+            </button>
+          )}
           {/* Zoom controls */}
           <div className="flex items-center gap-1 bg-[var(--grafito)] border border-[var(--costura)] rounded-[var(--r-control)] p-1 text-xs text-[var(--acero)]">
             <button

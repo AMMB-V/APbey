@@ -330,6 +330,7 @@ create table if not exists invitations (
   invited_by text not null,
   code text unique not null,
   created_at timestamptz not null default now(),
+  expires_at timestamptz not null default (now() + interval '7 days'),
   email_status text not null default 'not_sent' check (email_status in ('not_sent', 'sent', 'failed')),
   email_message_id text,
   email_error text,

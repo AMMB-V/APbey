@@ -333,7 +333,8 @@ create table if not exists invitations (
   status text not null default 'pending' check (status in ('pending', 'accepted', 'revoked')),
   invited_by text not null,
   code text unique not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null default (now() + interval '7 days')
 );
 
 alter table invitations enable row level security;

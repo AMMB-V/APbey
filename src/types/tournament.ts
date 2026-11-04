@@ -219,6 +219,7 @@ export interface Invitation {
   status: 'pending' | 'accepted' | 'revoked';
   invitedBy: string;
   createdAt: string;
+  expiresAt?: string;
   code: string;
   emailStatus?: 'not_sent' | 'sent' | 'failed';
 }
