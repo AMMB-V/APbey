@@ -65,4 +65,34 @@ describe('computeStandings', () => {
     expect(standings.find((row) => row.participantId === 'p1')?.buchholz).toBe(3);
     expect(standings.find((row) => row.participantId === 'p2')?.buchholz).toBe(3);
   });
+
+  it('computes Median-Buchholz without counting byes and discards extremes', () => {
+    const fourParticipants = [
+      ...participants,
+      {
+        id: 'p4',
+        tournamentId: 'tournament-1',
+        displayName: 'Blader 4',
+        seed: 4,
+        checkedIn: true,
+        inspected: true,
+        status: 'active' as const,
+      },
+    ];
+    const matches = [
+      completedMatch('m1', 'p1', 'p2', 'p1', 4, 2),
+      completedMatch('m2', 'p1', 'p3', 'p1', 4, 2),
+      completedMatch('m4', 'p1', 'p4', 'p1', 4, 2),
+      completedMatch('m5', 'p2', 'p3', 'p2', 4, 2),
+      completedMatch('m6', 'p3', 'p4', 'p3', 4, 2),
+      {
+        ...completedMatch('m3', 'p1', 'p2', 'p1', 0, 0),
+        isBye: true,
+        participant2Id: null,
+      },
+    ];
+
+    const standings = computeStandings(matches, fourParticipants, ['median_buchholz', 'seed']);
+    expect(standings.find((row) => row.participantId === 'p1')?.medianBuchholz).toBe(3);
+  });
 });

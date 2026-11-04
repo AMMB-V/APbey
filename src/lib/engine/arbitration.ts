@@ -20,6 +20,40 @@ export interface ApplyPenaltyResult {
   newPenalty: Penalty;
 }
 
+export function adjustManualSet(
+  match: Match,
+  stage: Stage,
+  participantId: string,
+  delta: 1 | -1
+): Match {
+  if (participantId !== match.participant1Id && participantId !== match.participant2Id) {
+    throw new Error('El participante no corresponde a este match.');
+  }
+
+  const next = { ...match };
+  const key = participantId === match.participant1Id ? 'sets1' : 'sets2';
+  const current = next[key];
+  next[key] = Math.max(0, current + delta);
+  const setsNeeded = Math.floor(stage.bestOf / 2) + 1;
+  const maxSets = Math.max(0, setsNeeded - 1);
+  if (delta < 0 && current >= setsNeeded) {
+    next[key] = Math.min(maxSets, next[key]);
+  }
+
+  if (next.sets1 >= setsNeeded || next.sets2 >= setsNeeded) {
+    next.status = 'completed';
+    next.winnerId = next.sets1 >= setsNeeded ? next.participant1Id : next.participant2Id;
+  } else {
+    next.status = next.sets1 > 0 || next.sets2 > 0 || next.score1 > 0 || next.score2 > 0
+      ? 'in_progress'
+      : 'pending';
+    next.winnerId = null;
+    next.finishedAt = null;
+  }
+  next.version += 1;
+  return next;
+}
+
 /**
  * Pure TypeScript replica of the transactional SQL function record_battle.
  */

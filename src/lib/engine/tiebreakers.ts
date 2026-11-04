@@ -75,10 +75,12 @@ export function computeStandings(
 
   // Helper for Buchholz (sum of opponents' tournament points)
   const buchholzMap = new Map<string, number>();
+  const opponentPointsMap = new Map<string, number[]>();
   for (const p of participants) {
     let opponentPointsSum = 0;
+    const opponentPoints: number[] = [];
     for (const match of matches) {
-      if (match.status !== 'completed' || !match.participant1Id || !match.participant2Id) {
+      if (match.status !== 'completed' || match.isBye || !match.participant1Id || !match.participant2Id) {
         continue;
       }
       let opponentId: string | null = null;
@@ -91,10 +93,12 @@ export function computeStandings(
         const oppStats = statsMap.get(opponentId);
         if (oppStats) {
           opponentPointsSum += oppStats.points;
+          opponentPoints.push(oppStats.points);
         }
       }
     }
     buchholzMap.set(p.id, opponentPointsSum);
+    opponentPointsMap.set(p.id, opponentPoints);
   }
 
   // Direct pairwise match winner between two participants
@@ -136,6 +140,14 @@ export function computeStandings(
     const s = statsMap.get(p.id)!;
     const pointDiff = s.pointsFor - s.pointsAgainst;
     const buchholz = buchholzMap.get(p.id) || 0;
+    const opponentPoints = opponentPointsMap.get(p.id) || [];
+    const medianBuchholz = opponentPoints.length < 3
+      ? opponentPoints.reduce((sum, points) => sum + points, 0)
+      : opponentPoints
+        .slice()
+        .sort((left, right) => left - right)
+        .slice(1, -1)
+        .reduce((sum, points) => sum + points, 0);
     const pointsAverage = s.played > 0 ? Number((s.pointsFor / s.played).toFixed(2)) : 0;
     const pointsRatio = s.pointsAgainst > 0 ? Number((s.pointsFor / s.pointsAgainst).toFixed(2)) : s.pointsFor;
 
@@ -153,6 +165,7 @@ export function computeStandings(
       pointsAverage,
       pointsRatio,
       buchholz,
+      medianBuchholz,
       rank: 1,
       advances: false,
     };
@@ -221,6 +234,10 @@ export function computeStandings(
         const bA = a.buchholz || 0;
         const bB = b.buchholz || 0;
         if (bB !== bA) return bB - bA;
+      } else if (criterion === 'median_buchholz') {
+        const medianA = a.medianBuchholz || 0;
+        const medianB = b.medianBuchholz || 0;
+        if (medianB !== medianA) return medianB - medianA;
       } else if (criterion === 'seed') {
         if (a.participant.seed !== b.participant.seed) {
           return a.participant.seed - b.participant.seed;

@@ -27,11 +27,11 @@ create policy avatars_owner_update
   to authenticated
   using (
     bucket_id = 'avatars'
-    and owner_id = (select auth.uid())
+    and owner_id = (select auth.uid())::text
   )
   with check (
     bucket_id = 'avatars'
-    and owner_id = (select auth.uid())
+    and owner_id = (select auth.uid())::text
   );
 
 create or replace function public.update_my_avatar(p_avatar_url text)

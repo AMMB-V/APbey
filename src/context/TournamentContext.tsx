@@ -40,6 +40,7 @@ import {
 import {
   applyBattle,
   applyPenalty,
+  adjustManualSet,
   undoLastBattle,
 } from '../lib/engine/arbitration';
 import {
@@ -148,6 +149,8 @@ interface TournamentContextType {
 
   // Referee & Match actions
   recordBattle: (matchId: string, scorerId: string | null, finish: FinishType | null, note?: string) => void;
+  addSetToMatch: (matchId: string, participantId: string) => void;
+  removeSetFromMatch: (matchId: string, participantId: string) => void;
   recordPenalty: (matchId: string, offenderId: string, card?: 'yellow' | 'red', isFoul?: boolean, reason?: string) => void;
   undoBattle: (matchId: string) => void;
   assignReferee: (matchId: string, refereeId: string | null) => void;
@@ -276,18 +279,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } catch {}
     return null;
   });
-  const [currentRole, setCurrentRole] = useState<UserRole>(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem(SESSION_USER_KEY);
-        if (saved) {
-          const u = JSON.parse(saved);
-          if (u?.role) return u.role;
-        }
-      }
-    } catch {}
-    return 'public';
-  });
+  const [currentRole, setCurrentRole] = useState<UserRole>('public');
   const [rankings, setRankings] = useState<BladerRanking[]>([]);
   const [hallOfFame, setHallOfFame] = useState<HallOfFameEntry[]>([]);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
@@ -1635,7 +1627,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const generateBracketForStage = (stageId: string) => {
     const stage = stages.find(s => s.id === stageId);
     if (!stage) return;
-    const tParts = participants.filter(p => p.tournamentId === stage.tournamentId);
+    const tournament = tournaments.find(t => t.id === stage.tournamentId);
+    const tParts = participants.filter(p =>
+      p.tournamentId === stage.tournamentId &&
+      p.status !== 'withdrawn' &&
+      (!tournament?.checkInRequired || p.checkedIn)
+    );
 
     if (stage.type === 'single_elimination') {
       const se = generateSingleElimination(stage.tournamentId, stage.id, tParts, {
@@ -1707,6 +1704,18 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         saveState({ matches: updated });
         return updated;
       });
+    } else if (stage.type === 'round_robin') {
+      const rr = generateRoundRobin(stage.tournamentId, stage.id, tParts, { legs: 1 });
+      setRounds(prev => {
+        const updated = [...prev.filter(r => r.stageId !== stage.id), ...rr.rounds];
+        saveState({ rounds: updated });
+        return updated;
+      });
+      setMatches(prev => {
+        const updated = [...prev.filter(m => m.stageId !== stage.id), ...rr.matches];
+        saveState({ matches: updated });
+        return updated;
+      });
     } else if (stage.type === 'double_elimination') {
       const de = generateDoubleElimination(stage.tournamentId, stage.id, tParts, {
         grandFinalReset: stage.config.grandFinalReset ?? true,
@@ -1753,10 +1762,17 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!stage) return;
 
     // Validate that tournament has at least 2 participants before starting
-    const tourneyParts = participants.filter(p => p.tournamentId === stage.tournamentId);
+    if (stage.status !== 'pending') {
+      throw new Error('La etapa ya fue iniciada y no puede reiniciarse.');
+    }
+    const tournament = tournaments.find(t => t.id === stage.tournamentId);
+    const tourneyParts = participants.filter(p =>
+      p.tournamentId === stage.tournamentId &&
+      p.status !== 'withdrawn' &&
+      (!tournament?.checkInRequired || p.checkedIn)
+    );
     if (tourneyParts.length < 2) {
-      console.warn('[TournamentContext] No se puede iniciar etapa: se requieren al menos 2 bladers registrados.');
-      return;
+      throw new Error('Se requieren al menos 2 bladers confirmados para iniciar la etapa.');
     }
 
     // Generate bracket if empty
@@ -1930,6 +1946,27 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     return result;
   };
+  const adjustSet = (matchId: string, participantId: string, delta: 1 | -1) => {
+    if (!currentUser || !['referee', 'organizer', 'admin'].includes(currentRole)) {
+   throw new Error('No tienes permisos para ajustar sets.');
+    }
+    const match = matches.find((item) => item.id === matchId);
+    const stage = match ? stages.find((item) => item.id === match.stageId) : undefined;
+    if (!match || !stage || match.status === 'completed' && delta > 0) {
+   throw new Error('El match no permite este ajuste de sets.');
+    }
+    const updatedMatch = adjustManualSet(match, stage, participantId, delta);
+    setMatches((previous) => {
+   const updated = previous.map((item) => item.id === matchId ? updatedMatch : item);
+   saveState({ matches: updated });
+   return updated;
+    });
+    logAudit('matches', matchId, 'update', `${delta > 0 ? 'Set añadido' : 'Set retirado'} manualmente.`);
+  };
+
+  const addSetToMatch = (matchId: string, participantId: string) => adjustSet(matchId, participantId, 1);
+  const removeSetFromMatch = (matchId: string, participantId: string) => adjustSet(matchId, participantId, -1);
+
   const recordBattle = (
     matchId: string,
     scorerId: string | null,
@@ -2062,7 +2099,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         lastSync: result.success ? new Date().toLocaleTimeString() : previous.lastSync,
         message: result.message,
       }));
-      if (hadRemoteConfig && !result.success && result.message.includes('cambió en otra sesión')) {
+      if (hadRemoteConfig && !result.success) {
         setMatches(previousMatches);
         setBattles(previousBattles);
         saveState({ matches: previousMatches, battles: previousBattles });
@@ -3253,6 +3290,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         updateStageConfig,
         updateStageTiebreakers,
         recordBattle,
+        addSetToMatch,
+        removeSetFromMatch,
         recordPenalty,
         undoBattle,
         assignReferee,

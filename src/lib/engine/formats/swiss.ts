@@ -40,7 +40,7 @@ export function generateSwissRound(
   }
 
   // Get current standings to pair by record
-  const standings = computeStandings(previousMatches, participants, ['points', 'point_diff', 'seed']);
+  const standings = computeStandings(previousMatches, participants, ['points', 'median_buchholz', 'point_diff', 'seed']);
   const availableParticipants = standings.map((s) => s.participant);
 
   const matches: Match[] = [];
@@ -78,36 +78,40 @@ export function generateSwissRound(
     });
   }
 
-  // Greedy pairing by adjacent ranking avoiding rematches
+  // Pair within identical score groups first, with deterministic float-downs only
+  // when a score group has an odd number of players.
   const pairedIds = new Set<string>();
+  const scoreGroups = new Map<number, Participant[]>();
+  for (const standing of standings) {
+    const group = scoreGroups.get(standing.points) || [];
+    group.push(standing.participant);
+    scoreGroups.set(standing.points, group);
+  }
+  const groupedParticipants = [...scoreGroups.entries()]
+    .sort(([left], [right]) => right - left)
+    .flatMap(([, group]) => group);
 
-  for (let i = 0; i < availableParticipants.length; i++) {
-    const p1 = availableParticipants[i];
+  for (let i = 0; i < groupedParticipants.length; i++) {
+    const p1 = groupedParticipants[i];
     if (pairedIds.has(p1.id)) continue;
-
     let opponent: Participant | null = null;
-    for (let j = i + 1; j < availableParticipants.length; j++) {
-      const candidate = availableParticipants[j];
+    for (let j = i + 1; j < groupedParticipants.length; j++) {
+      const candidate = groupedParticipants[j];
       if (pairedIds.has(candidate.id)) continue;
-
-      const hasPlayed = playedPairs.has(`${p1.id}_${candidate.id}`);
-      if (!hasPlayed) {
+      if (!playedPairs.has(`${p1.id}_${candidate.id}`)) {
         opponent = candidate;
         break;
       }
     }
-
-    // Fallback: if all unplayed have played each other, pair with first available
     if (!opponent) {
-      for (let j = i + 1; j < availableParticipants.length; j++) {
-        const candidate = availableParticipants[j];
+      for (let j = i + 1; j < groupedParticipants.length; j++) {
+        const candidate = groupedParticipants[j];
         if (!pairedIds.has(candidate.id)) {
           opponent = candidate;
           break;
         }
       }
     }
-
     if (opponent) {
       pairedIds.add(p1.id);
       pairedIds.add(opponent.id);

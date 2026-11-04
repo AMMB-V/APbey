@@ -91,6 +91,7 @@ export function generateRoundRobin(
         const p2 = leg === 1 ? pB : pA;
 
         const isMatchBye = isABye || isBBye;
+        if (isMatchBye) continue;
         const realP1Id = p1.id === '__BYE__' ? null : p1.id;
         const realP2Id = p2.id === '__BYE__' ? null : p2.id;
         const autoWinnerId = isABye ? realP2Id : (isBBye ? realP1Id : null);

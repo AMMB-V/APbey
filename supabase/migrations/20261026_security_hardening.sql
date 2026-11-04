@@ -264,7 +264,22 @@ revoke all on function is_organizer() from anon, authenticated;
 revoke all on function manages_tournament(uuid) from anon, authenticated;
 revoke all on function referees_match(uuid) from anon, authenticated;
 revoke all on function record_battle(uuid, uuid, finish_type, integer) from anon, authenticated;
-revoke all on function record_penalty(uuid, uuid, card_type, boolean, integer, uuid, text, uuid, integer) from anon, authenticated;
+do $$
+begin
+  if exists (
+    select 1
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.proname = 'record_penalty'
+       and pg_get_function_identity_arguments(p.oid) =
+           'uuid, uuid, card_type, boolean, integer, uuid, text, uuid, integer'
+  ) then
+    revoke all on function public.record_penalty(uuid, uuid, card_type, boolean, integer, uuid, text, uuid, integer)
+      from anon, authenticated;
+  end if;
+end
+$$;
 revoke all on function seed_finish_points() from anon, authenticated;
 
 grant execute on function record_battle(uuid, uuid, finish_type, integer) to authenticated;

@@ -38,6 +38,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setSuccessMsg(null);
   }, [initialTab, initialCode, isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -107,7 +116,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="w-full max-w-md bg-[var(--chasis)] border border-[var(--costura)] rounded-[var(--r-card)] shadow-2xl overflow-hidden flex flex-col text-[var(--hueso)]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-modal-title"
+        className="w-full max-w-md bg-[var(--chasis)] border border-[var(--costura)] rounded-[var(--r-card)] shadow-2xl overflow-hidden flex flex-col text-[var(--hueso)]"
+      >
         
         {/* Header */}
         <div className="p-5 border-b border-[var(--costura)] flex items-center justify-between bg-[var(--grafito)]">
@@ -116,7 +130,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               ⚡
             </div>
             <div>
-              <h2 className="text-sm font-bold tracking-tight text-[var(--hueso)] font-display">
+              <h2 id="auth-modal-title" className="text-sm font-bold tracking-tight text-[var(--hueso)] font-display">
                 Acceso a la Plataforma
               </h2>
               <p className="text-[11px] text-[var(--acero)]">
