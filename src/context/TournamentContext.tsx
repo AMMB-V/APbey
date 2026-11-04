@@ -25,6 +25,7 @@ import {
   subscribeToTournamentRealtime,
   persistBattleToSupabase,
   persistPenaltyToSupabase,
+  undoLastBattleInSupabase,
   syncRankingsToSupabase,
   loadRankingsFromSupabase,
   loadAdminProfiles,
@@ -2582,12 +2583,43 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         tourney,
         rounds.find((round) => round.id === match.roundId)
       );
-      const nextMatches = matches.map(m => m.id === matchId ? updatedMatch : m);
+      const downstreamIds = new Set(
+        [match.nextMatchWinnerId, match.nextMatchLoserId].filter((id): id is string => Boolean(id))
+      );
+      const participantIds = new Set(
+        [match.participant1Id, match.participant2Id].filter((id): id is string => Boolean(id))
+      );
+      const nextMatches = matches.map((item) => {
+        if (item.id === matchId) return updatedMatch;
+        if (!downstreamIds.has(item.id)) return item;
+        return {
+          ...item,
+          participant1Id: participantIds.has(item.participant1Id || '') ? null : item.participant1Id,
+          participant2Id: participantIds.has(item.participant2Id || '') ? null : item.participant2Id,
+          version: item.version + 1,
+        };
+      });
       const nextBattles = battles.filter(b => b.id !== removedBattleId);
 
       setMatches(nextMatches);
       setBattles(nextBattles);
       saveState({ matches: nextMatches, battles: nextBattles });
+
+      if (supabaseSyncInfo.isConfigured) {
+        void undoLastBattleInSupabase(match, match.version).then((result) => {
+          setSupabaseSyncInfo((previous) => ({
+            ...previous,
+            isConnected: result.success,
+            lastSync: result.success ? new Date().toLocaleTimeString() : previous.lastSync,
+            message: result.message,
+          }));
+          if (!result.success) {
+            setMatches(matches);
+            setBattles(battles);
+            saveState({ matches, battles });
+          }
+        });
+      }
 
       logAudit('battles', removedBattleId, 'undo', `Última batalla deshecha por ${currentUser.displayName}. Marcador recalculado.`);
     } catch (err: unknown) {

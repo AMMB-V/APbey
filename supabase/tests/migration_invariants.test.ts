@@ -10,6 +10,10 @@ const consistencyMigrationPath = resolve(
   process.cwd(),
   'supabase/migrations/20261105000025_manual_set_consistency.sql'
 );
+const undoMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20261105000026_undo_battle_rpc.sql'
+);
 
 describe('audit follow-up migration', () => {
   it('exists and contains the production-critical RPCs', () => {
@@ -40,5 +44,16 @@ describe('audit follow-up migration', () => {
     expect(sql).toContain("set status = 'completed'");
     expect(sql).toContain('previous_winner is distinct from m.winner_id');
     expect(sql).toContain('t.status in (\'cancelled\', \'completed\')');
+  });
+
+  it('defines an audited transactional undo RPC', () => {
+    const sql = readFileSync(undoMigrationPath, 'utf8');
+
+    expect(sql).toContain('create or replace function public.undo_last_battle');
+    expect(sql).toContain('p_expected_version');
+    expect(sql).toContain('set voided = true');
+    expect(sql).toContain('no_battle_to_undo');
+    expect(sql).toContain("insert into public.audit_log");
+    expect(sql).toContain('grant execute on function public.undo_last_battle(uuid, int) to authenticated');
   });
 });

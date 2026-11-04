@@ -992,3 +992,36 @@ export async function persistPenaltyToSupabase(
     return { success: false, message };
   }
 }
+
+export async function undoLastBattleInSupabase(
+  match: Match,
+  expectedVersion = match.version
+): Promise<{ success: boolean; message: string }> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { success: false, message: 'Supabase no está configurado.' };
+  }
+
+  try {
+    const identity = await getAuthenticatedSupabaseUser();
+    if ('error' in identity) return { success: false, message: identity.error };
+    const { error } = await supabase.rpc('undo_last_battle', {
+      p_match_id: match.id,
+      p_expected_version: expectedVersion,
+    });
+    if (error) {
+      const lowerMessage = error.message.toLowerCase();
+      const message = lowerMessage.includes('version_conflict')
+        ? 'El match cambió en otra sesión. Recarga el torneo antes de deshacer la batalla.'
+        : lowerMessage.includes('no_battle_to_undo')
+        ? 'No hay una batalla confirmada para deshacer.'
+        : `No se pudo deshacer la batalla de forma transaccional: ${error.message}`;
+      return { success: false, message };
+    }
+    return { success: true, message: 'Última batalla deshecha transaccionalmente en Supabase.' };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Error desconocido de sincronización.';
+    console.warn('[Supabase] No se pudo deshacer la batalla:', err);
+    return { success: false, message };
+  }
+}
