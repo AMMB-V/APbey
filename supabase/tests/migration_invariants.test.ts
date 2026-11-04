@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const migrationPath = resolve(process.cwd(), 'supabase/migrations/20261104_audit_followup.sql');
+const migrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20261105000024_audit_followup.sql'
+);
 
 describe('audit follow-up migration', () => {
   it('exists and contains the production-critical RPCs', () => {
@@ -14,7 +17,6 @@ describe('audit follow-up migration', () => {
     expect(sql).toContain('create or replace function public.claim_invitation');
     expect(sql).toContain('create or replace function public.adjust_manual_set');
   });
-
   it('does not trust a client-supplied invitation code', () => {
     const sql = readFileSync(migrationPath, 'utf8');
     const createFunction = sql.slice(

@@ -17,6 +17,69 @@ export interface AdvanceStageResult {
   qualifiers: Participant[];
 }
 
+export function advanceSwissStageToPlayoffs(
+  tournamentId: string,
+  currentStage: Stage,
+  allMatches: Match[],
+  allParticipants: Participant[],
+  nextStageConfig: {
+    pointsToWin?: number;
+    bestOf?: number;
+    thirdPlaceMatch?: boolean;
+    name?: string;
+  } = {}
+): AdvanceStageResult {
+  const stageMatches = allMatches.filter((match) => match.stageId === currentStage.id);
+  if (stageMatches.some((match) => match.status !== 'completed')) {
+    throw new Error('No se puede avanzar desde Swiss mientras existan matches pendientes.');
+  }
+
+  const advanceCount = Math.max(2, currentStage.config.advanceCount || 2);
+  const standings = computeStandings(
+    stageMatches,
+    allParticipants,
+    currentStage.config.tiebreakers,
+    advanceCount
+  );
+  const qualified = standings
+    .filter((row) => row.advances)
+    .map((row, index) => ({ ...row.participant, seed: index + 1 }));
+
+  if (qualified.length < 2) {
+    throw new Error('Swiss debe clasificar al menos a 2 participantes para crear playoffs.');
+  }
+
+  const nextStageId = createEntityId();
+  const nextStage: Stage = {
+    id: nextStageId,
+    tournamentId,
+    position: currentStage.position + 1,
+    name: nextStageConfig.name || 'Fase Final (Eliminación Directa)',
+    type: 'single_elimination',
+    status: 'in_progress',
+    matchType: currentStage.matchType,
+    pointsToWin: nextStageConfig.pointsToWin || 7,
+    bestOf: nextStageConfig.bestOf || 1,
+    config: {
+      tiebreakers: ['points', 'point_diff', 'seed'],
+      thirdPlaceMatch: nextStageConfig.thirdPlaceMatch !== false,
+    },
+  };
+  const { rounds, matches } = generateSingleElimination(
+    tournamentId,
+    nextStageId,
+    qualified,
+    { thirdPlaceMatch: nextStage.config.thirdPlaceMatch }
+  );
+
+  return {
+    nextStage,
+    nextRounds: rounds,
+    nextMatches: matches,
+    qualifiers: qualified,
+  };
+}
+
 /**
  * Calculates qualified bladers from a Group Stage and generates the subsequent Single Elimination bracket.
  * Cross-seeds group winners against second places (A1 vs B2, B1 vs A2, C1 vs D2, D1 vs C2...).

@@ -4,6 +4,8 @@
 
 begin;
 
+select plan(9);
+
 create temporary table rls_role_results (
   test_name text not null,
   passed boolean not null,
@@ -233,5 +235,11 @@ select
   ) as results,
   count(*) filter (where not passed) as failures
 from rls_role_results;
+
+select ok(passed, test_name)
+from rls_role_results
+order by test_name;
+
+select * from finish();
 
 rollback;

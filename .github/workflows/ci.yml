@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate migration versions
+        run: npm run check:migrations
+
       - name: Type-check
         run: npm run lint
 
@@ -37,3 +40,26 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  database:
+    name: Rebuild Supabase database
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Rebuild all migrations
+        run: supabase db reset --local
+
+      - name: Run database tests
+        run: supabase test db

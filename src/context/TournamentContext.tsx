@@ -44,6 +44,7 @@ import {
   undoLastBattle,
 } from '../lib/engine/arbitration';
 import {
+  advanceSwissStageToPlayoffs,
   advanceGroupStageToPlayoffs,
 } from '../lib/engine/advancement';
 import {
@@ -1848,19 +1849,33 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return;
     }
 
-    const result = advanceGroupStageToPlayoffs(
-      stage.tournamentId,
-      stage,
-      stageGroups,
-      stageMatches,
-      tParts,
-      {
-        name: 'Fase Final (Eliminación Directa)',
-        pointsToWin: tournaments.find(t => t.id === stage.tournamentId)?.pointsToWinPlayoffs || 5,
-        bestOf: 1,      // default best of 1
-        thirdPlaceMatch: true,
-      }
-    );
+    const tournament = tournaments.find(t => t.id === stage.tournamentId);
+    const result = stage.type === 'swiss'
+      ? advanceSwissStageToPlayoffs(
+        stage.tournamentId,
+        stage,
+        stageMatches,
+        tParts,
+        {
+          name: 'Fase Final (Eliminación Directa)',
+          pointsToWin: tournament?.pointsToWinPlayoffs || 5,
+          bestOf: 1,
+          thirdPlaceMatch: true,
+        }
+      )
+      : advanceGroupStageToPlayoffs(
+        stage.tournamentId,
+        stage,
+        stageGroups,
+        stageMatches,
+        tParts,
+        {
+          name: 'Fase Final (Eliminación Directa)',
+          pointsToWin: tournament?.pointsToWinPlayoffs || 5,
+          bestOf: 1,
+          thirdPlaceMatch: true,
+        }
+      );
 
     // Collect referees from groups to move them over to the playoff matches
     const activeReferees = Array.from(new Set([

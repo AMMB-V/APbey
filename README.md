@@ -81,7 +81,7 @@ Variables disponibles en `.env.example`:
 
 Para que las invitaciones creen el perfil después de confirmar el correo, configura en Supabase **Authentication > URL Configuration** la URL pública de la aplicación como **Site URL** y añade también la URL local de desarrollo como **Redirect URL**. El registro envía una redirección explícita a la ruta actual de la aplicación con el código de invitación; si el dominio no está permitido, Supabase rechazará o alterará el enlace de confirmación.
 
-Aplica también la migración `supabase/migrations/20261101_invitation_profile_activation.sql` en el proyecto Supabase. Esta crea perfiles de invitación al registrar la cuenta Auth y hace transaccionales los empates y las penalizaciones de arbitraje.
+Aplica también la migración `supabase/migrations/20261105000016_invitation_profile_activation.sql` en el proyecto Supabase. Esta crea perfiles de invitación al registrar la cuenta Auth y hace transaccionales los empates y las penalizaciones de arbitraje.
 
 ## Comandos
 
@@ -118,7 +118,7 @@ El esquema principal está en `supabase/schema.sql` y las migraciones en `supaba
 
 Los Rankings y el Salón de la Fama no contienen datos de demostración. Un administrador puede abrir **Gestionar → Importar Rankings** y adjuntar un libro `.xlsx`. La hoja `Rankings` acepta `name`, `points`, `elo`, `wins`, `losses`, `tournamentsWon` y `favoriteCombo` (también se aceptan encabezados equivalentes en español); la hoja opcional `HallOfFame` acepta `tournamentTitle`, `champion`, `runnerUp`, `date`, `winningCombo` y `participantsCount`.
 
-La importación reemplaza la publicación anterior, la deja disponible de inmediato en la interfaz y, cuando Supabase está configurado, la sincroniza con `ranking_entries` y `hall_of_fame_entries` protegidas por RLS. Antes de producción debe aplicarse `supabase/migrations/20261029_rankings_import.sql` y verificarse que la cuenta tenga rol `admin`. Sin Supabase configurado, la aplicación conserva una copia local explícita para previsualización, no una fuente multiusuario.
+La importación reemplaza la publicación anterior, la deja disponible de inmediato en la interfaz y, cuando Supabase está configurado, la sincroniza con `ranking_entries` y `hall_of_fame_entries` protegidas por RLS. Antes de producción debe aplicarse `supabase/migrations/20261105000008_rankings_import.sql` y verificarse que la cuenta tenga rol `admin`. Sin Supabase configurado, la aplicación conserva una copia local explícita para previsualización, no una fuente multiusuario.
 
 Antes de producción deben resolverse:
 
@@ -149,9 +149,9 @@ La aplicación permite actualizar nombre, correo y contraseña mediante Supabase
 
 Con Supabase configurado y una sesión admin activa, las invitaciones se cargan, crean y revocan en `public.invitations` con RLS. Sin configuración de Supabase, el panel conserva un modo local de demostración. Las invitaciones generan un código y enlace de registro, pero no envían correo SMTP automáticamente: el panel permite preparar un mensaje `mailto:`; para entrega transaccional se requiere configurar Supabase Auth SMTP o una Edge Function/backend con proveedor de correo.
 
-La integración preparada para Resend usa la Edge Function `send-invitation`. Antes de desplegarla, aplica `supabase/migrations/20261026_invitation_email_delivery.sql` y configura los secretos `RESEND_API_KEY`, `INVITATION_FROM_EMAIL` y `APP_URL` en Supabase Functions. Un resultado `sent` confirma que Resend aceptó el mensaje, no que llegó a la bandeja de entrada; la entrega final debe comprobarse con el panel de Resend y una cuenta de prueba.
+La integración preparada para Resend usa la Edge Function `send-invitation`. Antes de desplegarla, aplica `supabase/migrations/20261105000002_invitation_email_delivery.sql` y configura los secretos `RESEND_API_KEY`, `INVITATION_FROM_EMAIL` y `APP_URL` en Supabase Functions. Un resultado `sent` confirma que Resend aceptó el mensaje, no que llegó a la bandeja de entrada; la entrega final debe comprobarse con el panel de Resend y una cuenta de prueba.
 
-La migración `supabase/migrations/20261026_security_hardening.sql` corrige las tablas con RLS sin políticas, consolida políticas permisivas duplicadas, restringe la ejecución directa de funciones internas y añade índices para claves foráneas. Debe aplicarse en el proyecto Supabase conectado antes de producción. La protección contra contraseñas filtradas se habilita desde **Authentication → Password Security** en el Dashboard.
+La migración `supabase/migrations/20261105000004_security_hardening.sql` corrige las tablas con RLS sin políticas, consolida políticas permisivas duplicadas, restringe la ejecución directa de funciones internas y añade índices para claves foráneas. Debe aplicarse en el proyecto Supabase conectado antes de producción. La protección contra contraseñas filtradas se habilita desde **Authentication → Password Security** en el Dashboard.
 
 No usar la autenticación de interfaz actual como control de seguridad. Las operaciones de escritura deben pasar por Supabase Auth/RLS o por un backend con sesión, autorización por torneo y validación de payloads. También se requieren rate limiting, límites de body, headers de seguridad, logs estructurados y protección contra reclamaciones concurrentes de invitaciones.
 
