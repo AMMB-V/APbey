@@ -43,7 +43,7 @@ create table tournaments (
   description text,
   organizer_id uuid not null references profiles(id),
   status tournament_status not null default 'draft',
-  is_public boolean not null default true,
+  is_public boolean not null default false,
   max_participants int,
   check_in_required boolean not null default false,
   entry_fee numeric(10,2) default 0,
@@ -255,7 +255,7 @@ $$;
 create or replace function can_read_tournament(t uuid) returns boolean language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from tournaments where id = t and (
-      is_public or manages_tournament(t) or exists (select 1 from tournament_referees r where r.tournament_id = t and r.profile_id = auth.uid())
+      (is_public and status <> 'draft') or manages_tournament(t) or exists (select 1 from tournament_referees r where r.tournament_id = t and r.profile_id = auth.uid())
     )
   );
 $$;
@@ -342,6 +342,7 @@ create table if not exists invitations (
   invited_by text not null,
   code text unique not null,
   created_at timestamptz not null default now(),
+  expires_at timestamptz not null default (now() + interval '7 days'),
   email_status text not null default 'not_sent' check (email_status in ('not_sent', 'sent', 'failed')),
   email_message_id text,
   email_error text,

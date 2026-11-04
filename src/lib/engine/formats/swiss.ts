@@ -40,7 +40,7 @@ export function generateSwissRound(
   }
 
   // Get current standings to pair by record
-  const standings = computeStandings(previousMatches, participants, ['points', 'point_diff', 'seed']);
+  const standings = computeStandings(previousMatches, participants, ['points', 'median_buchholz', 'point_diff', 'seed']);
   const availableParticipants = standings.map((s) => s.participant);
 
   const matches: Match[] = [];
@@ -78,41 +78,37 @@ export function generateSwissRound(
     });
   }
 
-  // Greedy pairing by adjacent ranking avoiding rematches
-  const pairedIds = new Set<string>();
+  // Pair within identical score groups first, with deterministic float-downs only
+  // when a score group has an odd number of players.
+  const byeId = matches.find((match) => match.isBye)?.participant1Id;
+  const remainingParticipants = standings
+    .map((standing) => standing.participant)
+    .filter((participant) => participant.id !== byeId);
+  const standingPoints = new Map(standings.map((standing) => [standing.participant.id, standing.points]));
 
-  for (let i = 0; i < availableParticipants.length; i++) {
-    const p1 = availableParticipants[i];
-    if (pairedIds.has(p1.id)) continue;
+  const findPairing = (unpaired: Participant[], avoidRematches: boolean): [Participant, Participant][] | null => {
+    if (unpaired.length === 0) return [];
+    const first = unpaired[0];
+    const candidates = unpaired
+      .slice(1)
+      .filter((candidate) => !avoidRematches || !playedPairs.has(`${first.id}_${candidate.id}`))
+      .sort((left, right) => {
+        const leftDelta = Math.abs((standingPoints.get(first.id) || 0) - (standingPoints.get(left.id) || 0));
+        const rightDelta = Math.abs((standingPoints.get(first.id) || 0) - (standingPoints.get(right.id) || 0));
+        return leftDelta - rightDelta || (left.seed - right.seed);
+      });
 
-    let opponent: Participant | null = null;
-    for (let j = i + 1; j < availableParticipants.length; j++) {
-      const candidate = availableParticipants[j];
-      if (pairedIds.has(candidate.id)) continue;
-
-      const hasPlayed = playedPairs.has(`${p1.id}_${candidate.id}`);
-      if (!hasPlayed) {
-        opponent = candidate;
-        break;
-      }
+    for (const opponent of candidates) {
+      const rest = unpaired.filter((participant) => participant.id !== first.id && participant.id !== opponent.id);
+      const pairing = findPairing(rest, avoidRematches);
+      if (pairing) return [[first, opponent], ...pairing];
     }
+    return null;
+  };
 
-    // Fallback: if all unplayed have played each other, pair with first available
-    if (!opponent) {
-      for (let j = i + 1; j < availableParticipants.length; j++) {
-        const candidate = availableParticipants[j];
-        if (!pairedIds.has(candidate.id)) {
-          opponent = candidate;
-          break;
-        }
-      }
-    }
-
-    if (opponent) {
-      pairedIds.add(p1.id);
-      pairedIds.add(opponent.id);
-
-      matches.push({
+  const pairing = findPairing(remainingParticipants, true) || findPairing(remainingParticipants, false);
+  for (const [p1, opponent] of pairing || []) {
+    matches.push({
         id: createEntityId(),
         tournamentId,
         stageId,
@@ -133,7 +129,6 @@ export function generateSwissRound(
         nextMatchLoserId: null,
         version: 1,
       });
-    }
   }
 
   return { round, matches };
@@ -150,4 +145,28 @@ export function generateSwiss(
     rounds: [round1.round],
     matches: round1.matches,
   };
+}
+
+export function generateNextSwissRound(
+  tournamentId: string,
+  stageId: string,
+  previousRounds: Round[],
+  participants: Participant[],
+  previousMatches: Match[]
+): SwissRoundResult {
+  const nextRoundNumber = previousRounds
+    .filter((round) => round.stageId === stageId && round.bracket === 'swiss')
+    .reduce((highest, round) => Math.max(highest, round.number), 0) + 1;
+
+  if (previousMatches.some((match) => match.stageId === stageId && match.status !== 'completed')) {
+    throw new Error('No se puede generar la siguiente ronda Swiss mientras existan matches pendientes.');
+  }
+
+  return generateSwissRound(
+    tournamentId,
+    stageId,
+    nextRoundNumber,
+    participants,
+    previousMatches.filter((match) => match.stageId === stageId)
+  );
 }

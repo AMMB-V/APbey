@@ -40,6 +40,7 @@ import {
 import {
   applyBattle,
   applyPenalty,
+  adjustManualSet,
   undoLastBattle,
 } from '../lib/engine/arbitration';
 import {
@@ -52,6 +53,7 @@ import {
   generateDoubleElimination,
 } from '../lib/engine/formats/doubleElimination';
 import {
+  generateNextSwissRound,
   generateSwiss,
 } from '../lib/engine/formats/swiss';
 import {
@@ -142,12 +144,15 @@ interface TournamentContextType {
   generateBracketForStage: (stageId: string) => void;
   startStage: (stageId: string) => void;
   advanceCurrentStage: (stageId: string) => void;
+  generateNextSwissRound: (stageId: string) => void;
   updateStage: (stageId: string, updates: Partial<Stage>) => Promise<void>;
   updateStageConfig: (stageId: string, configUpdates: Partial<StageConfig>) => Promise<void>;
   updateStageTiebreakers: (stageId: string, tiebreakers: TiebreakerCriteria[]) => Promise<{ success: boolean; persistedIn: 'supabase' | 'none'; timestamp: string; message: string }>;
 
   // Referee & Match actions
   recordBattle: (matchId: string, scorerId: string | null, finish: FinishType | null, note?: string) => void;
+  addSetToMatch: (matchId: string, participantId: string) => void;
+  removeSetFromMatch: (matchId: string, participantId: string) => void;
   recordPenalty: (matchId: string, offenderId: string, card?: 'yellow' | 'red', isFoul?: boolean, reason?: string) => void;
   undoBattle: (matchId: string) => void;
   assignReferee: (matchId: string, refereeId: string | null) => void;
@@ -276,18 +281,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } catch {}
     return null;
   });
-  const [currentRole, setCurrentRole] = useState<UserRole>(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem(SESSION_USER_KEY);
-        if (saved) {
-          const u = JSON.parse(saved);
-          if (u?.role) return u.role;
-        }
-      }
-    } catch {}
-    return 'public';
-  });
+  const [currentRole, setCurrentRole] = useState<UserRole>('public');
   const [rankings, setRankings] = useState<BladerRanking[]>([]);
   const [hallOfFame, setHallOfFame] = useState<HallOfFameEntry[]>([]);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
@@ -395,7 +389,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const [{ data: invitationRows, error: invitationsError }, remoteUsers, remoteAuditLogs] = await Promise.all([
           supabase
           .from('invitations')
-          .select('id, email, role, tournament_id, status, invited_by, created_at, code')
+          .select('id, email, role, tournament_id, status, invited_by, created_at, expires_at, code')
           .order('created_at', { ascending: false }),
           loadAdminProfiles(),
           loadAdminAuditLogs(),
@@ -411,6 +405,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             invitedBy: row.invited_by,
             createdAt: row.created_at,
             code: row.code,
+            expiresAt: row.expires_at || undefined,
             emailStatus: 'not_sent' as const,
           })));
         }
@@ -1635,7 +1630,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const generateBracketForStage = (stageId: string) => {
     const stage = stages.find(s => s.id === stageId);
     if (!stage) return;
-    const tParts = participants.filter(p => p.tournamentId === stage.tournamentId);
+    const tournament = tournaments.find(t => t.id === stage.tournamentId);
+    const tParts = participants.filter(p =>
+      p.tournamentId === stage.tournamentId &&
+      p.status !== 'withdrawn' &&
+      (!tournament?.checkInRequired || p.checkedIn)
+    );
 
     if (stage.type === 'single_elimination') {
       const se = generateSingleElimination(stage.tournamentId, stage.id, tParts, {
@@ -1707,6 +1707,18 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         saveState({ matches: updated });
         return updated;
       });
+    } else if (stage.type === 'round_robin') {
+      const rr = generateRoundRobin(stage.tournamentId, stage.id, tParts, { legs: 1 });
+      setRounds(prev => {
+        const updated = [...prev.filter(r => r.stageId !== stage.id), ...rr.rounds];
+        saveState({ rounds: updated });
+        return updated;
+      });
+      setMatches(prev => {
+        const updated = [...prev.filter(m => m.stageId !== stage.id), ...rr.matches];
+        saveState({ matches: updated });
+        return updated;
+      });
     } else if (stage.type === 'double_elimination') {
       const de = generateDoubleElimination(stage.tournamentId, stage.id, tParts, {
         grandFinalReset: stage.config.grandFinalReset ?? true,
@@ -1753,10 +1765,17 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!stage) return;
 
     // Validate that tournament has at least 2 participants before starting
-    const tourneyParts = participants.filter(p => p.tournamentId === stage.tournamentId);
+    if (stage.status !== 'pending') {
+      throw new Error('La etapa ya fue iniciada y no puede reiniciarse.');
+    }
+    const tournament = tournaments.find(t => t.id === stage.tournamentId);
+    const tourneyParts = participants.filter(p =>
+      p.tournamentId === stage.tournamentId &&
+      p.status !== 'withdrawn' &&
+      (!tournament?.checkInRequired || p.checkedIn)
+    );
     if (tourneyParts.length < 2) {
-      console.warn('[TournamentContext] No se puede iniciar etapa: se requieren al menos 2 bladers registrados.');
-      return;
+      throw new Error('Se requieren al menos 2 bladers confirmados para iniciar la etapa.');
     }
 
     // Generate bracket if empty
@@ -1778,6 +1797,41 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
 
     logAudit('stages', stageId, 'update', 'Etapa iniciada. El arbitraje ya está activo.');
+  };
+
+  const generateNextSwissRoundForStage = (stageId: string) => {
+    const stage = stages.find((item) => item.id === stageId);
+    if (!stage || stage.type !== 'swiss') {
+      throw new Error('La etapa seleccionada no es Swiss.');
+    }
+    if (stage.status !== 'in_progress') {
+      throw new Error('La etapa Swiss debe estar activa para generar otra ronda.');
+    }
+    const stageRounds = rounds.filter((round) => round.stageId === stageId && round.bracket === 'swiss');
+    const stageMatches = matches.filter((match) => match.stageId === stageId);
+    const tournament = tournaments.find((item) => item.id === stage.tournamentId);
+    const stageParticipants = participants.filter((participant) =>
+      participant.tournamentId === stage.tournamentId &&
+      participant.status !== 'withdrawn' &&
+      (!tournament?.checkInRequired || participant.checkedIn)
+    );
+    const configuredRounds = stage.config.swissRounds || 3;
+    if (stageRounds.length >= configuredRounds) {
+      throw new Error(`La etapa Swiss ya alcanzó sus ${configuredRounds} rondas configuradas.`);
+    }
+    const next = generateNextSwissRound(
+      stage.tournamentId,
+      stageId,
+      stageRounds,
+      stageParticipants,
+      stageMatches
+    );
+    const updatedRounds = [...rounds, next.round];
+    const updatedMatches = [...matches, ...next.matches];
+    setRounds(updatedRounds);
+    setMatches(updatedMatches);
+    saveState({ rounds: updatedRounds, matches: updatedMatches });
+    logAudit('rounds', next.round.id, 'insert', `Ronda Swiss ${next.round.number} generada.`);
   };
 
   // Advance stage to playoffs (from groups or swiss)
@@ -1930,6 +1984,66 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     return result;
   };
+  const adjustSet = async (matchId: string, participantId: string, delta: 1 | -1) => {
+    if (!currentUser || !['referee', 'organizer', 'admin'].includes(currentRole)) {
+   throw new Error('No tienes permisos para ajustar sets.');
+    }
+    const match = matches.find((item) => item.id === matchId);
+    const stage = match ? stages.find((item) => item.id === match.stageId) : undefined;
+    if (!match || !stage || match.status === 'completed' && delta > 0) {
+   throw new Error('El match no permite este ajuste de sets.');
+    }
+    const updatedMatch = adjustManualSet(match, stage, participantId, delta);
+    const oldWinner = match.winnerId;
+    const oldLoser = match.winnerId === match.participant1Id ? match.participant2Id : match.participant1Id;
+    const shouldClearAdvancement = match.status === 'completed' && updatedMatch.status !== 'completed';
+    const updated = matches.map((item) => {
+      if (item.id === matchId) return updatedMatch;
+      if (!shouldClearAdvancement || ![match.nextMatchWinnerId, match.nextMatchLoserId].includes(item.id)) return item;
+      const removeIds = new Set([oldWinner, oldLoser].filter(Boolean));
+      return {
+        ...item,
+        participant1Id: removeIds.has(item.participant1Id) ? null : item.participant1Id,
+        participant2Id: removeIds.has(item.participant2Id) ? null : item.participant2Id,
+        version: removeIds.has(item.participant1Id) || removeIds.has(item.participant2Id)
+          ? item.version + 1
+          : item.version,
+      };
+    });
+    setMatches(updated);
+    saveState({ matches: updated });
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { error } = await supabase.rpc('adjust_manual_set', {
+        p_match_id: matchId,
+        p_participant_id: participantId,
+        p_delta: delta,
+        p_expected_version: match.version,
+      });
+      if (error) {
+        setMatches(matches);
+        saveState({ matches });
+        throw new Error(error.message || 'No se pudo persistir el ajuste de sets.');
+      }
+    }
+    logAudit('matches', matchId, 'update', `${delta > 0 ? 'Set añadido' : 'Set retirado'} manualmente.`);
+  };
+
+  const reportSetAdjustmentError = (error: unknown) => {
+    console.error('[TournamentContext] No se pudo persistir el ajuste de sets:', error);
+    setSupabaseSyncInfo((previous) => ({
+      ...previous,
+      isConnected: false,
+      message: error instanceof Error ? error.message : 'No se pudo persistir el ajuste de sets.',
+    }));
+  };
+  const addSetToMatch = (matchId: string, participantId: string) => {
+    void adjustSet(matchId, participantId, 1).catch(reportSetAdjustmentError);
+  };
+  const removeSetFromMatch = (matchId: string, participantId: string) => {
+    void adjustSet(matchId, participantId, -1).catch(reportSetAdjustmentError);
+  };
+
   const recordBattle = (
     matchId: string,
     scorerId: string | null,
@@ -2062,7 +2176,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         lastSync: result.success ? new Date().toLocaleTimeString() : previous.lastSync,
         message: result.message,
       }));
-      if (hadRemoteConfig && !result.success && result.message.includes('cambió en otra sesión')) {
+      if (hadRemoteConfig && !result.success) {
         setMatches(previousMatches);
         setBattles(previousBattles);
         saveState({ matches: previousMatches, battles: previousBattles });
@@ -2790,11 +2904,6 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       throw new Error('Ya existe una invitación pendiente para ese correo, rol y torneo.');
     }
 
-    let code = '';
-    do {
-      code = `BEY-${role.slice(0, 3).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    } while (invitations.some((inv) => inv.code === code));
-
     const inv: Invitation = {
       id: createEntityId(),
       email: normalizedEmail,
@@ -2803,7 +2912,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       status: 'pending',
       invitedBy: currentUser?.id || 'user_admin',
       createdAt: new Date().toISOString(),
-      code,
+      code: '',
     };
 
     const supabase = getSupabaseClient();
@@ -2827,7 +2936,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         p_email: inv.email,
         p_role: inv.role,
         p_tournament_id: inv.tournamentId || null,
-        p_code: inv.code,
+        p_code: null,
         p_created_at: inv.createdAt,
       });
 
@@ -2844,6 +2953,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         invitedBy: data.invited_by,
         createdAt: data.created_at,
         code: data.code,
+        expiresAt: data.expires_at || undefined,
         emailStatus: 'not_sent',
       };
       setInvitations(prev => [persistedInvitation, ...prev.filter(existing => existing.id !== persistedInvitation.id)]);
@@ -2868,14 +2978,18 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return persistedInvitation;
     }
 
+    const localInvitation = {
+      ...inv,
+      code: `BEY-${role.slice(0, 3).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`,
+    };
     setInvitations(prev => {
-      const updated = [inv, ...prev];
+      const updated = [localInvitation, ...prev];
       saveState({ invitations: updated });
       return updated;
     });
 
-    logAudit('invitations', inv.id, 'insert', `Invitación para rol ${role} creada para ${email}. Código: ${inv.code}`);
-    return inv;
+    logAudit('invitations', localInvitation.id, 'insert', `Invitación para rol ${role} creada para ${email}. Código: ${localInvitation.code}`);
+    return localInvitation;
   };
 
   const revokeInvitation = async (id: string): Promise<void> => {
@@ -3249,10 +3363,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         generateBracketForStage,
         startStage,
         advanceCurrentStage,
+        generateNextSwissRound: generateNextSwissRoundForStage,
         updateStage,
         updateStageConfig,
         updateStageTiebreakers,
         recordBattle,
+        addSetToMatch,
+        removeSetFromMatch,
         recordPenalty,
         undoBattle,
         assignReferee,

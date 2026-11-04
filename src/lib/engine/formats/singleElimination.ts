@@ -56,7 +56,7 @@ export function generateSingleElimination(
   }
 
   // Optional Third Place Round
-  if (options.thirdPlaceMatch && totalRounds >= 2) {
+  if (options.thirdPlaceMatch && count >= 4 && totalRounds >= 2) {
     const thirdPlaceRoundId = createEntityId();
     roundIds.set(totalRounds + 1, thirdPlaceRoundId);
     rounds.push({
@@ -115,7 +115,7 @@ export function generateSingleElimination(
 
   // Handle Third Place Match if enabled
   let thirdPlaceMatch: Match | null = null;
-  if (options.thirdPlaceMatch && totalRounds >= 2) {
+  if (options.thirdPlaceMatch && count >= 4 && totalRounds >= 2) {
     thirdPlaceMatch = {
       id: createEntityId(),
       tournamentId,

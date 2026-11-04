@@ -27,6 +27,7 @@ export type TiebreakerCriteria =
   | 'points_ratio'
   | 'head_to_head'
   | 'buchholz'
+  | 'median_buchholz'
   | 'seed';
 
 export interface FinishPointsConfig {
@@ -63,6 +64,12 @@ export interface Tournament {
 }
 
 export interface StageConfig {
+  stageStructure?: 'single_stage' | 'two_stage' | 'multi_stage';
+  pointsPerMatchWin?: number;
+  pointsPerMatchDraw?: number;
+  pointsPerSetWin?: number;
+  pointsPerBye?: number;
+  grandFinalType?: 'one_or_two_matches' | 'one_match' | 'none';
   advanceCount?: number;          // primeros N de cada grupo que pasan (default 2)
   groupSize?: number;             // tamaño de grupo (default 4)
   swissRounds?: number;           // rondas suizas (default 3-5)
@@ -199,6 +206,7 @@ export interface GroupStandingRow {
   pointsAverage?: number;      // Puntos promedio anotados por combate (PF / partidos jugados)
   pointsRatio?: number;        // Cociente / ratio de puntos (PF / PC)
   buchholz?: number;
+  medianBuchholz?: number;
   rank: number;
   advances: boolean;
 }
@@ -211,6 +219,7 @@ export interface Invitation {
   status: 'pending' | 'accepted' | 'revoked';
   invitedBy: string;
   createdAt: string;
+  expiresAt?: string;
   code: string;
   emailStatus?: 'not_sent' | 'sent' | 'failed';
 }

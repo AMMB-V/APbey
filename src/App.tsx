@@ -251,6 +251,7 @@ function TournamentApp() {
 
       {/* Main Container */}
       <main id="main-content" tabIndex={-1} className="grow min-w-0 max-w-screen-2xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 outline-hidden">
+        <h1 className="sr-only">{VIEW_TITLES[activeTab] || 'Torneos de Beyblade X'}</h1>
         {/* Breadcrumbs & Active Tournament Bar */}
         <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-[var(--acero)] bg-[var(--chasis)] border border-[var(--costura)] px-3 sm:px-4 py-2.5 rounded-2xl shadow-xs gap-2 sm:gap-3">
           <div className="flex items-center gap-2">
