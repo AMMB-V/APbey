@@ -2177,6 +2177,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               penalties
             );
             if (!syncResult.success) {
+              setMatches(previousMatches);
+              setBattles(previousBattles);
+              saveState({ matches: previousMatches, battles: previousBattles });
               setSupabaseSyncInfo((previous) => ({ ...previous, isConnected: false, message: syncResult.message }));
               return;
             }
@@ -2291,7 +2294,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         lastSync: result.success ? new Date().toLocaleTimeString() : previous.lastSync,
         message: result.message,
       }));
-      if (hadRemoteConfig && !result.success && result.message.includes('cambió en otra sesión')) {
+      if (hadRemoteConfig && !result.success) {
         setMatches(previousMatches);
         setPenalties(previousPenalties);
         saveState({ matches: previousMatches, penalties: previousPenalties });

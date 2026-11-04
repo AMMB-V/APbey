@@ -6,6 +6,10 @@ const migrationPath = resolve(
   process.cwd(),
   'supabase/migrations/20261105000024_audit_followup.sql'
 );
+const consistencyMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20261105000025_manual_set_consistency.sql'
+);
 
 describe('audit follow-up migration', () => {
   it('exists and contains the production-critical RPCs', () => {
@@ -26,5 +30,15 @@ describe('audit follow-up migration', () => {
 
     expect(createFunction).toContain('generated_code :=');
     expect(createFunction).not.toContain('upper(trim(p_code))');
+  });
+
+  it('keeps manual set corrections consistent with bracket advancement', () => {
+    const sql = readFileSync(consistencyMigrationPath, 'utf8');
+
+    expect(sql).toContain('m.next_match_winner_id, m.next_match_loser_id');
+    expect(sql).toContain("set status = 'in_progress'");
+    expect(sql).toContain("set status = 'completed'");
+    expect(sql).toContain('previous_winner is distinct from m.winner_id');
+    expect(sql).toContain('t.status in (\'cancelled\', \'completed\')');
   });
 });

@@ -33,6 +33,13 @@ function Invoke-Supabase([string[]]$Arguments) {
 
 $supabase = Require-Command 'supabase.cmd' 'Instálalo con: npm install --global supabase'
 
+$docker = Require-Command 'docker' 'Instala Docker Desktop y habilita el backend WSL 2.'
+
+& $docker info *> $null
+if ($LASTEXITCODE -ne 0) {
+  throw 'Docker Desktop no está iniciado. Ábrelo, espera a que indique "Engine running" y vuelve a ejecutar este comando.'
+}
+
 if ($Action -eq 'stop') {
   Invoke-Supabase @('stop')
   exit 0
@@ -41,13 +48,6 @@ if ($Action -eq 'stop') {
 if ($Action -eq 'status') {
   Invoke-Supabase @('status')
   exit 0
-}
-
-$docker = Require-Command 'docker' 'Instala Docker Desktop y habilita el backend WSL 2.'
-
-& $docker info *> $null
-if ($LASTEXITCODE -ne 0) {
-  throw 'Docker Desktop no está iniciado. Ábrelo, espera a que indique "Engine running" y vuelve a ejecutar este comando.'
 }
 
 if ($Action -eq 'start') {
