@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTournament } from '../../context/TournamentContext';
 import { AceroIcon } from '../common/AceroIcon';
 import {
+  StageStructure,
   StageType,
   TiebreakerCriteria,
   Tournament,
@@ -64,6 +65,14 @@ export const ALL_TIEBREAKER_OPTIONS: TiebreakerMeta[] = [
     accent: 'bg-indigo-700 text-white',
   },
   {
+    id: 'game_wins',
+    label: 'Juegos / sets ganados',
+    subtitle: 'Cantidad de sets ganados en los combates disputados',
+    description: 'Desempata según el total de sets ganados, antes de recurrir a la siembra.',
+    tag: 'Sets',
+    accent: 'bg-cyan-700 text-white',
+  },
+  {
     id: 'points_for',
     label: 'Puntos totales anotados (Puntos a favor)',
     subtitle: 'Suma acumulada total de puntos a favor en la etapa',
@@ -86,6 +95,14 @@ export const ALL_TIEBREAKER_OPTIONS: TiebreakerMeta[] = [
     description: 'Evita empates cuando los competidores tienen idéntico diferencial neto pero mayor solidez defensiva.',
     tag: 'Cociente',
     accent: 'bg-purple-700 text-white',
+  },
+  {
+    id: 'median_buchholz',
+    label: 'Median-Buchholz (Desempate oficial)',
+    subtitle: 'Fuerza de rivales descartando el valor más alto y más bajo',
+    description: 'Suma los puntos de los rivales y descarta el mayor y el menor cuando hay al menos tres rivales. Los BYEs no cuentan.',
+    tag: 'Challonge',
+    accent: 'bg-rose-700 text-white',
   },
   {
     id: 'buchholz',
@@ -111,15 +128,18 @@ export const TournamentWizard: React.FC = () => {
     updateTournament,
     createTournament,
     duplicateTournament,
+    addStage,
+    removeStage,
     stages,
     matches,
     participants,
+    users,
     updateStage,
     updateStageConfig,
     updateStageTiebreakers,
   } = useTournament();
 
-  const [activeTab, setActiveTab] = useState<'general' | 'arbitration' | 'stages' | 'tiebreakers'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'arbitration' | 'stages' | 'tiebreakers' | 'permissions'>('general');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -171,6 +191,8 @@ export const TournamentWizard: React.FC = () => {
     tournamentStages[0];
 
   const [selectedStageId, setSelectedStageId] = useState<string>(defaultSelectedStage?.id || '');
+  const [newStageType, setNewStageType] = useState<StageType>('single_elimination');
+  const [newStageName, setNewStageName] = useState('');
 
   // Keep selected stage aligned if tournament switches
   useEffect(() => {
@@ -183,21 +205,35 @@ export const TournamentWizard: React.FC = () => {
 
   const [advanceCount, setAdvanceCount] = useState<number>(activeStage?.config.advanceCount ?? 2);
   const [groupSize, setGroupSize] = useState<number>(activeStage?.config.groupSize ?? 4);
+  const [stageStructure, setStageStructure] = useState<StageStructure>(activeStage?.config.stageStructure ?? 'two_stage');
+  const [pointsPerMatchWin, setPointsPerMatchWin] = useState<number>(activeStage?.config.pointsPerMatchWin ?? 1);
+  const [pointsPerMatchDraw, setPointsPerMatchDraw] = useState<number>(activeStage?.config.pointsPerMatchDraw ?? 0);
+  const [pointsPerSetWin, setPointsPerSetWin] = useState<number>(activeStage?.config.pointsPerSetWin ?? 0);
+  const [pointsPerBye, setPointsPerBye] = useState<number>(activeStage?.config.pointsPerBye ?? 1);
+  const [grandFinalType, setGrandFinalType] = useState<NonNullable<typeof activeStage>['config']['grandFinalType']>(
+    activeStage?.config.grandFinalType ?? 'one_or_two_matches'
+  );
   const [bestOf, setBestOf] = useState<number>(activeStage?.bestOf ?? 1); // best_of = 1 default
   const [pointsToWin, setPointsToWin] = useState<number>(activeStage?.pointsToWin ?? 4);
 
   // Tiebreaker priority order for current stage
   const [stageTiebreakers, setStageTiebreakers] = useState<TiebreakerCriteria[]>(
-    activeStage?.config.tiebreakers || ['points', 'head_to_head', 'point_diff', 'points_for', 'seed']
+    activeStage?.config.tiebreakers || ['points', 'median_buchholz', 'head_to_head', 'point_diff', 'seed']
   );
 
   // Sync tiebreakers when selected stage changes
   useEffect(() => {
     setAdvanceCount(activeStage?.config.advanceCount ?? 2);
     setGroupSize(activeStage?.config.groupSize ?? 4);
+    setStageStructure(activeStage?.config.stageStructure ?? 'two_stage');
+    setPointsPerMatchWin(activeStage?.config.pointsPerMatchWin ?? 1);
+    setPointsPerMatchDraw(activeStage?.config.pointsPerMatchDraw ?? 0);
+    setPointsPerSetWin(activeStage?.config.pointsPerSetWin ?? 0);
+    setPointsPerBye(activeStage?.config.pointsPerBye ?? 1);
+    setGrandFinalType(activeStage?.config.grandFinalType ?? 'one_or_two_matches');
     setBestOf(activeStage?.bestOf ?? 1);
     setPointsToWin(activeStage?.pointsToWin ?? 4);
-    setStageTiebreakers(activeStage?.config.tiebreakers || ['points', 'head_to_head', 'point_diff', 'points_for', 'seed']);
+    setStageTiebreakers(activeStage?.config.tiebreakers || ['points', 'median_buchholz', 'head_to_head', 'point_diff', 'seed']);
   }, [selectedStageId, activeStage?.id]);
 
   // Backend persistence status & indicators
@@ -233,7 +269,7 @@ export const TournamentWizard: React.FC = () => {
   const applyPreset = (preset: 'wbo' | 'average' | 'offensive' | 'swiss') => {
     switch (preset) {
       case 'wbo':
-        setStageTiebreakers(['points', 'head_to_head', 'point_diff', 'points_for', 'seed']);
+        setStageTiebreakers(['points', 'median_buchholz', 'head_to_head', 'point_diff', 'seed']);
         break;
       case 'average':
         setStageTiebreakers(['points', 'points_average', 'points_ratio', 'point_diff', 'head_to_head', 'seed']);
@@ -242,7 +278,7 @@ export const TournamentWizard: React.FC = () => {
         setStageTiebreakers(['points', 'points_for', 'point_diff', 'head_to_head', 'seed']);
         break;
       case 'swiss':
-        setStageTiebreakers(['points', 'buchholz', 'point_diff', 'head_to_head', 'seed']);
+        setStageTiebreakers(['points', 'median_buchholz', 'head_to_head', 'point_diff', 'seed']);
         break;
     }
   };
@@ -410,7 +446,7 @@ export const TournamentWizard: React.FC = () => {
             activeTab === 'arbitration' ? 'bg-[var(--acero)] text-[var(--grafito)]' : 'text-[var(--acero)] hover:text-[var(--hueso)]'
           }`}
         >
-          Arbitraje & Puntuaciones
+          Reglas & Puntuación
         </button>
         <button
           onClick={() => setActiveTab('stages')}
@@ -418,7 +454,7 @@ export const TournamentWizard: React.FC = () => {
             activeTab === 'stages' ? 'bg-[var(--acero)] text-[var(--grafito)]' : 'text-[var(--acero)] hover:text-[var(--hueso)]'
           }`}
         >
-          Etapas & Avance
+          Estructura & Etapas
         </button>
         <button
           onClick={() => setActiveTab('tiebreakers')}
@@ -427,6 +463,14 @@ export const TournamentWizard: React.FC = () => {
           }`}
         >
           Criterios de Desempate
+        </button>
+        <button
+          onClick={() => setActiveTab('permissions')}
+          className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+            activeTab === 'permissions' ? 'bg-[var(--acero)] text-[var(--grafito)]' : 'text-[var(--acero)] hover:text-[var(--hueso)]'
+          }`}
+        >
+          Árbitros & Permisos
         </button>
       </div>
 
@@ -618,6 +662,47 @@ export const TournamentWizard: React.FC = () => {
                 <span className="text-[11px] text-[var(--acero)]">1 = cada falta da punto directo. 3 = acumulación de 3 faltas.</span>
               </div>
             </div>
+
+            <div className="pt-4 border-t border-[var(--costura)] space-y-3">
+              <div>
+                <h4 className="text-xs font-bold uppercase text-[var(--acero)]">Reglas de puntuación de la etapa</h4>
+                <p className="text-[11px] text-[var(--acero)] mt-0.5">
+                  Define los valores usados en la clasificación de grupos y en los BYEs.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  ['Victoria de partido', pointsPerMatchWin, setPointsPerMatchWin],
+                  ['Empate de partido', pointsPerMatchDraw, setPointsPerMatchDraw],
+                  ['Victoria de set', pointsPerSetWin, setPointsPerSetWin],
+                  ['BYE', pointsPerBye, setPointsPerBye],
+                ].map(([label, value, setter]) => (
+                  <label key={label as string} className="p-3 bg-[var(--grafito)] rounded-lg border border-[var(--costura)] space-y-1">
+                    <span className="text-[10px] font-bold text-[var(--hueso)] block">{label as string}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.5"
+                      value={value as number}
+                      onChange={(event) => (setter as (value: number) => void)(Number(event.target.value))}
+                      className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded p-1.5 bg-[var(--grafito)] text-[var(--hueso)]"
+                    />
+                  </label>
+                ))}
+              </div>
+              <label className="block max-w-sm">
+                <span className="text-[10px] font-bold text-[var(--hueso)] block mb-1">Gran Final</span>
+                <select
+                  value={grandFinalType}
+                  onChange={(event) => setGrandFinalType(event.target.value as typeof grandFinalType)}
+                  className="w-full text-xs border border-[var(--costura)] rounded p-2 bg-[var(--grafito)] text-[var(--hueso)]"
+                >
+                  <option value="one_or_two_matches">1-2 combates (reset si es necesario)</option>
+                  <option value="one_match">Un combate</option>
+                  <option value="none">Sin gran final</option>
+                </select>
+              </label>
+            </div>
           </div>
 
           <div className="flex justify-end pt-3 border-t border-[var(--costura)]">
@@ -640,6 +725,49 @@ export const TournamentWizard: React.FC = () => {
               Control multietapa: Define cómo avanzan los clasificados de la fase de grupos a las llaves de playoffs.
             </p>
           </div>
+
+          <fieldset className="space-y-2">
+            <legend className="text-xs font-bold text-[var(--hueso)]">
+              Tipo de torneo
+            </legend>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {([
+                {
+                  value: 'single_stage' as const,
+                  label: 'Una etapa',
+                  description: 'Una sola fase de competición.',
+                },
+                {
+                  value: 'two_stage' as const,
+                  label: 'Dos etapas',
+                  description: 'Grupos y una etapa final para los clasificados.',
+                },
+              ]).map((option) => (
+                <label
+                  key={option.value}
+                  className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                    stageStructure === option.value
+                      ? 'bg-[var(--cobalto)]/20 border-[var(--cobalto)] text-[var(--hueso)]'
+                      : 'bg-[var(--grafito)] border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)]'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="wizard-stage-structure"
+                    value={option.value}
+                    checked={stageStructure === option.value}
+                    onChange={() => setStageStructure(option.value)}
+                    className="sr-only"
+                  />
+                  <span className="text-xs font-bold block">{option.label}</span>
+                  <span className="text-[10px] mt-0.5 block">{option.description}</span>
+                </label>
+              ))}
+            </div>
+            <p className="text-[10px] text-[var(--acero)]">
+              La configuración habitual es de dos etapas.
+            </p>
+          </fieldset>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-4 bg-[var(--grafito)] rounded-lg border border-[var(--costura)] space-y-2">
@@ -759,6 +887,12 @@ export const TournamentWizard: React.FC = () => {
               onClick={async () => {
                 if (!activeTournament || !activeStage) return;
                 await updateStageConfig(activeStage.id, {
+                  stageStructure,
+                  pointsPerMatchWin,
+                  pointsPerMatchDraw,
+                  pointsPerSetWin,
+                  pointsPerBye,
+                  grandFinalType,
                   advanceCount,
                   groupSize,
                 });
@@ -866,6 +1000,58 @@ export const TournamentWizard: React.FC = () => {
                 );
               })}
             </div>
+
+            {activeTournament && (
+              <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-[var(--costura)]">
+                <input
+                  type="text"
+                  value={newStageName}
+                  onChange={(event) => setNewStageName(event.target.value)}
+                  placeholder="Nombre de la nueva etapa (opcional)"
+                  className="grow text-xs border border-[var(--costura)] rounded-lg px-3 py-2 bg-[var(--grafito)] text-[var(--hueso)]"
+                />
+                <select
+                  value={newStageType}
+                  onChange={(event) => setNewStageType(event.target.value as StageType)}
+                  className="text-xs border border-[var(--costura)] rounded-lg px-3 py-2 bg-[var(--grafito)] text-[var(--hueso)]"
+                >
+                  <option value="single_elimination">Eliminación simple</option>
+                  <option value="double_elimination">Doble eliminación</option>
+                  <option value="round_robin">Round Robin</option>
+                  <option value="swiss">Suizo</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const created = addStage(activeTournament.id, newStageType, newStageName);
+                    setNewStageName('');
+                    setSelectedStageId(created.id);
+                    showSuccess(`Etapa "${created.name}" añadida.`);
+                  }}
+                  className="px-3 py-2 text-xs font-bold rounded-lg bg-[var(--cobalto)] text-white whitespace-nowrap"
+                >
+                  + Añadir etapa
+                </button>
+                {activeStage && tournamentStages.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void removeStage(activeStage.id)
+                        .then(() => {
+                          const nextStage = tournamentStages.find((stage) => stage.id !== activeStage.id);
+                          setSelectedStageId(nextStage?.id || '');
+                          showSuccess('Etapa eliminada.');
+                        })
+                        .catch((error: unknown) => setErrorMsg(error instanceof Error ? error.message : 'No se pudo eliminar la etapa.'));
+                    }}
+                    className="px-3 py-2 text-xs font-bold rounded-lg border border-rose-700 text-rose-300 whitespace-nowrap"
+                  >
+                    Eliminar etapa
+                  </button>
+                )}
+              </div>
+            )}
+
           </div>
 
           {/* 2. Fast Presets */}
@@ -1119,6 +1305,87 @@ export const TournamentWizard: React.FC = () => {
                 </>
               )}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 5: Referees & permissions */}
+      {activeTab === 'permissions' && (
+        <div className="bg-[var(--chasis)] rounded-xl border border-[var(--costura)] p-6 shadow-sm space-y-6">
+          <div>
+            <h3 className="text-sm font-bold text-[var(--hueso)] flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-[var(--acero)]" />
+              Árbitros & Permisos
+            </h3>
+            <p className="text-xs text-[var(--acero)] mt-1">
+              Define el equipo autorizado para este torneo. La asignación concreta por etapa, grupo o mesa se gestiona desde el módulo de arbitraje.
+            </p>
+          </div>
+
+          <div className="p-4 bg-[var(--grafito)] rounded-xl border border-[var(--costura)] space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h4 className="text-xs font-bold text-[var(--hueso)]">Árbitros autorizados</h4>
+                <p className="text-[11px] text-[var(--acero)]">
+                  Solo los árbitros autorizados deben recibir asignaciones en las etapas del torneo.
+                </p>
+              </div>
+              <span className="text-[10px] font-mono text-[var(--acero)]">
+                {activeTournament?.assignedReferees.length || 0} seleccionados
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {users
+                .filter((user) => user.role === 'referee' || user.role === 'organizer')
+                .map((user) => {
+                  const isAssigned = activeTournament?.assignedReferees.includes(user.id) || false;
+                  return (
+                    <label
+                      key={user.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        isAssigned
+                          ? 'border-[var(--cobalto)] bg-[var(--cobalto)]/10'
+                          : 'border-[var(--costura)] bg-[var(--grafito)] hover:border-[var(--acero)]'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isAssigned}
+                        onChange={() => {
+                          if (!activeTournament) return;
+                          const assignedReferees = isAssigned
+                            ? activeTournament.assignedReferees.filter((id) => id !== user.id)
+                            : [...activeTournament.assignedReferees, user.id];
+                          updateTournament(activeTournament.id, { assignedReferees });
+                        }}
+                        className="accent-[var(--cobalto)]"
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-xs font-bold text-[var(--hueso)] truncate">{user.displayName}</span>
+                        <span className="block text-[10px] text-[var(--acero)]">
+                          {user.role === 'referee' ? 'Árbitro' : 'Organizador'}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+            </div>
+
+            {users.filter((user) => user.role === 'referee' || user.role === 'organizer').length === 0 && (
+              <p className="text-xs text-[var(--acero)] p-3 border border-dashed border-[var(--costura)] rounded-lg">
+                No hay árbitros u organizadores disponibles. Crea o invita usuarios desde el panel de administración.
+              </p>
+            )}
+          </div>
+
+          <div className="p-4 bg-[var(--grafito)] rounded-xl border border-[var(--costura)] space-y-2">
+            <h4 className="text-xs font-bold text-[var(--hueso)]">Alcance de permisos</h4>
+            <ul className="text-[11px] text-[var(--acero)] space-y-1 list-disc pl-4">
+              <li>El organizador y los administradores pueden modificar la configuración del torneo.</li>
+              <li>Los árbitros autorizados pueden registrar batallas, penalizaciones y ajustes manuales de sets.</li>
+              <li>La asignación por etapa, grupo y mesa se conserva de forma independiente.</li>
+            </ul>
           </div>
         </div>
       )}

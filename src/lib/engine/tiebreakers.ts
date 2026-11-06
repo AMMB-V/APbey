@@ -24,6 +24,8 @@ export function computeStandings(
     lost: number;
     pointsFor: number;
     pointsAgainst: number;
+    gameWins: number;
+    gameLosses: number;
     points: number;
   }>();
 
@@ -35,6 +37,8 @@ export function computeStandings(
       lost: 0,
       pointsFor: 0,
       pointsAgainst: 0,
+      gameWins: 0,
+      gameLosses: 0,
       points: 0,
     });
   }
@@ -55,6 +59,10 @@ export function computeStandings(
       s1.pointsAgainst += match.score2;
       s2.pointsFor += match.score2;
       s2.pointsAgainst += match.score1;
+      s1.gameWins += match.sets1;
+      s1.gameLosses += match.sets2;
+      s2.gameWins += match.sets2;
+      s2.gameLosses += match.sets1;
 
       if (match.isDraw) {
         s1.drawn += 1;
@@ -160,6 +168,8 @@ export function computeStandings(
       lost: s.lost,
       pointsFor: s.pointsFor,
       pointsAgainst: s.pointsAgainst,
+      gameWins: s.gameWins,
+      gameLosses: s.gameLosses,
       pointDiff,
       points: s.points,
       pointsAverage,
@@ -199,7 +209,9 @@ export function computeStandings(
           if (crit === 'points_for') return a.pointsFor === b.pointsFor;
           if (crit === 'points_average') return (a.pointsAverage || 0) === (b.pointsAverage || 0);
           if (crit === 'points_ratio') return (a.pointsRatio || 0) === (b.pointsRatio || 0);
+          if (crit === 'game_wins') return a.gameWins === b.gameWins;
           if (crit === 'buchholz') return (a.buchholz || 0) === (b.buchholz || 0);
+          if (crit === 'median_buchholz') return (a.medianBuchholz || 0) === (b.medianBuchholz || 0);
           return true;
         });
 
@@ -211,7 +223,9 @@ export function computeStandings(
               if (crit === 'points_for') return r.pointsFor === a.pointsFor;
               if (crit === 'points_average') return (r.pointsAverage || 0) === (a.pointsAverage || 0);
               if (crit === 'points_ratio') return (r.pointsRatio || 0) === (a.pointsRatio || 0);
+              if (crit === 'game_wins') return r.gameWins === a.gameWins;
               if (crit === 'buchholz') return (r.buchholz || 0) === (a.buchholz || 0);
+              if (crit === 'median_buchholz') return (r.medianBuchholz || 0) === (a.medianBuchholz || 0);
               return true;
             })
           );
@@ -238,6 +252,8 @@ export function computeStandings(
         const medianA = a.medianBuchholz || 0;
         const medianB = b.medianBuchholz || 0;
         if (medianB !== medianA) return medianB - medianA;
+      } else if (criterion === 'game_wins') {
+        if (b.gameWins !== a.gameWins) return b.gameWins - a.gameWins;
       } else if (criterion === 'seed') {
         if (a.participant.seed !== b.participant.seed) {
           return a.participant.seed - b.participant.seed;

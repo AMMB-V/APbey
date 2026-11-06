@@ -11,6 +11,7 @@ export interface UserProfile {
 
 export type TournamentStatus = 'draft' | 'registration' | 'in_progress' | 'completed' | 'cancelled';
 export type StageType = 'single_elimination' | 'double_elimination' | 'round_robin' | 'swiss' | 'group_stage';
+export type StageStructure = 'single_stage' | 'two_stage' | 'multi_stage';
 export type StageStatus = 'pending' | 'in_progress' | 'completed';
 export type MatchType = '1on1' | '3on3';
 export type FinishType = 'spin' | 'over' | 'burst' | 'xtreme';
@@ -25,6 +26,7 @@ export type TiebreakerCriteria =
   | 'points_for'
   | 'points_average'
   | 'points_ratio'
+  | 'game_wins'
   | 'head_to_head'
   | 'buchholz'
   | 'median_buchholz'
@@ -64,7 +66,7 @@ export interface Tournament {
 }
 
 export interface StageConfig {
-  stageStructure?: 'single_stage' | 'two_stage' | 'multi_stage';
+  stageStructure?: StageStructure;
   pointsPerMatchWin?: number;
   pointsPerMatchDraw?: number;
   pointsPerSetWin?: number;
@@ -201,6 +203,8 @@ export interface GroupStandingRow {
   lost: number;
   pointsFor: number;
   pointsAgainst: number;
+  gameWins: number;
+  gameLosses: number;
   pointDiff: number;
   points: number;              // 3 por victoria, 1 por empate
   pointsAverage?: number;      // Puntos promedio anotados por combate (PF / partidos jugados)

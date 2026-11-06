@@ -16,8 +16,8 @@ import {
   Tournament,
   UserProfile,
   UserRole,
-} from '../types/tournament';
-import { persistStageTiebreakers } from '../lib/storage/backendPersistence';
+} from '../../types/tournament';
+import { persistStageTiebreakers } from '../../lib/storage/backendPersistence';
 import {
   syncTournamentToSupabase,
   deleteTournamentFromSupabase,
@@ -31,41 +31,41 @@ import {
   loadAdminProfiles,
   loadAdminAuditLogs,
   persistAuditLogToSupabase,
-} from '../lib/supabase/supabaseService';
+} from '../../lib/supabase/supabaseService';
 import {
   getSupabaseClient,
   getStoredSupabaseConfig,
   saveSupabaseConfig,
   testSupabaseConnection,
-} from '../lib/supabase/client';
+} from '../../lib/supabase/client';
 import {
   applyBattle,
   applyPenalty,
   adjustManualSet,
   undoLastBattle,
-} from '../lib/engine/arbitration';
+} from '../../lib/engine/arbitration';
 import {
   advanceSwissStageToPlayoffs,
   advanceGroupStageToPlayoffs,
-} from '../lib/engine/advancement';
+} from '../../lib/engine/advancement';
 import {
   generateSingleElimination,
-} from '../lib/engine/formats/singleElimination';
+} from '../../lib/engine/formats/singleElimination';
 import {
   generateDoubleElimination,
-} from '../lib/engine/formats/doubleElimination';
+} from '../../lib/engine/formats/doubleElimination';
 import {
   generateNextSwissRound,
   generateSwiss,
-} from '../lib/engine/formats/swiss';
+} from '../../lib/engine/formats/swiss';
 import {
   generateRoundRobin,
-} from '../lib/engine/formats/roundRobin';
+} from '../../lib/engine/formats/roundRobin';
 import {
   buildSerpentineGroups,
   normalizeSeeds,
   shuffleSeeds,
-} from '../lib/engine/seeding';
+} from '../../lib/engine/seeding';
 import {
   INITIAL_BATTLES,
   INITIAL_GROUPS,
@@ -77,11 +77,11 @@ import {
   INITIAL_ROUNDS,
   INITIAL_STAGES,
   INITIAL_TOURNAMENTS,
-} from '../lib/storage/mockData';
-import { parseRankingWorkbook } from '../lib/storage/rankingWorkbook';
-import { createEntityId } from '../lib/storage/entityIds';
-import { migratePersistedTournamentData } from '../lib/storage/localDataMigration';
-import { BladerRanking, HallOfFameEntry } from '../types/rankings';
+} from '../../lib/storage/mockData';
+import { parseRankingWorkbook } from '../../lib/storage/rankingWorkbook';
+import { createEntityId } from '../../lib/storage/entityIds';
+import { migratePersistedTournamentData } from '../../lib/storage/localDataMigration';
+import { BladerRanking, HallOfFameEntry } from '../../types/rankings';
 
 export interface SupabaseSyncInfo {
   isConfigured: boolean;
@@ -147,6 +147,8 @@ interface TournamentContextType {
   startStage: (stageId: string) => void;
   advanceCurrentStage: (stageId: string) => void;
   generateNextSwissRound: (stageId: string) => void;
+  addStage: (tournamentId: string, type: StageType, name?: string) => Stage;
+  removeStage: (stageId: string) => Promise<void>;
   updateStage: (stageId: string, updates: Partial<Stage>) => Promise<void>;
   updateStageConfig: (stageId: string, configUpdates: Partial<StageConfig>) => Promise<void>;
   updateStageTiebreakers: (stageId: string, tiebreakers: TiebreakerCriteria[]) => Promise<{ success: boolean; persistedIn: 'supabase' | 'none'; timestamp: string; message: string }>;
@@ -1942,6 +1944,80 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     logAudit('stages', stageId, 'update', `Etapa "${targetStage?.name || stageId}" actualizada.`);
   };
 
+  const addStage = (tournamentId: string, type: StageType, name?: string): Stage => {
+    const tournamentStages = stages.filter((stage) => stage.tournamentId === tournamentId);
+    const stage: Stage = {
+      id: createEntityId(),
+      tournamentId,
+      position: tournamentStages.length + 1,
+      name: name?.trim() || `Etapa ${tournamentStages.length + 1}`,
+      type,
+      status: 'pending',
+      matchType: '3on3',
+      pointsToWin: type === 'group_stage' ? 4 : 5,
+      bestOf: 1,
+      config: {
+        stageStructure: 'multi_stage',
+        advanceCount: 2,
+        groupSize: 4,
+        tiebreakers: ['points', 'median_buchholz', 'head_to_head', 'point_diff', 'seed'],
+        pointsPerMatchWin: 1,
+        pointsPerMatchDraw: 0,
+        pointsPerSetWin: 0,
+        pointsPerBye: 1,
+      },
+    };
+    const updatedStages = [...stages, stage];
+    setStages(updatedStages);
+    saveState({ stages: updatedStages });
+    const tournament = tournaments.find((item) => item.id === tournamentId);
+    if (tournament && getSupabaseClient()) {
+      void syncTournamentToSupabase(
+        tournament,
+        updatedStages,
+        groups,
+        rounds,
+        matches,
+        participants,
+        battles,
+        penalties
+      );
+    }
+    logAudit('stages', stage.id, 'insert', `Etapa "${stage.name}" añadida al torneo.`);
+    return stage;
+  };
+
+  const removeStage = async (stageId: string) => {
+    const target = stages.find((stage) => stage.id === stageId);
+    if (!target) throw new Error('La etapa no existe.');
+    if (matches.some((match) => match.stageId === stageId) ||
+      rounds.some((round) => round.stageId === stageId) ||
+      groups.some((group) => group.stageId === stageId)) {
+      throw new Error('No se puede eliminar una etapa que ya tiene grupos, rondas o partidas.');
+    }
+    const remaining = stages
+      .filter((stage) => stage.id !== stageId)
+      .map((stage) => stage.tournamentId === target.tournamentId && stage.position > target.position
+        ? { ...stage, position: stage.position - 1 }
+        : stage);
+    setStages(remaining);
+    saveState({ stages: remaining });
+    const tournament = tournaments.find((item) => item.id === target.tournamentId);
+    if (tournament && getSupabaseClient()) {
+      void syncTournamentToSupabase(
+        tournament,
+        remaining,
+        groups,
+        rounds,
+        matches,
+        participants,
+        battles,
+        penalties
+      );
+    }
+    logAudit('stages', stageId, 'delete', `Etapa "${target.name}" eliminada.`);
+  };
+
   const updateStageConfig = async (stageId: string, configUpdates: Partial<StageConfig>) => {
     let targetStage: Stage | undefined;
     setStages(prev => {
@@ -2734,7 +2810,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       matchType: '3on3',
       pointsToWin: stageType === 'group_stage' ? 4 : 4,
       bestOf: 1, // Eliminación directa a puntos por defecto (best_of = 1)
-      config: stageConfig,
+      config: {
+        ...stageConfig,
+        stageStructure: stageConfig.stageStructure ?? 'two_stage',
+        tiebreakers: stageConfig.tiebreakers?.length
+          ? stageConfig.tiebreakers
+          : ['points', 'median_buchholz', 'head_to_head', 'point_diff', 'seed'],
+      },
     };
 
     const updatedTournaments = [newTournament, ...tournaments];
@@ -3414,6 +3496,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         startStage,
         advanceCurrentStage,
         generateNextSwissRound: generateNextSwissRoundForStage,
+        addStage,
+        removeStage,
         updateStage,
         updateStageConfig,
         updateStageTiebreakers,

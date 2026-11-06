@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTournament } from '../../context/TournamentContext';
-import { StageType, TournamentStatus } from '../../types/tournament';
+import { StageStructure, StageType, TournamentStatus } from '../../types/tournament';
 import { AceroIcon } from '../common/AceroIcon';
 import {
   Trophy,
@@ -48,6 +48,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
   // New Tournament form state
   const [newName, setNewName] = useState('');
   const [newFormat, setNewFormat] = useState<StageType>('group_stage');
+  const [newStageStructure, setNewStageStructure] = useState<StageStructure>('two_stage');
   const [newVenue, setNewVenue] = useState('Arena Beyblade');
   const [newCountry, setNewCountry] = useState('PA');
   const [newMaxParticipants, setNewMaxParticipants] = useState<number>(16);
@@ -81,6 +82,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
     setNewPointsPlayoffs(5);
     setNewPointsFinal(7);
     setNewFormat('group_stage');
+    setNewStageStructure('two_stage');
   };
 
   // Handle template selection to pre-fill parameters
@@ -102,6 +104,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
       const templateStage = stages.find((s) => s.tournamentId === template.id);
       if (templateStage) {
         setNewFormat(templateStage.type);
+        setNewStageStructure(templateStage.config.stageStructure ?? 'two_stage');
       }
     }
   };
@@ -137,9 +140,14 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
     const templateStage = selectedTemplateId ? stages.find(s => s.tournamentId === selectedTemplateId) : undefined;
 
     const stageConfig = templateStage?.config || {
+      stageStructure: newStageStructure,
       advanceCount: 2,
       groupSize: 4,
-      tiebreakers: ['points', 'point_diff', 'head_to_head', 'points_for', 'seed'] as any,
+      tiebreakers: ['points', 'median_buchholz', 'head_to_head', 'point_diff', 'seed'] as const,
+    };
+    const configuredStageConfig = {
+      ...stageConfig,
+      stageStructure: templateStage?.config.stageStructure ?? newStageStructure,
     };
 
     const created = createTournament(
@@ -157,7 +165,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
         finishPoints: templateSource?.finishPoints,
       },
       newFormat,
-      stageConfig
+      configuredStageConfig
     );
 
     closeCreateModal();
@@ -588,6 +596,55 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                   </button>
                 </div>
               </div>
+
+              {/* Cantidad de etapas */}
+              <fieldset className="space-y-2">
+                <legend className="text-xs font-semibold text-[var(--acero)]">
+                  Tipo de Torneo *
+                </legend>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <label className={`p-3 rounded-[var(--r-control)] border cursor-pointer transition-all ${
+                    newStageStructure === 'single_stage'
+                      ? 'bg-[var(--cobalto)]/20 border-[var(--cobalto)] text-[var(--hueso)]'
+                      : 'bg-[var(--grafito)] border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)]'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="stage-structure"
+                      value="single_stage"
+                      checked={newStageStructure === 'single_stage'}
+                      onChange={() => setNewStageStructure('single_stage')}
+                      className="sr-only"
+                    />
+                    <span className="text-xs font-bold block">Torneo de una etapa</span>
+                    <span className="text-[10px] mt-0.5 block">
+                      Una sola fase de competición.
+                    </span>
+                  </label>
+
+                  <label className={`p-3 rounded-[var(--r-control)] border cursor-pointer transition-all ${
+                    newStageStructure === 'two_stage'
+                      ? 'bg-[var(--cobalto)]/20 border-[var(--cobalto)] text-[var(--hueso)]'
+                      : 'bg-[var(--grafito)] border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)]'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="stage-structure"
+                      value="two_stage"
+                      checked={newStageStructure === 'two_stage'}
+                      onChange={() => setNewStageStructure('two_stage')}
+                      className="sr-only"
+                    />
+                    <span className="text-xs font-bold block">Torneo de dos etapas</span>
+                    <span className="text-[10px] mt-0.5 block">
+                      Grupos por separado y una etapa final para los clasificados.
+                    </span>
+                  </label>
+                </div>
+                <p className="text-[10px] text-[var(--acero)]">
+                  La opción habitual para nuestros torneos es <strong className="text-[var(--hueso)]">dos etapas</strong>.
+                </p>
+              </fieldset>
 
               {/* Sede y País */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
