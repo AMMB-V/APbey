@@ -283,7 +283,22 @@ $$;
 revoke all on function seed_finish_points() from anon, authenticated;
 
 grant execute on function record_battle(uuid, uuid, finish_type, integer) to authenticated;
-grant execute on function record_penalty(uuid, uuid, card_type, boolean, integer, uuid, text, uuid, integer) to authenticated;
+do $$
+begin
+  if exists (
+    select 1
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.proname = 'record_penalty'
+       and pg_get_function_identity_arguments(p.oid) =
+           'uuid, uuid, card_type, boolean, integer, uuid, text, uuid, integer'
+  ) then
+    grant execute on function public.record_penalty(uuid, uuid, card_type, boolean, integer, uuid, text, uuid, integer)
+      to authenticated;
+  end if;
+end
+$$;
 grant execute on function seed_finish_points() to authenticated;
 
 -- Cover foreign keys identified by the performance advisor.
