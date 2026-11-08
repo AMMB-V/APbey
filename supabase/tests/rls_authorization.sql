@@ -23,24 +23,13 @@ create temporary table rls_fixture (
 
 do $$
 declare
-  admin_id uuid;
+  admin_id uuid := gen_random_uuid();
   organizer_id uuid := gen_random_uuid();
   referee_id uuid := gen_random_uuid();
   blader_id uuid := gen_random_uuid();
   unrelated_id uuid := gen_random_uuid();
   tournament_id uuid;
 begin
-  select id
-    into admin_id
-    from public.profiles
-   where role = 'admin'
-   order by created_at
-   limit 1;
-
-  if admin_id is null then
-    raise exception 'An admin profile is required for this rollback-only test';
-  end if;
-
   insert into auth.users (
     id,
     aud,
@@ -55,6 +44,7 @@ begin
     is_anonymous
   )
   values
+    (admin_id, 'authenticated', 'authenticated', 'rls-admin@apbey.vercel.app', now(), '{}'::jsonb, '{"display_name":"RLS Admin"}'::jsonb, now(), now(), false, false),
     (organizer_id, 'authenticated', 'authenticated', 'rls-organizer@apbet.vercel.app', now(), '{}'::jsonb, '{"display_name":"RLS Organizer"}'::jsonb, now(), now(), false, false),
     (referee_id, 'authenticated', 'authenticated', 'rls-referee@apbet.vercel.app', now(), '{}'::jsonb, '{"display_name":"RLS Referee"}'::jsonb, now(), now(), false, false),
     (blader_id, 'authenticated', 'authenticated', 'rls-blader@apbet.vercel.app', now(), '{}'::jsonb, '{"display_name":"RLS Blader"}'::jsonb, now(), now(), false, false),
@@ -62,6 +52,7 @@ begin
 
   insert into public.profiles (id, display_name, role)
   values
+    (admin_id, 'RLS Admin', 'admin'),
     (organizer_id, 'RLS Organizer', 'organizer'),
     (referee_id, 'RLS Referee', 'referee'),
     (blader_id, 'RLS Blader', 'blader'),
