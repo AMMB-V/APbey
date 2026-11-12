@@ -205,6 +205,7 @@ export const TournamentWizard: React.FC = () => {
 
   const [advanceCount, setAdvanceCount] = useState<number>(activeStage?.config.advanceCount ?? 2);
   const [groupSize, setGroupSize] = useState<number>(activeStage?.config.groupSize ?? 4);
+  const [swissRounds, setSwissRounds] = useState<number>(activeStage?.config.swissRounds ?? 3);
   const [stageStructure, setStageStructure] = useState<StageStructure>(activeStage?.config.stageStructure ?? 'two_stage');
   const [pointsPerMatchWin, setPointsPerMatchWin] = useState<number>(activeStage?.config.pointsPerMatchWin ?? 1);
   const [pointsPerMatchDraw, setPointsPerMatchDraw] = useState<number>(activeStage?.config.pointsPerMatchDraw ?? 0);
@@ -225,6 +226,7 @@ export const TournamentWizard: React.FC = () => {
   useEffect(() => {
     setAdvanceCount(activeStage?.config.advanceCount ?? 2);
     setGroupSize(activeStage?.config.groupSize ?? 4);
+    setSwissRounds(activeStage?.config.swissRounds ?? 3);
     setStageStructure(activeStage?.config.stageStructure ?? 'two_stage');
     setPointsPerMatchWin(activeStage?.config.pointsPerMatchWin ?? 1);
     setPointsPerMatchDraw(activeStage?.config.pointsPerMatchDraw ?? 0);
@@ -589,6 +591,26 @@ export const TournamentWizard: React.FC = () => {
               <span className="text-[10px] text-[var(--acero)] block text-center mt-1">Por defecto: 1 pt</span>
             </div>
 
+            {activeStage?.type === 'swiss' && (
+              <div className="p-4 bg-[var(--grafito)] rounded-lg border border-[var(--costura)] space-y-2">
+                <label htmlFor="wizard-swiss-rounds" className="text-xs font-bold text-[var(--hueso)]">
+                  Rondas del Sistema Suizo
+                </label>
+                <input
+                  id="wizard-swiss-rounds"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={swissRounds}
+                  onChange={(e) => setSwissRounds(Number(e.target.value))}
+                  className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded-lg p-2 bg-[var(--grafito)] text-[var(--hueso)]"
+                />
+                <p className="text-[11px] text-[var(--acero)]">
+                  Se habilita una ronda nueva sólo después de cerrar todos los matches anteriores.
+                </p>
+              </div>
+            )}
+
             <div className="p-4 bg-[var(--grafito)] rounded-lg border border-[var(--costura)] space-y-2">
               <label className="text-xs font-bold text-sky-800 block mb-1">Over Finish</label>
               <input
@@ -895,6 +917,7 @@ export const TournamentWizard: React.FC = () => {
                   grandFinalType,
                   advanceCount,
                   groupSize,
+                  swissRounds,
                 });
                 await updateStage(activeStage.id, {
                   bestOf,

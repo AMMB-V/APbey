@@ -56,6 +56,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
   const [newPointsGroup, setNewPointsGroup] = useState<number>(4);
   const [newPointsPlayoffs, setNewPointsPlayoffs] = useState<number>(5);
   const [newPointsFinal, setNewPointsFinal] = useState<number>(7);
+  const [newSwissRounds, setNewSwissRounds] = useState<number>(3);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
 
   const canManage = currentRole === 'organizer' || currentRole === 'admin';
@@ -81,6 +82,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
     setNewPointsGroup(4);
     setNewPointsPlayoffs(5);
     setNewPointsFinal(7);
+    setNewSwissRounds(3);
     setNewFormat('group_stage');
     setNewStageStructure('two_stage');
   };
@@ -105,6 +107,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
       if (templateStage) {
         setNewFormat(templateStage.type);
         setNewStageStructure(templateStage.config.stageStructure ?? 'two_stage');
+        setNewSwissRounds(templateStage.config.swissRounds ?? 3);
       }
     }
   };
@@ -135,6 +138,10 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
       setFormError('Los puntos para ganar deben ser números enteros mayores que cero.');
       return;
     }
+    if (newFormat === 'swiss' && (!Number.isInteger(newSwissRounds) || newSwissRounds < 1 || newSwissRounds > 20)) {
+      setFormError('El Sistema Suizo debe tener entre 1 y 20 rondas.');
+      return;
+    }
 
     const templateSource = selectedTemplateId ? tournaments.find(t => t.id === selectedTemplateId) : undefined;
     const templateStage = selectedTemplateId ? stages.find(s => s.tournamentId === selectedTemplateId) : undefined;
@@ -148,6 +155,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
     const configuredStageConfig = {
       ...stageConfig,
       stageStructure: templateStage?.config.stageStructure ?? newStageStructure,
+      swissRounds: templateStage?.config.swissRounds ?? newSwissRounds,
     };
 
     const created = createTournament(
@@ -645,6 +653,26 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                   La opción habitual para nuestros torneos es <strong className="text-[var(--hueso)]">dos etapas</strong>.
                 </p>
               </fieldset>
+
+              {newFormat === 'swiss' && (
+                <div className="p-3 bg-[var(--grafito)] rounded-[var(--r-control)] border border-[var(--costura)] space-y-2">
+                  <label htmlFor="new-swiss-rounds" className="text-xs font-semibold text-[var(--hueso)] block">
+                    Rondas del Sistema Suizo
+                  </label>
+                  <input
+                    id="new-swiss-rounds"
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={newSwissRounds}
+                    onChange={(e) => setNewSwissRounds(Number(e.target.value))}
+                    className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded p-2 bg-[var(--chasis)] text-[var(--hueso)]"
+                  />
+                  <p className="text-[10px] text-[var(--acero)]">
+                    La siguiente ronda se habilita cuando todos los matches de la ronda actual estén completados.
+                  </p>
+                </div>
+              )}
 
               {/* Sede y País */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
