@@ -116,7 +116,12 @@ interface TournamentContextType {
   activeTournamentId: string;
   activeTournament: Tournament | undefined;
   setActiveTournamentId: (id: string) => void;
-  createTournament: (data: Partial<Tournament>, stageType: StageType, stageConfig: StageConfig) => Tournament;
+  createTournament: (
+    data: Partial<Tournament>,
+    stageType: StageType,
+    stageConfig: StageConfig,
+    secondStage?: { type: StageType; name?: string; config?: StageConfig }
+  ) => Tournament;
   updateTournament: (id: string, updates: Partial<Tournament>) => void;
   duplicateTournament: (id: string) => Tournament | null;
   deleteTournament: (id: string) => Promise<{ success: boolean; message: string }>;
@@ -2828,7 +2833,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const createTournament = (
     data: Partial<Tournament>,
     stageType: StageType,
-    stageConfig: StageConfig
+    stageConfig: StageConfig,
+    secondStage?: { type: StageType; name?: string; config?: StageConfig }
   ): Tournament => {
     const tId = createEntityId();
     const baseSlug = (data.name || 'torneo')
@@ -2890,8 +2896,28 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       },
     };
 
+    const generatedSecondStage = secondStage
+      ? {
+          id: createEntityId(),
+          tournamentId: tId,
+          position: 2,
+          name: secondStage.name || 'Fase Final',
+          type: secondStage.type,
+          status: 'pending' as const,
+          matchType: '3on3' as const,
+          pointsToWin: secondStage.type === 'group_stage' ? 4 : 7,
+          bestOf: 1,
+          config: {
+            ...(secondStage.config || {}),
+            stageStructure: 'two_stage' as const,
+            tiebreakers: secondStage.config?.tiebreakers?.length
+              ? secondStage.config.tiebreakers
+              : ['points', 'point_diff', 'seed'] as TiebreakerCriteria[],
+          },
+        }
+      : null;
     const updatedTournaments = [newTournament, ...tournaments];
-    const updatedStages = [...stages, initialStage];
+    const updatedStages = [...stages, initialStage, ...(generatedSecondStage ? [generatedSecondStage] : [])];
     setTournaments(updatedTournaments);
     setStages(updatedStages);
     saveState({

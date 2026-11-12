@@ -8,7 +8,6 @@ import {
   TrendingUp,
   Layers,
   Shield,
-  Users,
   Search,
   Wrench,
   Tv,
@@ -167,13 +166,13 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Rankings & Salón</span>
           </button>
 
-          {/* 5. Herramientas Dropdown (Deck 3on3, Tier List, Participantes) */}
+          {/* 5. Herramientas Dropdown (Deck 3on3, Tier List) */}
           <div ref={toolsMenuRef} className="relative">
             <button
               type="button"
               onClick={() => setToolsOpen(!toolsOpen)}
               className={`px-3 py-1.5 text-[10px] font-bold rounded-xl transition-colors flex items-center gap-1 whitespace-nowrap min-h-[36px] ${
-                activeTab === 'deck' || activeTab === 'tierlist' || activeTab === 'participants'
+                activeTab === 'deck' || activeTab === 'tierlist'
                   ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
                   : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
               }`}
@@ -209,17 +208,6 @@ export const Header: React.FC<HeaderProps> = ({
                 >
                   <Shield className="w-4 h-4 text-rose-400" />
                   <span>Tier List Competitiva</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('participants');
-                    setToolsOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-[10px] font-bold text-[var(--hueso)] hover:bg-[var(--grafito)] rounded-xl flex items-center gap-2"
-                >
-                  <Users className="w-4 h-4 text-blue-400" />
-                  <span>Participantes Torneo</span>
                 </button>
               </div>
             )}
