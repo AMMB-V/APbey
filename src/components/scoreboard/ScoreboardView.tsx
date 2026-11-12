@@ -41,6 +41,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
     recordBattle,
     recordPenalty,
     undoBattle,
+    assignReferee,
     currentRole,
     currentUser,
     openAuthModal,
@@ -777,6 +778,13 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
         variant="primary"
         onConfirm={() => {
           setShowConfirmClose(false);
+          if (officialMatch) {
+            assignReferee(officialMatch.id, null);
+            const nextSelectableMatch = tournamentMatches.find(
+              (candidate) => candidate.id !== officialMatch.id && candidate.status !== 'completed'
+            );
+            setSelectedOfficialMatchId(nextSelectableMatch?.id || '');
+          }
           setSnackbarMessage('Combate registrado y cerrado con éxito.');
           setSnackbarOpen(true);
         }}

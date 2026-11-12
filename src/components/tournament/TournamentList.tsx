@@ -611,7 +611,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
                   {(newStageStructure === 'two_stage'
-                    ? ['Registro', 'Etapa regular', 'Playoffs']
+                    ? ['Registro', 'Etapa regular', getFormatLabel(newSecondFormat)]
                     : [getFormatLabel(newFormat)]
                   ).map((stage, index) => (
                     <React.Fragment key={`${stage}-${index}`}>
