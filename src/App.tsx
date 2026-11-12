@@ -17,10 +17,24 @@ import { DeckBuilder } from './components/deck/DeckBuilder';
 import { TierListView } from './components/deck/TierListView';
 import { RankingsView } from './components/rankings/RankingsView';
 import { UserProfileView } from './components/profile/UserProfileView';
-import { Layers, Volume2, Shield, Lock, KeyRound, LogIn, Trophy } from 'lucide-react';
+import {
+  Layers,
+  Volume2,
+  Shield,
+  Lock,
+  KeyRound,
+  LogIn,
+  Trophy,
+  LayoutDashboard,
+  Users,
+  ListOrdered,
+  Scale,
+  Settings,
+} from 'lucide-react';
 
 const VALID_TABS: MainTabType[] = [
   'torneos',
+  'overview',
   'bracket',
   'marcador',
   'referee',
@@ -35,6 +49,7 @@ const VALID_TABS: MainTabType[] = [
 
 const VIEW_TITLES: Record<MainTabType, string> = {
   torneos: 'Torneos Oficiales',
+  overview: 'Resumen del Torneo',
   bracket: 'Brackets & Grupos',
   marcador: 'Marcador de Combate',
   referee: 'Panel de Árbitro',
@@ -43,7 +58,7 @@ const VIEW_TITLES: Record<MainTabType, string> = {
   tierlist: 'Tier List Competitiva',
   profile: 'Mi Perfil de Blader',
   participants: 'Lista de Bladers',
-  wizard: 'Diseñador de Torneos',
+  wizard: 'Configuración del Torneo',
   admin: 'Gestión & Árbitros',
 };
 
@@ -71,6 +86,9 @@ function TournamentApp() {
 
   const [selectedRefereeMatchId, setSelectedRefereeMatchId] = useState<string | undefined>(undefined);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [wizardInitialTab, setWizardInitialTab] = useState<
+    'general' | 'arbitration' | 'stages' | 'tiebreakers' | 'permissions'
+  >('general');
 
   const {
     currentUser,
@@ -79,6 +97,7 @@ function TournamentApp() {
     activeTournament,
     setActiveTournamentId,
     stages,
+    participants,
     showStadiumModal,
     setShowStadiumModal,
     activeStationAlert,
@@ -275,6 +294,135 @@ function TournamentApp() {
             )}
           </div>
 
+          {activeTournament && (
+            <nav
+              aria-label="Navegación del torneo"
+              className="mb-5 flex items-center gap-1 overflow-x-auto rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-1.5"
+            >
+              {[
+                { id: 'overview' as const, label: 'Resumen', icon: LayoutDashboard },
+                { id: 'participants' as const, label: 'Participantes', icon: Users },
+                { id: 'stages' as const, label: 'Etapas', icon: ListOrdered, wizardTab: 'stages' as const },
+                { id: 'bracket' as const, label: 'Brackets', icon: Trophy },
+                { id: 'referee' as const, label: 'Árbitros', icon: Scale },
+                { id: 'config' as const, label: 'Configuración', icon: Settings, wizardTab: 'general' as const },
+              ].map((item) => {
+                const isSelected =
+                  item.id === 'config'
+                    ? activeTab === 'wizard'
+                    : item.id === 'stages'
+                      ? activeTab === 'wizard' && wizardInitialTab === 'stages'
+                      : activeTab === item.id;
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-current={isSelected ? 'page' : undefined}
+                    onClick={() => {
+                      if (item.id === 'config' || item.id === 'stages') {
+                        setWizardInitialTab(item.wizardTab || 'general');
+                        setActiveTab('wizard');
+                      } else {
+                        setActiveTab(item.id);
+                      }
+                    }}
+                    className={`shrink-0 rounded-xl px-3 py-2 text-[11px] font-bold transition-colors flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
+                        : 'text-[var(--acero)] hover:bg-[var(--grafito)] hover:text-[var(--hueso)]'
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </nav>
+          )}
+
+          {activeTab === 'overview' && activeTournament && (
+            <section className="space-y-5" aria-labelledby="tournament-overview-title">
+              <div className="flex flex-col gap-1">
+                <h2 id="tournament-overview-title" className="text-xl font-black text-[var(--hueso)]">
+                  Resumen de {activeTournament.name}
+                </h2>
+                <p className="text-sm text-[var(--acero)]">
+                  Revisa el estado del evento antes de registrar participantes o iniciar una etapa.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                  ['Estado', activeTournament.status === 'in_progress' ? 'En vivo' : activeTournament.status === 'completed' ? 'Finalizado' : 'Registro'],
+                  ['Participantes', `${participants.filter((p) => p.tournamentId === activeTournament.id).length} / ${activeTournament.maxParticipants || 16}`],
+                  ['Etapas', String(tournamentStages.length)],
+                  ['Puntos de final', `${activeTournament.pointsToWinFinal || 7} pts`],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-4">
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-[var(--acero)]">{label}</div>
+                    <div className="mt-1 text-lg font-black text-[var(--hueso)]">{value}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-[var(--hueso)]">Ruta del torneo</h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWizardInitialTab('general');
+                      setActiveTab('wizard');
+                    }}
+                    className="text-xs font-bold text-[var(--cobalto)] hover:text-white"
+                  >
+                    Editar configuración
+                  </button>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  {tournamentStages.map((stage, index) => (
+                    <div key={stage.id} className="rounded-xl border border-[var(--costura)] bg-[var(--grafito)] p-3">
+                      <div className="text-[10px] font-bold text-[var(--acero)]">ETAPA {index + 1}</div>
+                      <div className="mt-1 text-xs font-bold text-[var(--hueso)]">{stage.name}</div>
+                      <div className="mt-1 text-[10px] text-[var(--acero)]">{stage.type.replace('_', ' ')}</div>
+                      <div className="mt-2 text-[10px] text-[var(--cobalto)]">
+                        {stage.status === 'completed' ? 'Completada' : stage.status === 'in_progress' ? 'En curso' : 'Pendiente'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-5">
+                <div className="mb-3">
+                  <h3 className="text-sm font-bold text-[var(--hueso)]">Vista previa del bracket</h3>
+                  <p className="mt-1 text-[11px] text-[var(--acero)]">
+                    Estructura que verá el usuario antes de iniciar la primera etapa.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {(() => {
+                    const primaryStage = tournamentStages[0];
+                    const previewLabels = primaryStage?.type === 'double_elimination'
+                      ? ['Winners', 'Losers', 'Gran Final']
+                      : primaryStage?.type === 'single_elimination'
+                        ? ['Ronda inicial', 'Semifinales', 'Gran Final']
+                        : primaryStage?.type === 'swiss'
+                          ? ['Ronda 1', `Ronda ${primaryStage.config.swissRounds || 3}`, 'Clasificación']
+                          : ['Grupos', 'Clasificación', 'Playoffs'];
+                    return previewLabels.map((label, index) => (
+                      <React.Fragment key={label}>
+                        {index > 0 && <span className="text-[var(--acero)]">→</span>}
+                        <div className="min-w-[110px] rounded-xl border border-[var(--costura)] bg-[var(--grafito)] px-3 py-3 text-center">
+                          <div className="text-[10px] font-black uppercase tracking-wide text-[var(--acero)]">Paso {index + 1}</div>
+                          <div className="mt-1 text-xs font-bold text-[var(--hueso)]">{label}</div>
+                        </div>
+                      </React.Fragment>
+                    ));
+                  })()}
+                </div>
+              </div>
+            </section>
+          )}
+
           <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
             {currentUser ? (
               <div className="flex items-center gap-1.5 font-mono text-[11px]">
@@ -393,7 +541,7 @@ function TournamentApp() {
         {activeTab === 'participants' && <ParticipantManager />}
 
         {/* View 8: Diseñador de Torneos (Staff) */}
-        {activeTab === 'wizard' && <TournamentWizard />}
+        {activeTab === 'wizard' && <TournamentWizard initialTab={wizardInitialTab} />}
 
         {/* View 9: Admin Panel (Personal & Accesos) */}
         {activeTab === 'admin' && <AdminPanel />}

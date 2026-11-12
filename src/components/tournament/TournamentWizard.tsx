@@ -122,7 +122,9 @@ export const ALL_TIEBREAKER_OPTIONS: TiebreakerMeta[] = [
   },
 ];
 
-export const TournamentWizard: React.FC = () => {
+export const TournamentWizard: React.FC<{
+  initialTab?: 'general' | 'arbitration' | 'stages' | 'tiebreakers' | 'permissions';
+}> = ({ initialTab = 'general' }) => {
   const {
     activeTournament,
     updateTournament,
@@ -139,7 +141,7 @@ export const TournamentWizard: React.FC = () => {
     updateStageTiebreakers,
   } = useTournament();
 
-  const [activeTab, setActiveTab] = useState<'general' | 'arbitration' | 'stages' | 'tiebreakers' | 'permissions'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'arbitration' | 'stages' | 'tiebreakers' | 'permissions'>(initialTab);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -164,6 +166,10 @@ export const TournamentWizard: React.FC = () => {
   const [pointsGroup, setPointsGroup] = useState<number>(activeTournament?.pointsToWinGroup ?? 4);
   const [pointsPlayoffs, setPointsPlayoffs] = useState<number>(activeTournament?.pointsToWinPlayoffs ?? 5);
   const [pointsFinal, setPointsFinal] = useState<number>(activeTournament?.pointsToWinFinal ?? 7);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   useEffect(() => {
     setName(activeTournament?.name || '');
@@ -202,6 +208,7 @@ export const TournamentWizard: React.FC = () => {
   }, [activeTournament?.id, selectedStageId, tournamentStages, defaultSelectedStage]);
 
   const activeStage = stages.find((s) => s.id === selectedStageId) || defaultSelectedStage;
+  const stageConfigurationLocked = activeStage?.status !== 'pending';
 
   const [advanceCount, setAdvanceCount] = useState<number>(activeStage?.config.advanceCount ?? 2);
   const [groupSize, setGroupSize] = useState<number>(activeStage?.config.groupSize ?? 4);
@@ -390,7 +397,7 @@ export const TournamentWizard: React.FC = () => {
         <div>
           <h2 className="text-base font-bold text-[var(--hueso)] tracking-tight flex items-center gap-2">
             <Settings className="w-5 h-5 text-[var(--acero)]" />
-            Diseñador & Parámetros de Torneo
+            Configuración del Torneo
           </h2>
           <p className="text-xs text-[var(--acero)] mt-1">
             Configuración exacta estilo Challonge adaptada a las reglas de arbitraje de Beyblade X.
@@ -740,12 +747,20 @@ export const TournamentWizard: React.FC = () => {
 
       {/* Tab 3: Stages & Advancement */}
       {activeTab === 'stages' && (
-        <div className="bg-[var(--chasis)] rounded-xl border border-[var(--costura)] p-6 shadow-sm space-y-6">
+        <fieldset
+          disabled={stageConfigurationLocked}
+          className="bg-[var(--chasis)] rounded-xl border border-[var(--costura)] p-6 shadow-sm space-y-6 disabled:opacity-75"
+        >
           <div>
             <h3 className="text-sm font-bold text-[var(--hueso)]">RF-04 & RF-18: Etapas y Transición de Torneo</h3>
             <p className="text-xs text-[var(--acero)] mt-0.5">
               Control multietapa: Define cómo avanzan los clasificados de la fase de grupos a las llaves de playoffs.
             </p>
+            {stageConfigurationLocked && (
+              <p className="mt-2 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2 text-[11px] font-semibold text-amber-300">
+                Esta etapa ya inició. Sus parámetros estructurales están bloqueados; puedes consultar el resumen sin alterar el torneo.
+              </p>
+            )}
           </div>
 
           <fieldset className="space-y-2">
@@ -939,7 +954,7 @@ export const TournamentWizard: React.FC = () => {
               Guardar Configuración de Etapas y Puntos
             </button>
           </div>
-        </div>
+        </fieldset>
       )}
 
       {/* Tab 4: Advanced Stage Tiebreakers */}
