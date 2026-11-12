@@ -1743,7 +1743,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
     } else if (stage.type === 'swiss') {
       const sw = generateSwiss(stage.tournamentId, stage.id, tParts, {
-        roundsCount: stage.config.swissRounds || 3,
+        tiebreakers: stage.config.tiebreakers,
+        scoring: stage.config,
       });
 
       setRounds(prev => {
@@ -1828,7 +1829,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       stageId,
       stageRounds,
       stageParticipants,
-      stageMatches
+      stageMatches,
+      {
+        tiebreakers: stage.config.tiebreakers,
+        scoring: stage.config,
+      }
     );
     const updatedRounds = [...rounds, next.round];
     const updatedMatches = [...matches, ...next.matches];

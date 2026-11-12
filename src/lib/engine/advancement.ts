@@ -39,7 +39,8 @@ export function advanceSwissStageToPlayoffs(
     stageMatches,
     allParticipants,
     currentStage.config.tiebreakers,
-    advanceCount
+    advanceCount,
+    currentStage.config
   );
   const qualified = standings
     .filter((row) => row.advances)
@@ -110,7 +111,8 @@ export function advanceGroupStageToPlayoffs(
       groupMatches,
       groupParticipants,
       currentStage.config.tiebreakers,
-      advanceCount
+      advanceCount,
+      currentStage.config
     );
     groupStandings.push({ group, standings });
   }

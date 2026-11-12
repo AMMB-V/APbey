@@ -2,6 +2,7 @@ import {
   GroupStandingRow,
   Match,
   Participant,
+  StandingsScoringConfig,
   TiebreakerCriteria,
 } from '../../types/tournament';
 
@@ -9,8 +10,13 @@ export function computeStandings(
   matches: Match[],
   participants: Participant[],
   tiebreakerOrder: TiebreakerCriteria[] = ['points', 'point_diff', 'points_for', 'head_to_head', 'seed'],
-  advanceCount: number = 2
+  advanceCount: number = 2,
+  scoring: StandingsScoringConfig = {}
 ): GroupStandingRow[] {
+  const pointsPerMatchWin = scoring.pointsPerMatchWin ?? 3;
+  const pointsPerMatchDraw = scoring.pointsPerMatchDraw ?? 1;
+  const pointsPerSetWin = scoring.pointsPerSetWin ?? 0;
+  const pointsPerBye = scoring.pointsPerBye ?? 0;
   const participantMap = new Map<string, Participant>();
   for (const p of participants) {
     participantMap.set(p.id, p);
@@ -44,12 +50,17 @@ export function computeStandings(
   }
 
   for (const match of matches) {
-    if (match.status !== 'completed' || !match.participant1Id || !match.participant2Id) {
+    if (match.status !== 'completed' || !match.participant1Id) {
       continue;
     }
 
     const s1 = statsMap.get(match.participant1Id);
-    const s2 = statsMap.get(match.participant2Id);
+    const s2 = match.participant2Id ? statsMap.get(match.participant2Id) : undefined;
+
+    if (match.isBye && s1) {
+      s1.points += pointsPerBye;
+      continue;
+    }
 
     if (s1 && s2) {
       s1.played += 1;
@@ -67,16 +78,16 @@ export function computeStandings(
       if (match.isDraw) {
         s1.drawn += 1;
         s2.drawn += 1;
-        s1.points += 1;
-        s2.points += 1;
+        s1.points += pointsPerMatchDraw + match.sets1 * pointsPerSetWin;
+        s2.points += pointsPerMatchDraw + match.sets2 * pointsPerSetWin;
       } else if (match.winnerId === match.participant1Id) {
         s1.won += 1;
         s2.lost += 1;
-        s1.points += 3;
+        s1.points += pointsPerMatchWin + match.sets1 * pointsPerSetWin;
       } else if (match.winnerId === match.participant2Id) {
         s2.won += 1;
         s1.lost += 1;
-        s2.points += 3;
+        s2.points += pointsPerMatchWin + match.sets2 * pointsPerSetWin;
       }
     }
   }

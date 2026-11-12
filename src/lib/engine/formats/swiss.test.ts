@@ -34,4 +34,30 @@ describe('Swiss round generation', () => {
       !previousPairs.has([match.participant1Id, match.participant2Id].sort().join(':'))
     )).toBe(true);
   });
+
+  it('uses configured tiebreakers and scoring for later rounds', () => {
+    const first = generateSwiss('t1', 's1', participants, {
+      tiebreakers: ['points', 'seed'],
+      scoring: { pointsPerMatchWin: 2 },
+    });
+    const completed: Match[] = first.matches.map((match) => ({
+      ...match,
+      status: 'completed',
+      winnerId: match.participant1Id,
+      score1: 4,
+      score2: 0,
+    }));
+
+    const next = generateNextSwissRound(
+      't1',
+      's1',
+      first.rounds,
+      participants,
+      completed,
+      { tiebreakers: ['points', 'seed'], scoring: { pointsPerMatchWin: 2 } }
+    );
+
+    expect(next.round.number).toBe(2);
+    expect(next.matches).toHaveLength(2);
+  });
 });

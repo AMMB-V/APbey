@@ -84,6 +84,13 @@ export interface StageConfig {
   pointsToWinFinal?: number;      // Parámetro 3
 }
 
+export interface StandingsScoringConfig {
+  pointsPerMatchWin?: number;
+  pointsPerMatchDraw?: number;
+  pointsPerSetWin?: number;
+  pointsPerBye?: number;
+}
+
 export interface Stage {
   id: string;
   tournamentId: string;

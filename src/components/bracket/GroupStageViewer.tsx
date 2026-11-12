@@ -61,7 +61,8 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
     groupMatches,
     groupParticipants,
     stage.config.tiebreakers,
-    advanceCount
+    advanceCount,
+    stage.config
   );
 
   const totalMatches = stageMatches.length;
