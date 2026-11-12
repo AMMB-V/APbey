@@ -10,7 +10,6 @@ import {
   Wrench,
   Tv,
   X,
-  UserCheck,
 } from 'lucide-react';
 import { useTournament } from '../../context/TournamentContext';
 
@@ -172,19 +171,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 <div>
                   <div className="text-xs font-bold">Salón de la Fama</div>
                   <div className="text-[10px] text-[var(--acero)]">Campeones y récords</div>
-                </div>
-              </button>
-
-              {/* Participantes */}
-              <button
-                type="button"
-                onClick={() => handleSelect('participants')}
-                className="p-3.5 rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] text-left flex items-start gap-3 hover:border-[var(--acero)] min-h-[56px]"
-              >
-                <UserCheck className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs font-bold">Bladers</div>
-                  <div className="text-[10px] text-[var(--acero)]">Participantes torneo</div>
                 </div>
               </button>
 
