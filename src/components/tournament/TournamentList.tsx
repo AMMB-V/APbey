@@ -476,16 +476,14 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                         <Copy className="w-3.5 h-3.5" />
                       </button>
 
-                      {tournaments.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={(e) => handleDelete(tourney.id, tourney.name, e)}
-                          className="p-1.5 rounded text-[var(--acero)] hover:text-rose-400 hover:bg-[var(--grafito)] transition-colors"
-                          title="Eliminar torneo"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => handleDelete(tourney.id, tourney.name, e)}
+                        className="p-1.5 rounded text-[var(--acero)] hover:text-rose-400 hover:bg-[var(--grafito)] transition-colors"
+                        title="Eliminar torneo"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </>
                   )}
                 </div>
