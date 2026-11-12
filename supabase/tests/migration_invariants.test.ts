@@ -14,6 +14,10 @@ const undoMigrationPath = resolve(
   process.cwd(),
   'supabase/migrations/20261105000026_undo_battle_rpc.sql'
 );
+const auditConsolidationMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20261112000001_unify_audit_log.sql'
+);
 
 describe('audit follow-up migration', () => {
   it('exists and contains the production-critical RPCs', () => {
@@ -55,5 +59,14 @@ describe('audit follow-up migration', () => {
     expect(sql).toContain('no_battle_to_undo');
     expect(sql).toContain("insert into public.audit_log");
     expect(sql).toContain('grant execute on function public.undo_last_battle(uuid, int) to authenticated');
+  });
+
+  it('consolidates administrative audit writes into audit_log', () => {
+    const sql = readFileSync(auditConsolidationMigrationPath, 'utf8');
+
+    expect(sql).toContain('insert into public.audit_log');
+    expect(sql).toContain('returns public.audit_log');
+    expect(sql).toContain('returns setof public.audit_log');
+    expect(sql).toContain('drop table public.audit_logs');
   });
 });
