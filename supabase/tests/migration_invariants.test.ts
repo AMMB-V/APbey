@@ -18,6 +18,10 @@ const auditConsolidationMigrationPath = resolve(
   process.cwd(),
   'supabase/migrations/20261112000001_unify_audit_log.sql'
 );
+const tournamentDeletionMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20261112000002_fix_tournament_delete_dependencies.sql'
+);
 
 describe('audit follow-up migration', () => {
   it('exists and contains the production-critical RPCs', () => {
@@ -68,5 +72,18 @@ describe('audit follow-up migration', () => {
     expect(sql).toContain('returns public.audit_log');
     expect(sql).toContain('returns setof public.audit_log');
     expect(sql).toContain('drop table public.audit_logs');
+  });
+
+  it('deletes tournament dependencies before participants', () => {
+    const sql = readFileSync(tournamentDeletionMigrationPath, 'utf8');
+
+    expect(sql).toContain('delete from public.penalties');
+    expect(sql).toContain('delete from public.battles');
+    expect(sql).toContain('delete from public.matches');
+    expect(sql).toContain('delete from public.participants');
+    expect(sql.indexOf('delete from public.matches')).toBeLessThan(
+      sql.indexOf('delete from public.participants')
+    );
+    expect(sql).toContain('grant execute on function public.delete_tournament(uuid) to authenticated');
   });
 });

@@ -21,6 +21,7 @@ import { ProfileModal } from '../auth/ProfileModal';
 
 export type MainTabType =
   | 'torneos'
+  | 'overview'
   | 'bracket'
   | 'marcador'
   | 'referee'

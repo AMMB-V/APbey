@@ -11,6 +11,7 @@ import {
   Search,
   Filter,
   CheckCircle2,
+  AlertCircle,
   Clock,
   Sparkles,
   ArrowRight,
@@ -43,6 +44,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   // New Tournament form state
@@ -58,6 +60,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
   const [newPointsFinal, setNewPointsFinal] = useState<number>(7);
   const [newSwissRounds, setNewSwissRounds] = useState<number>(3);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [creationStep, setCreationStep] = useState<1 | 2 | 3>(1);
 
   const canManage = currentRole === 'organizer' || currentRole === 'admin';
 
@@ -65,6 +68,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
     setShowCreateModal(false);
     setNewName('');
     setSelectedTemplateId('');
+    setCreationStep(1);
     setFormError(null);
     resetCreationDefaults();
   };
@@ -197,8 +201,15 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
     e.stopPropagation();
     if (confirm(`¿Estás seguro de que deseas eliminar el torneo "${name}"?`)) {
       const result = await deleteTournament(id);
-      setSuccessMsg(result.message);
-      setTimeout(() => setSuccessMsg(null), 3000);
+      if (result.success) {
+        setErrorMsg(null);
+        setSuccessMsg(result.message);
+        setTimeout(() => setSuccessMsg(null), 3000);
+      } else {
+        setSuccessMsg(null);
+        setErrorMsg(result.message);
+        setTimeout(() => setErrorMsg(null), 5000);
+      }
     }
   };
 
@@ -260,6 +271,12 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
         <div className="p-3 bg-emerald-950/40 border border-emerald-600 rounded-[var(--r-control)] text-xs font-semibold text-emerald-300 flex items-center gap-2 animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{successMsg}</span>
+        </div>
+      )}
+      {errorMsg && (
+        <div role="alert" className="p-3 bg-rose-950/40 border border-rose-600 rounded-[var(--r-control)] text-xs font-semibold text-rose-300 flex items-center gap-2 animate-in fade-in">
+          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+          <span>{errorMsg}</span>
         </div>
       )}
 
@@ -418,10 +435,11 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                           e.stopPropagation();
                           onSelectTournament(tourney.id, 'referee');
                         }}
-                        className="p-1.5 rounded text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)] transition-colors"
+                        className="px-2 py-1.5 rounded text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)] transition-colors flex items-center gap-1.5 text-xs font-semibold"
                         title="Abrir Panel de Árbitro"
                       >
                         <Scale className="w-3.5 h-3.5" />
+                        <span className="hidden md:inline">Arbitrar</span>
                       </button>
 
                       <button
@@ -430,10 +448,11 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                           e.stopPropagation();
                           onSelectTournament(tourney.id, 'wizard');
                         }}
-                        className="p-1.5 rounded text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)] transition-colors"
+                        className="px-2 py-1.5 rounded text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)] transition-colors flex items-center gap-1.5 text-xs font-semibold"
                         title="Configurar y Diseñar Torneo"
                       >
                         <Settings className="w-3.5 h-3.5" />
+                        <span className="hidden md:inline">Configurar</span>
                       </button>
 
                       <button
@@ -484,6 +503,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                 <div className="w-8 h-8 rounded-lg bg-[var(--cobalto)]/20 border border-[var(--cobalto)]/40 flex items-center justify-center text-[var(--cobalto)] font-bold text-sm">
                   🏆
                 </div>
+
                 <div>
                   <h2 id="create-tournament-title" className="text-sm font-bold tracking-tight text-[var(--hueso)] font-display">
                     Crear Nuevo Torneo de Beyblade X
@@ -499,6 +519,28 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
               >
                 <X className="w-4 h-4" />
               </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-1 px-6 pt-4">
+              {[
+                ['1', 'Básico'],
+                ['2', 'Formato'],
+                ['3', 'Reglas y resumen'],
+              ].map(([step, label]) => (
+                <button
+                  key={step}
+                  type="button"
+                  onClick={() => setCreationStep(Number(step) as 1 | 2 | 3)}
+                  className={`rounded-lg border px-2 py-2 text-left transition-colors ${
+                    creationStep === Number(step)
+                      ? 'border-[var(--cobalto)] bg-[var(--cobalto)]/15 text-[var(--hueso)]'
+                      : 'border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)]'
+                  }`}
+                >
+                  <span className="block text-[10px] font-black">{step}</span>
+                  <span className="block text-[10px] font-semibold">{label}</span>
+                </button>
+              ))}
             </div>
 
             {formError && (
@@ -545,7 +587,38 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                 />
               </div>
 
+              <div className="rounded-xl border border-[var(--cobalto)]/40 bg-[var(--cobalto)]/10 p-3">
+                <div className="text-[10px] font-black uppercase tracking-wide text-[var(--cobalto)]">
+                  Resumen de creación
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-[var(--hueso)]">
+                  <span>Formato: <strong>{getFormatLabel(newFormat)}</strong></span>
+                  <span>Etapas: <strong>{newStageStructure === 'two_stage' ? '2' : '1'}</strong></span>
+                  <span>Cupo: <strong>{newMaxParticipants} bladers</strong></span>
+                  <span>Meta final: <strong>{newPointsFinal} pts</strong></span>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  {(newStageStructure === 'two_stage'
+                    ? ['Registro', 'Etapa regular', 'Playoffs']
+                    : [getFormatLabel(newFormat)]
+                  ).map((stage, index) => (
+                    <React.Fragment key={`${stage}-${index}`}>
+                      {index > 0 && <span className="text-[var(--acero)]">→</span>}
+                      <span className="rounded-md bg-[var(--grafito)] px-2 py-1 text-[10px] font-bold text-[var(--hueso)]">
+                        {stage}
+                      </span>
+                    </React.Fragment>
+                  ))}
+                </div>
+                <p className="mt-2 text-[10px] text-[var(--acero)]">
+                  Podrás ajustar etapas y desempates desde Configuración antes de iniciar la competición.
+                </p>
+              </div>
+
               {/* Formato del Torneo */}
+              <div className="border-t border-[var(--costura)] pt-3">
+                <div className="text-[10px] font-black uppercase tracking-wide text-[var(--acero)]">Paso 2 · Formato y etapas</div>
+              </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-[var(--acero)] block">
                   Formato de Competición *
@@ -707,7 +780,11 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
               </div>
 
               {/* Metas de Puntos */}
-              <div className="p-3 bg-[var(--grafito)] rounded-[var(--r-control)] border border-[var(--costura)] space-y-2">
+              <details open className="rounded-[var(--r-control)] border border-[var(--costura)] bg-[var(--grafito)]">
+                <summary className="cursor-pointer px-3 py-2 text-[10px] font-black uppercase tracking-wide text-[var(--acero)]">
+                  Paso 3 · Reglas y configuración avanzada
+                </summary>
+                <div className="p-3 border-t border-[var(--costura)] space-y-2">
                 <div className="text-xs font-bold text-[var(--hueso)]">
                   Puntos para Ganar el Match (WBO Ruleset):
                 </div>
@@ -745,8 +822,9 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                       className="w-full text-center text-xs font-bold border border-[var(--costura)] rounded p-1.5 bg-[var(--chasis)] text-[var(--hueso)]"
                     />
                   </div>
-                </div>
-              </div>
+                  </div>
+                  </div>
+                </details>
 
               {/* Buttons */}
               <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-[var(--costura)]">
