@@ -66,7 +66,7 @@ async function startServer() {
         }
       },
     }));
-    app.get('*', (_req, res) => {
+    app.use((_req, res) => {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.sendFile(path.resolve(distPath, 'index.html'));
     });

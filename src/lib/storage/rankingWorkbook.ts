@@ -1,4 +1,4 @@
-import readXlsxFile, { readSheetNames } from 'read-excel-file';
+import readXlsxFile, { type Sheet } from 'read-excel-file/browser';
 import { BladerRanking, HallOfFameEntry } from '../../types/rankings';
 
 export interface RankingWorkbookData {
@@ -26,11 +26,11 @@ const number = (row: Record<string, unknown>, rowNumber: number, label: string, 
   return parsed;
 };
 
-const sheetRows = async (file: File, sheetNames: string[], preferredNames: string[]) => {
-  const sheetName =
-    sheetNames.find((name) => preferredNames.includes(name.trim().toLowerCase())) || sheetNames[0];
-  if (!sheetName) return [];
-  const rows = await readXlsxFile(file, { sheet: sheetName });
+const sheetRows = (sheets: Sheet[], preferredNames: string[]) => {
+  const selectedSheet =
+    sheets.find(({ sheet }) => preferredNames.includes(sheet.trim().toLowerCase())) || sheets[0];
+  if (!selectedSheet) return [];
+  const rows = selectedSheet.data;
   if (rows.length === 0) return [];
   const headers = rows[0].map((header) => String(header ?? '').trim());
   return rows.slice(1).map((row) =>
@@ -49,14 +49,17 @@ export async function parseRankingWorkbook(file: File): Promise<RankingWorkbookD
     throw new Error('El archivo de rankings no puede superar 10 MB.');
   }
 
-  const sheetNames = await readSheetNames(file);
-  const rankingRows = await sheetRows(file, sheetNames, ['rankings', 'ranking', 'bladers', 'bladers rankings']);
+  const sheets = await readXlsxFile(file);
+  const sheetNames = sheets.map(({ sheet }) => sheet);
+  const rankingRows = sheetRows(sheets, ['rankings', 'ranking', 'bladers', 'bladers rankings']);
   const hallOfFameSheet = sheetNames.find((name) =>
     ['halloffame', 'hall of fame', 'salon de la fama', 'salón de la fama'].includes(
       name.trim().toLowerCase()
     )
   );
-  const hallOfFameRows = hallOfFameSheet ? await sheetRows(file, sheetNames, [hallOfFameSheet.toLowerCase()]) : [];
+  const hallOfFameRows = hallOfFameSheet
+    ? sheetRows(sheets, [hallOfFameSheet.toLowerCase()])
+    : [];
 
   const rankings = rankingRows
     .map((row, index) => {
