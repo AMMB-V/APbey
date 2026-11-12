@@ -95,4 +95,28 @@ describe('computeStandings', () => {
     const standings = computeStandings(matches, fourParticipants, ['median_buchholz', 'seed']);
     expect(standings.find((row) => row.participantId === 'p1')?.medianBuchholz).toBe(3);
   });
+
+  it('applies configurable match, set and bye points', () => {
+    const matches = [
+      {
+        ...completedMatch('m1', 'p1', 'p2', 'p1', 4, 2),
+        sets1: 2,
+        sets2: 1,
+      },
+      {
+        ...completedMatch('bye', 'p3', 'p1', 'p3', 0, 0),
+        isBye: true,
+        participant2Id: null,
+      },
+    ];
+
+    const standings = computeStandings(matches, participants, ['points', 'seed'], 2, {
+      pointsPerMatchWin: 2,
+      pointsPerSetWin: 0.5,
+      pointsPerBye: 1,
+    });
+
+    expect(standings.find((row) => row.participantId === 'p1')?.points).toBe(3);
+    expect(standings.find((row) => row.participantId === 'p3')?.points).toBe(1);
+  });
 });

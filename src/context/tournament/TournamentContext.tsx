@@ -1743,7 +1743,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
     } else if (stage.type === 'swiss') {
       const sw = generateSwiss(stage.tournamentId, stage.id, tParts, {
-        roundsCount: stage.config.swissRounds || 3,
+        tiebreakers: stage.config.tiebreakers,
+        scoring: stage.config,
       });
 
       setRounds(prev => {
@@ -1828,7 +1829,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       stageId,
       stageRounds,
       stageParticipants,
-      stageMatches
+      stageMatches,
+      {
+        tiebreakers: stage.config.tiebreakers,
+        scoring: stage.config,
+      }
     );
     const updatedRounds = [...rounds, next.round];
     const updatedMatches = [...matches, ...next.matches];
@@ -1925,6 +1930,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const updateStage = async (stageId: string, updates: Partial<Stage>) => {
+    const existingStage = stages.find((stage) => stage.id === stageId);
+    if (!existingStage) throw new Error('La etapa no existe.');
+    if (existingStage.status !== 'pending') {
+      throw new Error('La configuración de una etapa iniciada ya no puede modificarse.');
+    }
+
     let targetStage: Stage | undefined;
     setStages(prev => {
       const updated = prev.map(s => {
@@ -2019,6 +2030,28 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const updateStageConfig = async (stageId: string, configUpdates: Partial<StageConfig>) => {
+    const existingStage = stages.find((stage) => stage.id === stageId);
+    if (!existingStage) throw new Error('La etapa no existe.');
+    if (existingStage.status !== 'pending') {
+      throw new Error('La configuración de una etapa iniciada ya no puede modificarse.');
+    }
+
+    const numericConfig = [
+      configUpdates.pointsPerMatchWin,
+      configUpdates.pointsPerMatchDraw,
+      configUpdates.pointsPerSetWin,
+      configUpdates.pointsPerBye,
+    ];
+    if (numericConfig.some((value) => value !== undefined && (!Number.isFinite(value) || value < 0))) {
+      throw new Error('Los puntos de clasificación deben ser números finitos no negativos.');
+    }
+    if (
+      configUpdates.swissRounds !== undefined &&
+      (!Number.isInteger(configUpdates.swissRounds) || configUpdates.swissRounds < 1 || configUpdates.swissRounds > 20)
+    ) {
+      throw new Error('El Sistema Suizo debe tener entre 1 y 20 rondas.');
+    }
+
     let targetStage: Stage | undefined;
     setStages(prev => {
       const updated = prev.map(s => {

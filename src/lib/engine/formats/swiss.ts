@@ -1,4 +1,4 @@
-import { Match, Participant, Round } from '../../../types/tournament';
+import { Match, Participant, Round, StandingsScoringConfig, TiebreakerCriteria } from '../../../types/tournament';
 import { computeStandings } from '../tiebreakers';
 import { createEntityId } from '../../storage/entityIds';
 
@@ -12,7 +12,11 @@ export function generateSwissRound(
   stageId: string,
   roundNumber: number,
   participants: Participant[],
-  previousMatches: Match[]
+  previousMatches: Match[],
+  options: {
+    tiebreakers?: TiebreakerCriteria[];
+    scoring?: StandingsScoringConfig;
+  } = {}
 ): SwissRoundResult {
   const roundId = createEntityId();
   const round: Round = {
@@ -40,7 +44,13 @@ export function generateSwissRound(
   }
 
   // Get current standings to pair by record
-  const standings = computeStandings(previousMatches, participants, ['points', 'median_buchholz', 'point_diff', 'seed']);
+  const standings = computeStandings(
+    previousMatches,
+    participants,
+    options.tiebreakers || ['points', 'median_buchholz', 'point_diff', 'seed'],
+    2,
+    options.scoring
+  );
   const availableParticipants = standings.map((s) => s.participant);
 
   const matches: Match[] = [];
@@ -138,9 +148,12 @@ export function generateSwiss(
   tournamentId: string,
   stageId: string,
   participants: Participant[],
-  _options?: { roundsCount?: number }
+  options?: {
+    tiebreakers?: TiebreakerCriteria[];
+    scoring?: StandingsScoringConfig;
+  }
 ): { rounds: Round[]; matches: Match[] } {
-  const round1 = generateSwissRound(tournamentId, stageId, 1, participants, []);
+  const round1 = generateSwissRound(tournamentId, stageId, 1, participants, [], options);
   return {
     rounds: [round1.round],
     matches: round1.matches,
@@ -152,7 +165,11 @@ export function generateNextSwissRound(
   stageId: string,
   previousRounds: Round[],
   participants: Participant[],
-  previousMatches: Match[]
+  previousMatches: Match[],
+  options?: {
+    tiebreakers?: TiebreakerCriteria[];
+    scoring?: StandingsScoringConfig;
+  }
 ): SwissRoundResult {
   const nextRoundNumber = previousRounds
     .filter((round) => round.stageId === stageId && round.bracket === 'swiss')
@@ -167,6 +184,7 @@ export function generateNextSwissRound(
     stageId,
     nextRoundNumber,
     participants,
-    previousMatches.filter((match) => match.stageId === stageId)
+    previousMatches.filter((match) => match.stageId === stageId),
+    options
   );
 }
