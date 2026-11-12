@@ -51,6 +51,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
   const [newName, setNewName] = useState('');
   const [newFormat, setNewFormat] = useState<StageType>('group_stage');
   const [newStageStructure, setNewStageStructure] = useState<StageStructure>('two_stage');
+  const [newSecondFormat, setNewSecondFormat] = useState<StageType>('single_elimination');
   const [newVenue, setNewVenue] = useState('Arena Beyblade');
   const [newCountry, setNewCountry] = useState('PA');
   const [newMaxParticipants, setNewMaxParticipants] = useState<number>(16);
@@ -89,6 +90,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
     setNewSwissRounds(3);
     setNewFormat('group_stage');
     setNewStageStructure('two_stage');
+    setNewSecondFormat('single_elimination');
   };
 
   // Handle template selection to pre-fill parameters
@@ -177,7 +179,17 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
         finishPoints: templateSource?.finishPoints,
       },
       newFormat,
-      configuredStageConfig
+      configuredStageConfig,
+      newStageStructure === 'two_stage'
+        ? {
+            type: newSecondFormat,
+            name: newSecondFormat === 'single_elimination' ? 'Playoffs' : undefined,
+            config: {
+              stageStructure: 'two_stage',
+              tiebreakers: ['points', 'point_diff', 'seed'] as const,
+            },
+          }
+        : undefined
     );
 
     closeCreateModal();
@@ -552,7 +564,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
             {/* Form */}
             <form onSubmit={(e) => handleCreateSubmit(e, 'participants')} className="p-6 space-y-4">
               {/* Plantilla de Configuración */}
-              <div className="space-y-1">
+              <div className={`space-y-1 ${creationStep === 1 ? '' : 'hidden'}`}>
                 <label className="text-xs font-semibold text-[var(--acero)] block">
                   Cargar desde Plantilla Existente (Opcional)
                 </label>
@@ -587,7 +599,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                 />
               </div>
 
-              <div className="rounded-xl border border-[var(--cobalto)]/40 bg-[var(--cobalto)]/10 p-3">
+              <div className={`rounded-xl border border-[var(--cobalto)]/40 bg-[var(--cobalto)]/10 p-3 ${creationStep === 3 ? '' : 'hidden'}`}>
                 <div className="text-[10px] font-black uppercase tracking-wide text-[var(--cobalto)]">
                   Resumen de creación
                 </div>
@@ -616,10 +628,10 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
               </div>
 
               {/* Formato del Torneo */}
-              <div className="border-t border-[var(--costura)] pt-3">
+              <div className={`border-t border-[var(--costura)] pt-3 ${creationStep === 2 ? '' : 'hidden'}`}>
                 <div className="text-[10px] font-black uppercase tracking-wide text-[var(--acero)]">Paso 2 · Formato y etapas</div>
               </div>
-              <div className="space-y-1">
+              <div className={`space-y-1 ${creationStep === 2 ? '' : 'hidden'}`}>
                 <label className="text-xs font-semibold text-[var(--acero)] block">
                   Formato de Competición *
                 </label>
@@ -679,7 +691,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
               </div>
 
               {/* Cantidad de etapas */}
-              <fieldset className="space-y-2">
+              <fieldset className={`space-y-2 ${creationStep === 2 ? '' : 'hidden'}`}>
                 <legend className="text-xs font-semibold text-[var(--acero)]">
                   Tipo de Torneo *
                 </legend>
@@ -727,7 +739,36 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                 </p>
               </fieldset>
 
-              {newFormat === 'swiss' && (
+              {newStageStructure === 'two_stage' && creationStep === 2 && (
+                <fieldset className="space-y-2 rounded-xl border border-[var(--cobalto)]/40 bg-[var(--cobalto)]/10 p-3">
+                  <legend className="text-xs font-bold text-[var(--hueso)]">Formato de la segunda etapa</legend>
+                  <p className="text-[10px] text-[var(--acero)]">
+                    Define ahora qué ocurre después de la fase inicial. Podrás ajustar sus reglas antes de iniciar el torneo.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {([
+                      ['single_elimination', 'Playoffs directos'],
+                      ['double_elimination', 'Doble eliminación'],
+                      ['swiss', 'Suizo final'],
+                    ] as const).map(([type, label]) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setNewSecondFormat(type)}
+                        className={`rounded-lg border p-3 text-left text-xs font-bold ${
+                          newSecondFormat === type
+                            ? 'border-[var(--cobalto)] bg-[var(--cobalto)]/20 text-[var(--hueso)]'
+                            : 'border-[var(--costura)] bg-[var(--grafito)] text-[var(--acero)]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+
+              {newFormat === 'swiss' && creationStep === 2 && (
                 <div className="p-3 bg-[var(--grafito)] rounded-[var(--r-control)] border border-[var(--costura)] space-y-2">
                   <label htmlFor="new-swiss-rounds" className="text-xs font-semibold text-[var(--hueso)] block">
                     Rondas del Sistema Suizo
@@ -748,7 +789,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
               )}
 
               {/* Sede y País */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${creationStep === 1 ? '' : 'hidden'}`}>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-[var(--acero)] block">
                     Sede / Local
@@ -780,7 +821,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
               </div>
 
               {/* Metas de Puntos */}
-              <details open className="rounded-[var(--r-control)] border border-[var(--costura)] bg-[var(--grafito)]">
+              <details open className={`rounded-[var(--r-control)] border border-[var(--costura)] bg-[var(--grafito)] ${creationStep === 3 ? '' : 'hidden'}`}>
                 <summary className="cursor-pointer px-3 py-2 text-[10px] font-black uppercase tracking-wide text-[var(--acero)]">
                   Paso 3 · Reglas y configuración avanzada
                 </summary>
