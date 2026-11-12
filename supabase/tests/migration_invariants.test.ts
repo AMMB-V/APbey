@@ -22,6 +22,10 @@ const tournamentDeletionMigrationPath = resolve(
   process.cwd(),
   'supabase/migrations/20261112000002_fix_tournament_delete_dependencies.sql'
 );
+const tournamentSelfReferenceDeletionMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20261112000003_fix_tournament_delete_self_references.sql'
+);
 
 describe('audit follow-up migration', () => {
   it('exists and contains the production-critical RPCs', () => {
@@ -85,5 +89,15 @@ describe('audit follow-up migration', () => {
       sql.indexOf('delete from public.participants')
     );
     expect(sql).toContain('grant execute on function public.delete_tournament(uuid) to authenticated');
+  });
+
+  it('clears match self-references before deleting tournament matches', () => {
+    const sql = readFileSync(tournamentSelfReferenceDeletionMigrationPath, 'utf8');
+
+    expect(sql).toContain('set next_match_winner_id = null');
+    expect(sql).toContain('next_match_loser_id = null');
+    expect(sql.indexOf('update public.matches')).toBeLessThan(
+      sql.indexOf('delete from public.matches')
+    );
   });
 });

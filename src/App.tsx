@@ -272,7 +272,7 @@ function TournamentApp() {
       <main id="main-content" tabIndex={-1} className="grow min-w-0 max-w-screen-2xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 outline-hidden">
         <h1 className="sr-only">{VIEW_TITLES[activeTab] || 'Torneos de Beyblade X'}</h1>
         {/* Breadcrumbs & Active Tournament Bar */}
-        <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-[var(--acero)] bg-[var(--chasis)] border border-[var(--costura)] px-3 sm:px-4 py-2.5 rounded-2xl shadow-xs gap-2 sm:gap-3">
+        <div className="mb-4 space-y-3 text-xs text-[var(--acero)] bg-[var(--chasis)] border border-[var(--costura)] px-3 sm:px-4 py-2.5 rounded-2xl shadow-xs">
           <div className="flex items-center gap-2">
             <Trophy className="w-4 h-4 text-amber-400 shrink-0" aria-hidden="true" />
             {activeTournament ? (
@@ -297,7 +297,7 @@ function TournamentApp() {
           {activeTournament && (
             <nav
               aria-label="Navegación del torneo"
-              className="mb-5 flex items-center gap-1 overflow-x-auto rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-1.5"
+              className="mb-5 flex w-full flex-wrap items-center gap-1 rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-1.5"
             >
               {[
                 { id: 'overview' as const, label: 'Resumen', icon: LayoutDashboard },
