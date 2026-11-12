@@ -908,27 +908,31 @@ export const TournamentWizard: React.FC = () => {
             <button
               onClick={async () => {
                 if (!activeTournament || !activeStage) return;
-                await updateStageConfig(activeStage.id, {
-                  stageStructure,
-                  pointsPerMatchWin,
-                  pointsPerMatchDraw,
-                  pointsPerSetWin,
-                  pointsPerBye,
-                  grandFinalType,
-                  advanceCount,
-                  groupSize,
-                  swissRounds,
-                });
-                await updateStage(activeStage.id, {
-                  bestOf,
-                  pointsToWin,
-                });
-                updateTournament(activeTournament.id, {
-                  pointsToWinGroup: pointsGroup,
-                  pointsToWinPlayoffs: pointsPlayoffs,
-                  pointsToWinFinal: pointsFinal,
-                });
-                showSuccess('Parámetros de etapa y umbrales de puntos actualizados.');
+                try {
+                  await updateStageConfig(activeStage.id, {
+                    stageStructure,
+                    pointsPerMatchWin,
+                    pointsPerMatchDraw,
+                    pointsPerSetWin,
+                    pointsPerBye,
+                    grandFinalType,
+                    advanceCount,
+                    groupSize,
+                    swissRounds,
+                  });
+                  await updateStage(activeStage.id, {
+                    bestOf,
+                    pointsToWin,
+                  });
+                  updateTournament(activeTournament.id, {
+                    pointsToWinGroup: pointsGroup,
+                    pointsToWinPlayoffs: pointsPlayoffs,
+                    pointsToWinFinal: pointsFinal,
+                  });
+                  showSuccess('Parámetros de etapa y umbrales de puntos actualizados.');
+                } catch (error) {
+                  setErrorMsg(error instanceof Error ? error.message : 'No se pudo actualizar la configuración de la etapa.');
+                }
               }}
               className="px-4 py-2 text-xs font-bold text-white bg-neutral-900 hover:bg-neutral-800 rounded-lg transition-colors"
             >

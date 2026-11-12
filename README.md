@@ -28,6 +28,7 @@ Plataforma web para organizar y operar torneos de **Beyblade X**. APbey combina 
   - Swiss;
   - fase de grupos.
 - Configurar `best of`, tamaño de grupos, cantidad de clasificados, tercer lugar, gran final y criterios de desempate.
+- Configurar la cantidad de rondas del Sistema Suizo desde la creación y desde el diseñador de etapas.
 - Guardar la configuración de etapas en Supabase cuando existe una sesión autorizada.
 
 ### Participantes, registro y siembra
@@ -75,6 +76,7 @@ El motor está separado de React y de Supabase en `src/lib/engine`. Esto permite
 #### Swiss
 
 - Genera la primera ronda.
+- Permite configurar entre 1 y 20 rondas; cada ronda posterior se habilita cuando la anterior está completa.
 - Empareja participantes por puntuación y siembra.
 - Evita revancha cuando existe una pareja alternativa.
 - Asigna `bye` cuando el número de participantes es impar.
@@ -494,8 +496,8 @@ El script usa `supabase.cmd` y `ExecutionPolicy Bypass` sólo para ese proceso. 
 | Eliminación simple | Implementado y probado parcialmente | Más casos de integración y avance persistido. |
 | Eliminación doble | Parcial | Cruces reales del losers bracket, propagación y reset elegible. |
 | Round robin | Implementado | Más cobertura de empates, byes y dos vueltas. |
-| Swiss | Parcial avanzado | Cobertura completa de emparejamientos, Buchholz y revancha. |
-| Desempates | Implementado en motor | Validación de reglas de negocio y casos oficiales adicionales. |
+| Swiss | Avanzado | Rondas configurables, emparejamiento por puntuación, BYEs y prevención de revancha; faltan escenarios E2E. |
+| Desempates | Implementado en motor | Buchholz, Median-Buchholz y puntos configurables se aplican al cálculo; faltan casos oficiales adicionales. |
 | Marcador local | Implementado | Trasladar todo el flujo crítico a operaciones remotas verificadas. |
 | Batallas y penalizaciones RPC | Avanzado | Pruebas multi-cliente con cuentas reales. |
 | Undo | Parcial avanzado | Permisos, motivo obligatorio, auditoría completa y reapertura autorizada. |
