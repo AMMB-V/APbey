@@ -11,7 +11,7 @@ export function generateDoubleElimination(
   tournamentId: string,
   stageId: string,
   participants: Participant[],
-  options: { grandFinalReset?: boolean } = { grandFinalReset: true }
+  { grandFinalReset = true }: { grandFinalReset?: boolean } = {}
 ): DoubleEliminationResult {
   // Use single elimination as the base for the Winners Bracket
   const winnersResult = generateSingleElimination(tournamentId, stageId, participants, { thirdPlaceMatch: false });
@@ -29,9 +29,20 @@ export function generateDoubleElimination(
   }
   matches.push(...winnersResult.matches);
 
-  // Generate Losers Bracket rounds (simplified & robust for tournament flow)
+  // Generate the standard alternating losers bracket:
+  // odd rounds receive losers from the winners bracket, while even rounds
+  // consolidate the previous losers round.
   const wbRoundsCount = winnersResult.rounds.length;
   const lbRoundsCount = Math.max(1, (wbRoundsCount - 1) * 2);
+  const winnersRoundMatches = new Map<number, Match[]>();
+  const losersRoundMatches = new Map<number, Match[]>();
+
+  for (const round of winnersResult.rounds) {
+    winnersRoundMatches.set(
+      round.number,
+      winnersResult.matches.filter((match) => match.roundId === round.id)
+    );
+  }
 
   for (let r = 1; r <= lbRoundsCount; r++) {
     const lbRoundId = newId();
@@ -43,9 +54,13 @@ export function generateDoubleElimination(
       name: `LB - Ronda ${r}`,
     });
 
-    const matchCount = Math.max(1, Math.floor(participants.length / Math.pow(2, Math.floor((r + 1) / 2) + 1)));
+    const matchCount = Math.max(
+      1,
+      Math.floor((Math.pow(2, wbRoundsCount - 1)) / Math.pow(2, Math.ceil(r / 2)))
+    );
+    const roundMatches: Match[] = [];
     for (let m = 0; m < matchCount; m++) {
-      matches.push({
+      roundMatches.push({
         id: newId(),
         tournamentId,
         stageId,
@@ -66,6 +81,31 @@ export function generateDoubleElimination(
         nextMatchLoserId: null,
         version: 1,
       });
+    }
+    losersRoundMatches.set(r, roundMatches);
+    matches.push(...roundMatches);
+  }
+
+  // Winners of the losers bracket advance through its alternating rounds.
+  for (let r = 1; r < lbRoundsCount; r++) {
+    const currentMatches = losersRoundMatches.get(r) || [];
+    const nextMatches = losersRoundMatches.get(r + 1) || [];
+    for (let index = 0; index < currentMatches.length; index++) {
+      const nextIndex = r % 2 === 1 ? index : Math.floor(index / 2);
+      currentMatches[index].nextMatchWinnerId = nextMatches[nextIndex]?.id || null;
+    }
+  }
+
+  // Every winners-bracket loss enters the appropriate odd losers round.
+  // The winners-bracket final feeds the last losers round directly.
+  for (let wbRound = 1; wbRound <= wbRoundsCount; wbRound++) {
+    const currentMatches = winnersRoundMatches.get(wbRound) || [];
+    const targetRound = wbRound === wbRoundsCount ? lbRoundsCount : (wbRound * 2) - 1;
+    const targetMatches = losersRoundMatches.get(targetRound) || [];
+    for (let index = 0; index < currentMatches.length; index++) {
+      currentMatches[index].nextMatchLoserId = targetMatches[
+        wbRound === wbRoundsCount ? 0 : Math.floor(index / 2)
+      ]?.id || null;
     }
   }
 
@@ -102,8 +142,13 @@ export function generateDoubleElimination(
   };
   matches.push(gfMatch);
 
+  const winnersFinal = winnersRoundMatches.get(wbRoundsCount)?.[0];
+  const losersFinal = losersRoundMatches.get(lbRoundsCount)?.[0];
+  if (winnersFinal) winnersFinal.nextMatchWinnerId = gfMatch.id;
+  if (losersFinal) losersFinal.nextMatchWinnerId = gfMatch.id;
+
   // Optional Grand Finals Reset
-  if (options.grandFinalReset) {
+  if (grandFinalReset) {
     const gfResetMatch: Match = {
       id: newId(),
       tournamentId,

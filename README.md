@@ -388,6 +388,10 @@ La aplicación se sirve normalmente en `http://localhost:3000`. El health check 
 GET /api/health
 ```
 
+En producción responde `503` si `SUPABASE_URL` o `SUPABASE_ANON_KEY` no están configuradas,
+para evitar declarar saludable un despliegue que no puede persistir datos multiusuario.
+En desarrollo local puede responder `200` sin Supabase porque el modo local es intencional.
+
 Para una compilación de producción:
 
 ```powershell

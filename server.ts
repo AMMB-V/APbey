@@ -43,9 +43,15 @@ async function startServer() {
   });
 
   app.get('/api/health', (_req, res) => {
-    res.json({
-      status: 'ok',
+    const hasSupabaseConfiguration = Boolean(
+      process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY
+    );
+    const isReady = !isProduction || hasSupabaseConfiguration;
+
+    res.status(isReady ? 200 : 503).json({
+      status: isReady ? 'ok' : 'degraded',
       service: 'appbey-backend',
+      persistence: hasSupabaseConfiguration ? 'configured' : 'unconfigured',
       timestamp: new Date().toISOString(),
     });
   });

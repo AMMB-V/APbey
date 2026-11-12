@@ -194,11 +194,12 @@ create table penalties (
 create table audit_log (
   id bigint generated always as identity primary key,
   table_name text not null,
-  record_id uuid,
+  record_id text,
   action text not null,
   old_data jsonb,
   new_data jsonb,
   actor uuid,
+  note text,
   created_at timestamptz not null default now()
 );
 

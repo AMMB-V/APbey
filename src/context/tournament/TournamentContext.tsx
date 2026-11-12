@@ -2233,6 +2233,44 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
     }
 
+    // A grand-final reset is only required when the losers-bracket finalist
+    // defeats the undefeated winners-bracket finalist. If the winners-bracket
+    // finalist wins the first grand final, close the reset match as a bye so
+    // the tournament can complete instead of remaining permanently pending.
+    const updatedStage = stages.find((stage) => stage.id === updatedMatch.stageId);
+    const updatedRound = rounds.find((round) => round.id === updatedMatch.roundId);
+    if (
+      updatedMatch.status === 'completed' &&
+      updatedRound?.bracket === 'grand_final' &&
+      updatedMatch.position === 1 &&
+      updatedStage?.type === 'double_elimination'
+    ) {
+      const resetMatch = nextMatches.find(
+        (candidate) =>
+          candidate.roundId === updatedMatch.roundId &&
+          candidate.position === 2
+      );
+      if (resetMatch) {
+        const winnersBracketParticipantId = updatedMatch.participant1Id;
+        const resetParticipants = {
+          ...resetMatch,
+          participant1Id: updatedMatch.participant1Id,
+          participant2Id: updatedMatch.participant2Id,
+          isBye: updatedMatch.winnerId === winnersBracketParticipantId,
+          winnerId: updatedMatch.winnerId === winnersBracketParticipantId
+            ? winnersBracketParticipantId
+            : null,
+          status: updatedMatch.winnerId === winnersBracketParticipantId
+            ? 'completed' as const
+            : 'pending' as const,
+          version: resetMatch.version + 1,
+        };
+        nextMatches = nextMatches.map((candidate) =>
+          candidate.id === resetMatch.id ? resetParticipants : candidate
+        );
+      }
+    }
+
     const completion = getTournamentCompletionState(match.tournamentId, stages, nextMatches);
     const nextStages = completion?.tournamentComplete
       ? stages.map((currentStage) => (
