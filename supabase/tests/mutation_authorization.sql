@@ -104,6 +104,15 @@ select set_config(
 );
 
 do $$
+begin
+  raise notice 'mutation fixture auth=% referee=% match_referee=%',
+    auth.uid(),
+    (select referee_id from mutation_fixture),
+    (select referee_id from public.matches where id = (select match_id from mutation_fixture));
+end
+$$;
+
+do $$
 declare
   fixture mutation_fixture;
   first_result public.matches;
