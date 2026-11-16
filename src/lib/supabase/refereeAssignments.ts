@@ -18,10 +18,6 @@ export interface SupabaseSyncResult {
   sqlStatements?: string[];
 }
 
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
-
 export function generateSupabaseSQL(
   tournamentId: string,
   stageAssignments: Record<string, string | null>,
@@ -193,9 +189,9 @@ export async function persistRefereeAssignments(
     }
   }
 
-  const { error: auditError } = await supabase.from('audit_log').insert({
+  const { error: auditError } = await supabase.from('audit_logs').insert({
     table_name: 'tournament_referees',
-    record_id: isUuid(tournamentId) ? tournamentId : null,
+    record_id: tournamentId,
     action: 'update',
     actor,
   });

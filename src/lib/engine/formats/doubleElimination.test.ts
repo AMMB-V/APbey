@@ -59,4 +59,28 @@ describe('generateDoubleElimination', () => {
     expect(withoutReset.matches.filter((match) => match.roundId === withoutResetFinalRoundId)).toHaveLength(1);
     expect(withReset.matches.filter((match) => match.roundId === withResetFinalRoundId)).toHaveLength(2);
   });
+
+  it.each([2, 3, 5, 6, 8, 12])('keeps every non-final loss connected for %i players', (size) => {
+    const result = generateDoubleElimination(
+      'tournament-1',
+      'stage-1',
+      Array.from({ length: size }, (_, index) => participant(`p${index + 1}`, index + 1))
+    );
+    const winnersRounds = result.rounds.filter((round) => round.bracket === 'winners');
+    const losersRounds = result.rounds.filter((round) => round.bracket === 'losers');
+    const winnersMatches = result.matches.filter((match) =>
+      winnersRounds.some((round) => round.id === match.roundId)
+    );
+    const lastLosersRoundId = losersRounds[losersRounds.length - 1]?.id;
+
+    expect(winnersMatches
+      .filter((match) => match.roundId !== winnersRounds[winnersRounds.length - 1]?.id)
+      .every((match) => match.nextMatchLoserId)).toBe(true);
+    expect(winnersMatches
+      .filter((match) => match.roundId === winnersRounds[winnersRounds.length - 1]?.id)
+      .every((match) => match.nextMatchLoserId)).toBe(true);
+    expect(result.matches
+      .filter((match) => losersRounds.some((round) => round.id === match.roundId))
+      .every((match) => match.nextMatchWinnerId || match.roundId === lastLosersRoundId)).toBe(true);
+  });
 });

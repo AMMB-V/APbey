@@ -69,7 +69,7 @@ export function getMatchPointsToWin(
   tournament: Tournament,
   round?: Round
 ): number {
-  const isFinal = round?.bracket === 'grand_final' || round?.name.toLowerCase() === 'gran final';
+  const isFinal = round?.bracket === 'grand_final' || round?.name?.trim().toLowerCase() === 'gran final';
   const isPlayoff = stage.type === 'single_elimination' || stage.type === 'double_elimination';
 
   if (isFinal && tournament.pointsToWinFinal) {

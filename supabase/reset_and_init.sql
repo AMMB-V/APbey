@@ -202,15 +202,15 @@ create table penalties (
   created_at timestamptz not null default now()
 );
 
--- 13. TABLA AUDIT_LOG
-create table audit_log (
-  id bigint generated always as identity primary key,
+-- 13. TABLA AUDIT_LOGS
+create table audit_logs (
+  id uuid primary key default gen_random_uuid(),
   table_name text not null,
-  record_id text,
+  record_id text not null,
   action text not null,
+  actor text not null,
   old_data jsonb,
   new_data jsonb,
-  actor uuid,
   note text,
   created_at timestamptz not null default now()
 );
@@ -234,7 +234,7 @@ alter table rounds enable row level security;
 alter table matches enable row level security;
 alter table battles enable row level security;
 alter table penalties enable row level security;
-alter table audit_log enable row level security;
+alter table audit_logs enable row level security;
 
 -- FUNCIONES DE RLS
 create or replace function is_admin() returns boolean language sql stable security definer set search_path = public as $$
@@ -270,8 +270,173 @@ create policy tournaments_insert on tournaments for insert with check (is_organi
 create policy tournaments_update on tournaments for update using (manages_tournament(id)) with check (manages_tournament(id));
 create policy tournaments_delete on tournaments for delete using (manages_tournament(id));
 
+create policy tournament_finish_points_read on tournament_finish_points for select using (can_read_tournament(tournament_id));
+create policy tournament_finish_points_manage on tournament_finish_points for all
+  using (manages_tournament(tournament_id))
+  with check (manages_tournament(tournament_id));
+create policy tournament_referees_read on tournament_referees for select using (can_read_tournament(tournament_id));
+create policy tournament_referees_manage on tournament_referees for all
+  using (manages_tournament(tournament_id))
+  with check (manages_tournament(tournament_id));
+
+create policy participants_read on participants for select using (can_read_tournament(tournament_id));
+create policy participants_manage on participants for all
+  using (manages_tournament(tournament_id))
+  with check (manages_tournament(tournament_id));
+
+create policy stages_read on stages for select using (can_read_tournament(tournament_id));
+create policy stages_manage on stages for all
+  using (manages_tournament(tournament_id))
+  with check (manages_tournament(tournament_id));
+
+create policy groups_read on groups for select using (
+  exists (
+    select 1 from stages s
+    where s.id = stage_id and can_read_tournament(s.tournament_id)
+  )
+);
+create policy groups_manage on groups for all
+  using (
+    exists (
+      select 1 from stages s
+      where s.id = stage_id and manages_tournament(s.tournament_id)
+    )
+  )
+  with check (
+    exists (
+      select 1 from stages s
+      where s.id = stage_id and manages_tournament(s.tournament_id)
+    )
+  );
+
+create policy group_participants_read on group_participants for select using (
+  exists (
+    select 1
+    from groups g
+    join stages s on s.id = g.stage_id
+    where g.id = group_id and can_read_tournament(s.tournament_id)
+  )
+);
+create policy group_participants_manage on group_participants for all
+  using (
+    exists (
+      select 1
+      from groups g
+      join stages s on s.id = g.stage_id
+      where g.id = group_id and manages_tournament(s.tournament_id)
+    )
+  )
+  with check (
+    exists (
+      select 1
+      from groups g
+      join stages s on s.id = g.stage_id
+      where g.id = group_id and manages_tournament(s.tournament_id)
+    )
+  );
+
+create policy rounds_read on rounds for select using (
+  exists (
+    select 1 from stages s
+    where s.id = stage_id and can_read_tournament(s.tournament_id)
+  )
+);
+create policy rounds_manage on rounds for all
+  using (
+    exists (
+      select 1 from stages s
+      where s.id = stage_id and manages_tournament(s.tournament_id)
+    )
+  )
+  with check (
+    exists (
+      select 1 from stages s
+      where s.id = stage_id and manages_tournament(s.tournament_id)
+    )
+  );
+
 create policy matches_read on matches for select using (can_read_tournament(tournament_id));
 create policy matches_manage on matches for all using (manages_tournament(tournament_id)) with check (manages_tournament(tournament_id));
+create policy matches_referee_update on matches for update
+  using (referees_match(id) or manages_tournament(tournament_id))
+  with check (referees_match(id) or manages_tournament(tournament_id));
+
+create policy battles_read on battles for select using (
+  exists (
+    select 1 from matches m
+    where m.id = match_id and can_read_tournament(m.tournament_id)
+  )
+);
+create policy battles_insert on battles for insert with check (
+  exists (
+    select 1 from matches m
+    where m.id = match_id and (referees_match(m.id) or manages_tournament(m.tournament_id))
+  )
+);
+create policy battles_delete on battles for delete using (
+  exists (
+    select 1 from matches m
+    where m.id = match_id and (referees_match(m.id) or manages_tournament(m.tournament_id))
+  )
+);
+
+create policy penalties_read on penalties for select using (
+  exists (
+    select 1 from matches m
+    where m.id = match_id and can_read_tournament(m.tournament_id)
+  )
+);
+create policy penalties_insert on penalties for insert with check (
+  exists (
+    select 1 from matches m
+    where m.id = match_id and (referees_match(m.id) or manages_tournament(m.tournament_id))
+  )
+);
+
+create policy audit_logs_admin_read on audit_logs for select to authenticated using (is_admin());
+create policy audit_logs_authenticated_insert on audit_logs for insert to authenticated
+  with check (auth.uid() is not null and actor = auth.uid()::text);
+
+create or replace function record_audit_log(
+  p_table_name text,
+  p_record_id text,
+  p_action text,
+  p_note text default null,
+  p_old_data jsonb default null,
+  p_new_data jsonb default null
+)
+returns audit_logs
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  result audit_logs;
+begin
+  if auth.uid() is null then raise exception 'authentication_required'; end if;
+  insert into audit_logs (table_name, record_id, action, actor, note, old_data, new_data)
+  values (p_table_name, p_record_id, p_action, auth.uid()::text, p_note, p_old_data, p_new_data)
+  returning * into result;
+  return result;
+end;
+$$;
+
+create or replace function list_admin_audit_logs()
+returns setof audit_logs
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not is_admin() then raise exception 'forbidden'; end if;
+  return query select * from audit_logs order by created_at desc limit 500;
+end;
+$$;
+
+revoke all on function record_audit_log(text, text, text, text, jsonb, jsonb) from public, anon;
+grant execute on function record_audit_log(text, text, text, text, jsonb, jsonb) to authenticated;
+revoke all on function list_admin_audit_logs() from public, anon;
+grant execute on function list_admin_audit_logs() to authenticated;
 
 -- 15. FUNCIÓN TRANSACCIONAL: record_battle
 create or replace function record_battle(
@@ -379,7 +544,7 @@ set search_path = public
 as $$
 declare
   v_match matches%rowtype;
-  v_penalty_id uuid;
+  v_penalty_id uuid := gen_random_uuid();
   v_new_version int;
 begin
   select * into v_match from matches where id = p_match_id for update;
@@ -397,10 +562,10 @@ begin
 
   v_new_version := v_match.version + 1;
   insert into penalties (
-    match_id, participant_id, card, is_foul, points_awarded, awarded_to, reason, issued_by, created_at
+    id, match_id, participant_id, card, is_foul, points_awarded, awarded_to, reason, issued_by, created_at
   ) values (
-    p_match_id, p_offender_id, p_card, p_is_foul, p_points_awarded, p_awarded_to, p_reason, p_issued_by, now()
-  ) returning id into v_penalty_id;
+    v_penalty_id, p_match_id, p_offender_id, p_card, p_is_foul, p_points_awarded, p_awarded_to, p_reason, p_issued_by, now()
+  );
 
   if p_points_awarded > 0 and p_awarded_to is not null then
     if p_awarded_to = v_match.participant1_id then
@@ -446,4 +611,4 @@ grant execute on function update_my_profile(text) to authenticated;
 
 -- Realtime publication updates
 alter publication supabase_realtime add table invitations;
-alter publication supabase_realtime add table audit_log;
+alter publication supabase_realtime add table audit_logs;

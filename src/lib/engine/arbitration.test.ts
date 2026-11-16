@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyBattle, applyPenalty, undoLastBattle } from './arbitration';
+import { applyBattle, applyPenalty, getMatchPointsToWin, undoLastBattle } from './arbitration';
 import { Battle, Match, Penalty, Round, Stage, Tournament } from '../../types/tournament';
 
 const tournament: Tournament = {
@@ -145,6 +145,24 @@ describe('arbitration engine', () => {
     expect(first.updatedMatch.score1).toBe(3);
     expect(first.updatedMatch.status).toBe('in_progress');
     expect(first.updatedMatch.winnerId).toBeNull();
+  });
+
+  it('only uses the final target for an explicitly identified grand final', () => {
+    const playoffStage: Stage = {
+      ...stage,
+      type: 'double_elimination',
+      pointsToWin: tournament.pointsToWinPlayoffs,
+    };
+    const finalRound: Round = {
+      id: 'round-final',
+      stageId: playoffStage.id,
+      number: 1,
+      bracket: 'grand_final',
+      name: 'Gran Final',
+    };
+
+    expect(getMatchPointsToWin(match(), playoffStage, tournament)).toBe(tournament.pointsToWinPlayoffs);
+    expect(getMatchPointsToWin(match(), playoffStage, tournament, finalRound)).toBe(tournament.pointsToWinFinal);
   });
 
   it('records a draw without assigning a scorer or points', () => {
