@@ -78,11 +78,11 @@ begin
 
   insert into public.matches (
     id, tournament_id, stage_id, round_id, position,
-    participant1_id, participant2_id, status, version
+    participant1_id, participant2_id, referee_id, status, version
   )
   values (
     match_id, tournament_id, stage_id, round_id, 1,
-    participant_one_id, participant_two_id, 'pending', 1
+    participant_one_id, participant_two_id, referee_id, 'pending', 1
   );
 
   insert into mutation_fixture
@@ -241,21 +241,6 @@ $$;
 select ok(passed, test_name)
 from mutation_results
 order by test_name;
-
-select test_name, details
-from mutation_results
-where not passed
-order by test_name;
-
-do $$
-declare
-  result_row record;
-begin
-  for result_row in select test_name, passed, details from mutation_results order by test_name loop
-    raise notice 'mutation test %: passed=% details=%', result_row.test_name, result_row.passed, result_row.details;
-  end loop;
-end
-$$;
 
 select * from finish();
 rollback;
