@@ -120,6 +120,7 @@ begin
   insert into mutation_results
   values ('assigned_referee_can_record_battle', first_result.version = 2, 'First mutation accepted');
 exception when others then
+  raise notice 'assigned_referee_can_record_battle failed: %', sqlerrm;
   insert into mutation_results
   values ('assigned_referee_can_record_battle', false, sqlerrm);
 end
@@ -147,6 +148,7 @@ begin
     'Retry returned the original result without duplicating the battle'
   );
 exception when others then
+  raise notice 'battle_retry_is_idempotent failed: %', sqlerrm;
   insert into mutation_results
   values ('battle_retry_is_idempotent', false, sqlerrm);
 end
@@ -176,6 +178,7 @@ begin
     'Undo is authorized and transactional'
   );
 exception when others then
+  raise notice 'assigned_referee_can_undo failed: %', sqlerrm;
   insert into mutation_results
   values ('assigned_referee_can_undo', false, sqlerrm);
 end
@@ -201,6 +204,7 @@ begin
     'Undo retry returned the original result'
   );
 exception when others then
+  raise notice 'undo_retry_is_idempotent failed: %', sqlerrm;
   insert into mutation_results
   values ('undo_retry_is_idempotent', false, sqlerrm);
 end
