@@ -247,5 +247,15 @@ from mutation_results
 where not passed
 order by test_name;
 
+do $$
+declare
+  result_row record;
+begin
+  for result_row in select test_name, passed, details from mutation_results order by test_name loop
+    raise notice 'mutation test %: passed=% details=%', result_row.test_name, result_row.passed, result_row.details;
+  end loop;
+end
+$$;
+
 select * from finish();
 rollback;
