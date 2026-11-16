@@ -14,6 +14,13 @@ import {
   FinishType,
 } from '../../types/tournament';
 import { BladerRanking, HallOfFameEntry } from '../../types/rankings';
+import {
+  createMutationContext,
+  failureFromPersistenceError,
+  normalizePersistenceError,
+  PersistenceResult,
+  successFromPersistence,
+} from './contracts';
 
 export interface SupabaseSyncState {
   isConfigured: boolean;
@@ -858,35 +865,50 @@ export async function persistBattleToSupabase(
   battle: Battle,
   match: Match,
   expectedVersion = Math.max(1, match.version - 1)
-): Promise<{ success: boolean; message: string }> {
+): Promise<PersistenceResult> {
+  const mutation = createMutationContext('record_battle', battle.id);
   const supabase = getSupabaseClient();
   if (!supabase) {
-    return { success: false, message: 'Supabase no está configurado.' };
+    return failureFromPersistenceError(normalizePersistenceError(
+      new Error('Supabase no está configurado.'),
+      mutation.requestId
+    ));
   }
 
   try {
     const identity = await getAuthenticatedSupabaseUser();
-    if ('error' in identity) return { success: false, message: identity.error };
-    const { error } = await supabase.rpc('record_battle', {
+    if ('error' in identity) {
+      return failureFromPersistenceError(normalizePersistenceError(
+        new Error(identity.error),
+        mutation.requestId
+      ));
+    }
+    const { error } = await supabase.rpc('record_battle_idempotent', {
       p_match: battle.matchId,
       p_scorer: battle.scorerId || null,
       p_finish: battle.finish || null,
       p_expected_version: expectedVersion,
+      p_idempotency_key: mutation.idempotencyKey,
+      p_request_id: mutation.requestId,
     });
     if (error) {
+      const normalizedError = normalizePersistenceError(error, mutation.requestId);
       const lowerMessage = error.message.toLowerCase();
       const message = lowerMessage.includes('match_not_found')
         ? 'El match aún no existe en Supabase. Sincroniza el torneo completo y vuelve a intentar.'
         : lowerMessage.includes('version_conflict')
         ? 'El match cambió en otra sesión. Recarga el torneo antes de registrar otra batalla.'
-        : `No se pudo registrar la batalla de forma transaccional: ${error.message}`;
-      return { success: false, message };
+        : `No se pudo registrar la batalla de forma transaccional: ${error.message} (request ${mutation.requestId})`;
+      return failureFromPersistenceError({ ...normalizedError, message });
     }
-    return { success: true, message: 'Batalla registrada transaccionalmente en Supabase.' };
+    return successFromPersistence('Batalla registrada transaccionalmente en Supabase.', mutation.requestId);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Error desconocido de sincronización.';
     console.warn('[Supabase Realtime] No se pudo emitir mutación directa:', err);
-    return { success: false, message };
+    return failureFromPersistenceError(normalizePersistenceError(
+      err,
+      mutation.requestId,
+      'Error desconocido de sincronización.'
+    ));
   }
 }
 
@@ -894,16 +916,25 @@ export async function persistPenaltyToSupabase(
   penalty: Penalty,
   match: Match,
   expectedVersion = Math.max(1, match.version - 1)
-): Promise<{ success: boolean; message: string }> {
+): Promise<PersistenceResult> {
+  const mutation = createMutationContext('record_penalty', penalty.id);
   const supabase = getSupabaseClient();
   if (!supabase) {
-    return { success: false, message: 'Supabase no está configurado.' };
+    return failureFromPersistenceError(normalizePersistenceError(
+      new Error('Supabase no está configurado.'),
+      mutation.requestId
+    ));
   }
 
   try {
     const identity = await getAuthenticatedSupabaseUser();
-    if ('error' in identity) return { success: false, message: identity.error };
-    const { error } = await supabase.rpc('record_penalty', {
+    if ('error' in identity) {
+      return failureFromPersistenceError(normalizePersistenceError(
+        new Error(identity.error),
+        mutation.requestId
+      ));
+    }
+    const { error } = await supabase.rpc('record_penalty_idempotent', {
       p_match_id: penalty.matchId,
       p_offender_id: penalty.participantId,
       p_card: penalty.card,
@@ -913,53 +944,74 @@ export async function persistPenaltyToSupabase(
       p_reason: penalty.reason || null,
       p_issued_by: penalty.issuedBy,
       p_expected_version: expectedVersion,
+      p_idempotency_key: mutation.idempotencyKey,
+      p_request_id: mutation.requestId,
     });
     if (error) {
+      const normalizedError = normalizePersistenceError(error, mutation.requestId);
       const lowerMessage = error.message.toLowerCase();
       const message = lowerMessage.includes('conflicto') || lowerMessage.includes('version_conflict')
         ? 'El match cambió en otra sesión. Recarga el torneo antes de registrar la penalización.'
         : lowerMessage.includes('invalid_offender')
         ? 'El participante seleccionado no pertenece a este match.'
-        : `No se pudo registrar la penalización de forma transaccional: ${error.message}`;
-      return { success: false, message };
+        : `No se pudo registrar la penalización de forma transaccional: ${error.message} (request ${mutation.requestId})`;
+      return failureFromPersistenceError({ ...normalizedError, message });
     }
-    return { success: true, message: 'Penalización registrada transaccionalmente en Supabase.' };
+    return successFromPersistence('Penalización registrada transaccionalmente en Supabase.', mutation.requestId);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Error desconocido de sincronización.';
     console.warn('[Supabase] No se pudo emitir la penalización:', err);
-    return { success: false, message };
+    return failureFromPersistenceError(normalizePersistenceError(
+      err,
+      mutation.requestId,
+      'Error desconocido de sincronización.'
+    ));
   }
 }
 
 export async function undoLastBattleInSupabase(
   match: Match,
   expectedVersion = match.version
-): Promise<{ success: boolean; message: string }> {
+): Promise<PersistenceResult> {
+  const mutation = createMutationContext('undo_last_battle', `${match.id}:${expectedVersion}`);
   const supabase = getSupabaseClient();
   if (!supabase) {
-    return { success: false, message: 'Supabase no está configurado.' };
+    return failureFromPersistenceError(normalizePersistenceError(
+      new Error('Supabase no está configurado.'),
+      mutation.requestId
+    ));
   }
 
   try {
     const identity = await getAuthenticatedSupabaseUser();
-    if ('error' in identity) return { success: false, message: identity.error };
-    const { error } = await supabase.rpc('undo_last_battle', {
+    if ('error' in identity) {
+      return failureFromPersistenceError(normalizePersistenceError(
+        new Error(identity.error),
+        mutation.requestId
+      ));
+    }
+    const { error } = await supabase.rpc('undo_last_battle_idempotent', {
       p_match_id: match.id,
       p_expected_version: expectedVersion,
+      p_idempotency_key: mutation.idempotencyKey,
+      p_request_id: mutation.requestId,
     });
     if (error) {
+      const normalizedError = normalizePersistenceError(error, mutation.requestId);
       const lowerMessage = error.message.toLowerCase();
       const message = lowerMessage.includes('version_conflict')
         ? 'El match cambió en otra sesión. Recarga el torneo antes de deshacer la batalla.'
         : lowerMessage.includes('no_battle_to_undo')
         ? 'No hay una batalla confirmada para deshacer.'
-        : `No se pudo deshacer la batalla de forma transaccional: ${error.message}`;
-      return { success: false, message };
+        : `No se pudo deshacer la batalla de forma transaccional: ${error.message} (request ${mutation.requestId})`;
+      return failureFromPersistenceError({ ...normalizedError, message });
     }
-    return { success: true, message: 'Última batalla deshecha transaccionalmente en Supabase.' };
+    return successFromPersistence('Última batalla deshecha transaccionalmente en Supabase.', mutation.requestId);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Error desconocido de sincronización.';
     console.warn('[Supabase] No se pudo deshacer la batalla:', err);
-    return { success: false, message };
+    return failureFromPersistenceError(normalizePersistenceError(
+      err,
+      mutation.requestId,
+      'Error desconocido de sincronización.'
+    ));
   }
 }

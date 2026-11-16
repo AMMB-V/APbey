@@ -283,6 +283,10 @@ Cuando Supabase **está configurado**:
 - RLS determina qué datos puede leer o modificar cada sesión;
 - las mutaciones de torneo requieren una sesión activa y una hidratación remota disponible;
 - las batallas y penalizaciones usan control de versión;
+- las mutaciones críticas de arbitraje usan request IDs, envelopes de error
+  consistentes e idempotencia por operación;
+- los brackets de doble eliminación enrutan los finalistas en Supabase y
+  gestionan el reset opcional de la gran final de forma determinista;
 - la publicación de un torneo usa `publish_tournament_snapshot`, una única transacción que
   hace upsert y reconcilia las entidades eliminadas del snapshot;
 - Realtime notifica cambios de matches, batallas, penalizaciones y entidades relacionadas;
@@ -369,6 +373,7 @@ Las operaciones sensibles incluyen funciones SQL para:
 - publicar rankings;
 - publicar torneos;
 - publicar y reconciliar snapshots completos de torneos;
+- registrar batallas, penalizaciones y undo con idempotencia y control de versión;
 - reclamar invitaciones;
 - gestionar invitaciones;
 - listar perfiles y auditoría administrativa.
@@ -512,12 +517,12 @@ El script usa `supabase.cmd` y `ExecutionPolicy Bypass` sólo para ese proceso. 
 | React/Vite/Express | Implementado | Validar el contenedor publicado y sus variables en staging. |
 | Torneos, participantes y check-in | Implementado en UI y contexto | Pruebas E2E y cierre de reglas operativas. |
 | Eliminación simple | Implementado y probado parcialmente | Más casos de integración y avance persistido. |
-| Eliminación doble | Parcial | Cruces reales del losers bracket, propagación y reset elegible. |
+| Eliminación doble | Avanzado | Validar en staging todos los cruces, undo y el reset de gran final. |
 | Round robin | Implementado | Más cobertura de empates, byes y dos vueltas. |
 | Swiss | Avanzado | Rondas configurables, emparejamiento por puntuación, BYEs y prevención de revancha; faltan escenarios E2E. |
 | Desempates | Implementado en motor | Buchholz, Median-Buchholz y puntos configurables se aplican al cálculo; faltan casos oficiales adicionales. |
 | Marcador local | Implementado | Validar en staging los flujos remotos y sus conflictos de concurrencia. |
-| Batallas y penalizaciones RPC | Avanzado | Pruebas multi-cliente con cuentas reales. |
+| Batallas y penalizaciones RPC | Avanzado | Aplicar migración de idempotencia y ejecutar pruebas multi-cliente con cuentas reales. |
 | Undo | Parcial avanzado | Permisos, motivo obligatorio, auditoría completa y reapertura autorizada. |
 | Realtime | Implementado de forma parcial | Reconexión, idempotencia y pruebas de concurrencia en staging. |
 | Stadium Display | Implementado | Desconexión visible, API pública y overlays externos. |
@@ -538,6 +543,7 @@ No se debe publicar como plataforma multiusuario hasta cerrar estos puntos:
 - [ ] Aplicar todas las migraciones en un proyecto Supabase de staging.
 - [ ] Verificar RLS con cuentas reales de `admin`, `organizer`, `referee` y `blader`.
 - [ ] Confirmar que ningún usuario puede leer o mutar un torneo fuera de su ámbito.
+- [ ] Aplicar `20261116000002_mutation_idempotency.sql` y probar reintentos con la misma clave.
 - [x] Definir el despliegue de referencia con frontend y Express en un mismo contenedor.
 - [ ] Publicar y validar ese contenedor en staging.
 - [ ] Probar creación, configuración, inicio, operación y cierre de un torneo desde un checkout limpio.
@@ -548,6 +554,8 @@ No se debe publicar como plataforma multiusuario hasta cerrar estos puntos:
 ### Integridad del motor
 
 - [ ] Completar eliminación doble real.
+- [ ] Ejecutar un flujo staging de eliminación doble con victoria del Winners,
+  victoria del Losers y reset de la gran final.
 - [ ] Cubrir todos los casos de Swiss y desempates con pruebas.
 - [ ] Definir reglas de empate por formato.
 - [ ] Bloquear cambios incompatibles después de iniciar una etapa.
