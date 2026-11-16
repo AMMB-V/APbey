@@ -1,5 +1,6 @@
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { randomUUID } from 'node:crypto';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -13,6 +14,14 @@ async function startServer() {
 
   app.use(express.json({ limit: '100kb' }));
   app.disable('x-powered-by');
+  app.use((req, res, next) => {
+    const incomingRequestId = req.header('x-request-id');
+    const requestId = incomingRequestId && /^[A-Za-z0-9._:-]{8,100}$/.test(incomingRequestId)
+      ? incomingRequestId
+      : randomUUID();
+    res.setHeader('X-Request-Id', requestId);
+    next();
+  });
   app.use((_req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_IFRAME) {
@@ -71,6 +80,7 @@ async function startServer() {
       status: isReady ? 'ok' : 'degraded',
       service: 'appbey-backend',
       persistence: persistenceStatus,
+      requestId: res.getHeader('X-Request-Id'),
       timestamp: new Date().toISOString(),
     });
   });

@@ -30,6 +30,14 @@ const tournamentSnapshotMigrationPath = resolve(
   process.cwd(),
   'supabase/migrations/20261116000001_publish_tournament_snapshot_rpc.sql'
 );
+const mutationIdempotencyMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20261116000002_mutation_idempotency.sql'
+);
+const doubleEliminationMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20261116000003_double_elimination_reset.sql'
+);
 
 describe('audit follow-up migration', () => {
   it('exists and contains the production-critical RPCs', () => {
@@ -66,6 +74,37 @@ describe('audit follow-up migration', () => {
       expect(sql).toContain(
         'grant execute on function public.publish_tournament_snapshot('
       );
+    });
+  });
+
+  describe('mutation idempotency migration', () => {
+    it('protects battle, penalty, and undo retries with request correlation', () => {
+      const sql = readFileSync(mutationIdempotencyMigrationPath, 'utf8');
+
+      expect(sql).toContain('create table if not exists public.mutation_idempotency');
+      expect(sql).toContain('primary key (user_id, idempotency_key)');
+      expect(sql).toContain('record_battle_idempotent');
+      expect(sql).toContain('record_penalty_idempotent');
+      expect(sql).toContain('undo_last_battle_idempotent');
+      expect(sql).toContain('p_request_id uuid');
+      expect(sql).toContain('idempotency_in_progress');
+      expect(sql).toContain('grant execute on function public.record_battle_idempotent');
+      expect(sql).toContain('grant execute on function public.record_penalty_idempotent');
+      expect(sql).toContain('grant execute on function public.undo_last_battle_idempotent');
+    });
+  });
+
+  describe('double elimination progression migration', () => {
+    it('routes bracket finalists and handles the optional grand-final reset', () => {
+      const sql = readFileSync(doubleEliminationMigrationPath, 'utf8');
+
+      expect(sql).toContain('create or replace function public.route_double_elimination_progression');
+      expect(sql).toContain("source_bracket = 'winners'");
+      expect(sql).toContain("source_bracket = 'losers'");
+      expect(sql).toContain("r.bracket = 'grand_final'");
+      expect(sql).toContain('is_bye = true');
+      expect(sql).toContain('drop trigger if exists route_double_elimination_progression');
+      expect(sql).toContain('create trigger route_double_elimination_progression');
     });
   });
   it('does not trust a client-supplied invitation code', () => {
