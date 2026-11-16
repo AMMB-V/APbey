@@ -266,200 +266,138 @@ export async function syncTournamentToSupabase(
       created_at: tournament.createdAt,
     };
 
-    const { error: tourneyError } = await supabase.rpc('publish_tournament', {
-      p_id: tourneyPayload.id,
-      p_slug: tourneyPayload.slug,
-      p_name: tourneyPayload.name,
-      p_description: tourneyPayload.description,
-      p_organizer_id: tourneyPayload.organizer_id,
-      p_status: tourneyPayload.status,
-      p_is_public: tourneyPayload.is_public,
-      p_max_participants: tourneyPayload.max_participants,
-      p_check_in_required: tourneyPayload.check_in_required,
-      p_entry_fee: tourneyPayload.entry_fee,
-      p_foul_points: tourneyPayload.foul_points,
-      p_fouls_per_point: tourneyPayload.fouls_per_point,
-      p_points_to_win_group: tourneyPayload.points_to_win_group,
-      p_points_to_win_playoffs: tourneyPayload.points_to_win_playoffs,
-      p_points_to_win_final: tourneyPayload.points_to_win_final,
-      p_venue_name: tourneyPayload.venue_name,
-      p_venue_address: tourneyPayload.venue_address,
-      p_country: tourneyPayload.country,
-      p_starts_at: tourneyPayload.starts_at,
-      p_created_at: tourneyPayload.created_at,
-    });
-    if (tourneyError) throw new Error(`Error al publicar torneo: ${tourneyError.message}`);
-
     const finishPointsPayload = (Object.keys(tournament.finishPoints) as FinishType[]).map((finish) => ({
       tournament_id: tournament.id,
       finish,
       points: tournament.finishPoints[finish],
     }));
-    const { error: finishPointsError } = await supabase
-      .from('tournament_finish_points')
-      .upsert(finishPointsPayload);
-    if (finishPointsError) {
-      throw new Error(`Error al sincronizar puntos de finish: ${finishPointsError.message}`);
-    }
+    const refereesPayload = tournament.assignedReferees.map((profileId) => ({
+      tournament_id: tournament.id,
+      profile_id: profileId,
+    }));
 
-    if (tournament.assignedReferees.length > 0) {
-      const refereesPayload = tournament.assignedReferees.map((profileId) => ({
-        tournament_id: tournament.id,
-        profile_id: profileId,
-      }));
-      const { error: refereesError } = await supabase
-        .from('tournament_referees')
-        .upsert(refereesPayload);
-      if (refereesError) {
-        throw new Error(`Error al sincronizar árbitros: ${refereesError.message}`);
-      }
-    }
-
-    // 2. Upsert Participants
     const tourneyParticipants = participants.filter(p => p.tournamentId === tournament.id);
-    if (tourneyParticipants.length > 0) {
-      const participantsPayload = tourneyParticipants.map(p => ({
-        id: p.id,
-        tournament_id: p.tournamentId,
-        display_name: p.displayName,
-        seed: p.seed,
-        checked_in: p.checkedIn,
-        inspected: p.inspected,
-        status: p.status,
-      }));
-      const { error: partsError } = await supabase.from('participants').upsert(participantsPayload);
-      if (partsError) throw new Error(`Error al sincronizar participantes: ${partsError.message}`);
-    }
+    const participantsPayload = tourneyParticipants.map(p => ({
+      id: p.id,
+      tournament_id: p.tournamentId,
+      display_name: p.displayName,
+      seed: p.seed,
+      checked_in: p.checkedIn,
+      inspected: p.inspected,
+      status: p.status,
+    }));
 
-    // 3. Upsert Stages
     const tourneyStages = stages.filter(s => s.tournamentId === tournament.id);
-    if (tourneyStages.length > 0) {
-      const stagesPayload = tourneyStages.map(s => ({
-        id: s.id,
-        tournament_id: s.tournamentId,
-        position: s.position,
-        name: s.name,
-        type: s.type,
-        status: s.status,
-        match_type: s.matchType,
-        points_to_win: s.pointsToWin,
-        best_of: s.bestOf || 1,
-        config: s.config,
-      }));
-      const { error: stagesError } = await supabase.from('stages').upsert(stagesPayload);
-      if (stagesError) throw new Error(`Error al sincronizar etapas: ${stagesError.message}`);
-    }
+    const stagesPayload = tourneyStages.map(s => ({
+      id: s.id,
+      tournament_id: s.tournamentId,
+      position: s.position,
+      name: s.name,
+      type: s.type,
+      status: s.status,
+      match_type: s.matchType,
+      points_to_win: s.pointsToWin,
+      best_of: s.bestOf || 1,
+      config: s.config,
+    }));
 
-    // 4. Upsert Groups
     const stageIds = new Set(tourneyStages.map(s => s.id));
     const tourneyGroups = groups.filter(g => stageIds.has(g.stageId));
-    if (tourneyGroups.length > 0) {
-      const groupsPayload = tourneyGroups.map(g => ({
-        id: g.id,
-        stage_id: g.stageId,
-        name: g.name,
-        position: g.position,
-        referee_id: g.refereeId || null,
-      }));
-      const { error: groupsError } = await supabase.from('groups').upsert(groupsPayload);
-      if (groupsError) throw new Error(`Error al sincronizar grupos: ${groupsError.message}`);
+    const groupsPayload = tourneyGroups.map(g => ({
+      id: g.id,
+      stage_id: g.stageId,
+      name: g.name,
+      position: g.position,
+      referee_id: g.refereeId || null,
+    }));
+    const groupParticipantsPayload = tourneyGroups.flatMap((group) =>
+      group.participantIds.map((participantId) => ({
+        group_id: group.id,
+        participant_id: participantId,
+      }))
+    );
 
-      const groupParticipantsPayload = tourneyGroups.flatMap((group) =>
-        group.participantIds.map((participantId) => ({
-          group_id: group.id,
-          participant_id: participantId,
-        }))
-      );
-      if (groupParticipantsPayload.length > 0) {
-        const { error: groupParticipantsError } = await supabase
-          .from('group_participants')
-          .upsert(groupParticipantsPayload);
-        if (groupParticipantsError) {
-          throw new Error(`Error al sincronizar participantes de grupos: ${groupParticipantsError.message}`);
-        }
-      }
-    }
-
-    // 5. Upsert Rounds
     const tourneyRounds = rounds.filter(r => stageIds.has(r.stageId));
-    if (tourneyRounds.length > 0) {
-      const roundsPayload = tourneyRounds.map(r => ({
-        id: r.id,
-        stage_id: r.stageId,
-        group_id: r.groupId || null,
-        number: r.number,
-        bracket: r.bracket,
-        name: r.name || null,
-      }));
-      const { error: roundsError } = await supabase.from('rounds').upsert(roundsPayload);
-      if (roundsError) throw new Error(`Error al sincronizar rondas: ${roundsError.message}`);
-    }
+    const roundsPayload = tourneyRounds.map(r => ({
+      id: r.id,
+      stage_id: r.stageId,
+      group_id: r.groupId || null,
+      number: r.number,
+      bracket: r.bracket,
+      name: r.name || null,
+    }));
 
-    // 6. Upsert Matches
     const tourneyMatches = matches.filter(m => m.tournamentId === tournament.id);
-    if (tourneyMatches.length > 0) {
-      const matchesPayload = tourneyMatches.map(m => ({
-        id: m.id,
-        tournament_id: m.tournamentId,
-        stage_id: m.stageId,
-        round_id: m.roundId,
-        group_id: m.groupId || null,
-        position: m.position,
-        participant1_id: m.participant1Id || null,
-        participant2_id: m.participant2Id || null,
-        winner_id: m.winnerId || null,
-        is_draw: m.isDraw,
-        is_bye: m.isBye,
-        score1: m.score1,
-        score2: m.score2,
-        sets1: m.sets1,
-        sets2: m.sets2,
-        status: m.status,
-        referee_id: m.refereeId || null,
-        next_match_winner_id: m.nextMatchWinnerId || null,
-        next_match_loser_id: m.nextMatchLoserId || null,
-      }));
-      const { error: matchesError } = await supabase.from('matches').upsert(matchesPayload);
-      if (matchesError) throw new Error(`Error al sincronizar matches: ${matchesError.message}`);
-    }
+    const matchesPayload = tourneyMatches.map(m => ({
+      id: m.id,
+      tournament_id: m.tournamentId,
+      stage_id: m.stageId,
+      round_id: m.roundId,
+      group_id: m.groupId || null,
+      position: m.position,
+      participant1_id: m.participant1Id || null,
+      participant2_id: m.participant2Id || null,
+      winner_id: m.winnerId || null,
+      is_draw: m.isDraw,
+      is_bye: m.isBye,
+      score1: m.score1,
+      score2: m.score2,
+      sets1: m.sets1,
+      sets2: m.sets2,
+      status: m.status,
+      referee_id: m.refereeId || null,
+      next_match_winner_id: m.nextMatchWinnerId || null,
+      next_match_loser_id: m.nextMatchLoserId || null,
+      version: m.version,
+      started_at: m.startedAt || null,
+      finished_at: m.finishedAt || null,
+    }));
 
-    // 7. Upsert Battles
     const matchIds = new Set(tourneyMatches.map(m => m.id));
     const tourneyBattles = battles.filter(b => matchIds.has(b.matchId));
-    if (tourneyBattles.length > 0) {
-      const battlesPayload = tourneyBattles.map(b => ({
-        id: b.id,
-        match_id: b.matchId,
-        battle_number: b.battleNumber,
-        set_number: b.setNumber || 1,
-        scorer_id: b.scorerId || null,
-        finish: b.finish || null,
-        points: b.points || 0,
-        voided: b.voided || false,
-        recorded_by: b.recordedBy || null,
-        created_at: b.createdAt,
-      }));
-      const { error: battlesError } = await supabase.from('battles').upsert(battlesPayload);
-      if (battlesError) throw new Error(`Error al sincronizar batallas: ${battlesError.message}`);
-    }
+    const battlesPayload = tourneyBattles.map(b => ({
+      id: b.id,
+      match_id: b.matchId,
+      battle_number: b.battleNumber,
+      set_number: b.setNumber || 1,
+      scorer_id: b.scorerId || null,
+      finish: b.finish || null,
+      points: b.points || 0,
+      voided: b.voided || false,
+      recorded_by: b.recordedBy || null,
+      created_at: b.createdAt,
+    }));
 
     const tourneyPenalties = penalties.filter((penalty) => matchIds.has(penalty.matchId));
-    if (tourneyPenalties.length > 0) {
-      const penaltiesPayload = tourneyPenalties.map((penalty) => ({
-        id: penalty.id,
-        match_id: penalty.matchId,
-        battle_id: penalty.battleId || null,
-        participant_id: penalty.participantId,
-        card: penalty.card,
-        is_foul: penalty.isFoul,
-        points_awarded: penalty.pointsAwarded,
-        awarded_to: penalty.awardedTo || null,
-        reason: penalty.reason || null,
-        issued_by: penalty.issuedBy,
-        created_at: penalty.createdAt,
-      }));
-      const { error: penaltiesError } = await supabase.from('penalties').upsert(penaltiesPayload);
-      if (penaltiesError) throw new Error(`Error al sincronizar penalizaciones: ${penaltiesError.message}`);
+    const penaltiesPayload = tourneyPenalties.map((penalty) => ({
+      id: penalty.id,
+      match_id: penalty.matchId,
+      battle_id: penalty.battleId || null,
+      participant_id: penalty.participantId,
+      card: penalty.card,
+      is_foul: penalty.isFoul,
+      points_awarded: penalty.pointsAwarded,
+      awarded_to: penalty.awardedTo || null,
+      reason: penalty.reason || null,
+      issued_by: penalty.issuedBy,
+      created_at: penalty.createdAt,
+    }));
+
+    const { error: snapshotError } = await supabase.rpc('publish_tournament_snapshot', {
+      p_tournament: tourneyPayload,
+      p_finish_points: finishPointsPayload,
+      p_referees: refereesPayload,
+      p_participants: participantsPayload,
+      p_stages: stagesPayload,
+      p_groups: groupsPayload,
+      p_group_participants: groupParticipantsPayload,
+      p_rounds: roundsPayload,
+      p_matches: matchesPayload,
+      p_battles: battlesPayload,
+      p_penalties: penaltiesPayload,
+    });
+    if (snapshotError) {
+      throw new Error(`Error al publicar el snapshot transaccional: ${snapshotError.message}`);
     }
 
     return {

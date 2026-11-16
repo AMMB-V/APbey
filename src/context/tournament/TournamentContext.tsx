@@ -745,41 +745,19 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
       if (!remote) {
         remoteHydrationAvailableRef.current = false;
-        try {
-          const saved = localStorage.getItem(STORAGE_KEY);
-          const persisted = saved ? JSON.parse(saved) : null;
-          const { data, migrated } = migratePersistedTournamentData(persisted);
-          if (data?.tournaments?.length) {
-            setTournaments(data.tournaments);
-            setStages(data.stages || []);
-            setGroups(data.groups || []);
-            setRounds(data.rounds || []);
-            setMatches(data.matches || []);
-            setParticipants(data.participants || []);
-            setBattles(data.battles || []);
-            setPenalties(data.penalties || []);
-            const savedActiveTournamentId = localStorage.getItem('apbey_active_tournament_id');
-            setActiveTournamentId(
-              savedActiveTournamentId && data.tournaments.some((tournament: Tournament) => tournament.id === savedActiveTournamentId)
-                ? savedActiveTournamentId
-                : data.tournaments[0]?.id || ''
-            );
-            setSupabaseSyncInfo((previous) => ({
-              ...previous,
-              isConnected: false,
-              message: 'Supabase no respondió; se restauró la copia local pendiente de sincronización.',
-            }));
-            if (migrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-            return;
-          }
-        } catch (error) {
-          console.error('[Storage] No se pudo restaurar la copia local:', error);
-        }
-
+        setTournaments([]);
+        setStages([]);
+        setGroups([]);
+        setRounds([]);
+        setMatches([]);
+        setParticipants([]);
+        setBattles([]);
+        setPenalties([]);
+        setActiveTournamentId('');
         setSupabaseSyncInfo((previous) => ({
           ...previous,
           isConnected: false,
-          message: 'No se pudieron cargar los datos de torneos desde Supabase.',
+          message: 'No se pudieron cargar los datos de Supabase; no se usará una copia local como fuente de verdad.',
         }));
         return;
       }
@@ -859,7 +837,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           isConnected: false,
           message: event === 'SIGNED_OUT'
             ? 'Supabase configurado; inicia sesión para sincronizar.'
-            : 'Sesión de Supabase no disponible; los cambios quedan pendientes localmente.',
+            : 'Sesión de Supabase no disponible; las modificaciones están bloqueadas hasta iniciar sesión.',
         }));
         return;
       }
@@ -992,6 +970,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     invitations: Invitation[];
     auditLogs: AuditLog[];
   }>) => {
+    if (supabaseSyncInfo.isConfigured) return;
+
     try {
       let persisted: Partial<{
         tournaments: Tournament[];
@@ -1028,6 +1008,16 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
     } catch {
       // ignore
+    }
+  };
+
+  const assertWritablePersistence = () => {
+    if (!supabaseSyncInfo.isConfigured) return;
+    if (!remoteHydrationAvailableRef.current) {
+      throw new Error('Supabase no está disponible; no se pueden modificar datos del torneo.');
+    }
+    if (!currentUser) {
+      throw new Error('Inicia sesión antes de modificar datos del torneo.');
     }
   };
 
@@ -1450,6 +1440,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Add Participant
   const addParticipant = (tournamentId: string, displayName: string, deckCombos?: string[]): Participant => {
+    assertWritablePersistence();
     const tParticipants = participants.filter(p => p.tournamentId === tournamentId);
     const newSeed = tParticipants.length + 1;
     const newP: Participant = {
@@ -1475,6 +1466,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Bulk add participants
   const addBulkParticipants = (tournamentId: string, names: string[]) => {
+    assertWritablePersistence();
     const tParticipants = participants.filter(p => p.tournamentId === tournamentId);
     let nextSeed = tParticipants.length + 1;
     const createdList: Participant[] = [];
@@ -1505,6 +1497,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const removeParticipant = (id: string) => {
+    assertWritablePersistence();
     const p = participants.find(part => part.id === id);
     if (!p) return;
     setParticipants(prev => {
@@ -1525,6 +1518,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const toggleCheckIn = (id: string) => {
+    assertWritablePersistence();
     setParticipants(prev => {
       const updated = prev.map(p => p.id === id ? { ...p, checkedIn: !p.checkedIn } : p);
       saveState({ participants: updated });
@@ -1533,6 +1527,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const checkInAll = (tournamentId: string) => {
+    assertWritablePersistence();
     setParticipants(prev => {
       const updated = prev.map(p => p.tournamentId === tournamentId ? { ...p, checkedIn: true } : p);
       saveState({ participants: updated });
@@ -1542,6 +1537,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const toggleInspected = (id: string) => {
+    assertWritablePersistence();
     setParticipants(prev => {
       const updated = prev.map(p => p.id === id ? { ...p, inspected: !p.inspected } : p);
       saveState({ participants: updated });
@@ -1613,6 +1609,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [tournaments, stages, matches, groups, rounds, participants, battles, penalties]);
 
   const reorderParticipants = (tournamentId: string, reordered: Participant[]) => {
+    assertWritablePersistence();
     const normalized = normalizeSeeds(reordered);
     setParticipants(prev => {
       const others = prev.filter(p => p.tournamentId !== tournamentId);
@@ -1624,6 +1621,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const randomizeParticipants = (tournamentId: string) => {
+    assertWritablePersistence();
     const tParts = participants.filter(p => p.tournamentId === tournamentId);
     const shuffled = shuffleSeeds(tParts);
     setParticipants(prev => {
@@ -1637,6 +1635,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Generate bracket for a stage (groups or single elimination)
   const generateBracketForStage = (stageId: string) => {
+    assertWritablePersistence();
     const stage = stages.find(s => s.id === stageId);
     if (!stage) return;
     const tournament = tournaments.find(t => t.id === stage.tournamentId);
@@ -1771,6 +1770,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const startStage = (stageId: string) => {
+    assertWritablePersistence();
     const stage = stages.find(s => s.id === stageId);
     if (!stage) return;
 
@@ -1810,6 +1810,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const generateNextSwissRoundForStage = (stageId: string) => {
+    assertWritablePersistence();
     const stage = stages.find((item) => item.id === stageId);
     if (!stage || stage.type !== 'swiss') {
       throw new Error('La etapa seleccionada no es Swiss.');
@@ -1850,6 +1851,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Advance stage to playoffs (from groups or swiss)
   const advanceCurrentStage = (stageId: string) => {
+    assertWritablePersistence();
     const stage = stages.find(s => s.id === stageId);
     if (!stage) return;
     const stageGroups = groups.filter(g => g.stageId === stageId);
@@ -1935,6 +1937,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const updateStage = async (stageId: string, updates: Partial<Stage>) => {
+    assertWritablePersistence();
     const existingStage = stages.find((stage) => stage.id === stageId);
     if (!existingStage) throw new Error('La etapa no existe.');
     if (existingStage.status !== 'pending') {
@@ -1961,6 +1964,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const addStage = (tournamentId: string, type: StageType, name?: string): Stage => {
+    assertWritablePersistence();
     const tournamentStages = stages.filter((stage) => stage.tournamentId === tournamentId);
     const stage: Stage = {
       id: createEntityId(),
@@ -2004,6 +2008,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const removeStage = async (stageId: string) => {
+    assertWritablePersistence();
     const target = stages.find((stage) => stage.id === stageId);
     if (!target) throw new Error('La etapa no existe.');
     if (matches.some((match) => match.stageId === stageId) ||
@@ -2035,6 +2040,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const updateStageConfig = async (stageId: string, configUpdates: Partial<StageConfig>) => {
+    assertWritablePersistence();
     const existingStage = stages.find((stage) => stage.id === stageId);
     if (!existingStage) throw new Error('La etapa no existe.');
     if (existingStage.status !== 'pending') {
@@ -2083,6 +2089,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const updateStageTiebreakers = async (stageId: string, tiebreakers: TiebreakerCriteria[]) => {
+    assertWritablePersistence();
     let targetStageName = stageId;
     let targetStage: Stage | undefined;
     setStages(prev => {
@@ -2115,6 +2122,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return result;
   };
   const adjustSet = async (matchId: string, participantId: string, delta: 1 | -1) => {
+    assertWritablePersistence();
     if (!currentUser || !['referee', 'organizer', 'admin'].includes(currentRole)) {
    throw new Error('No tienes permisos para ajustar sets.');
     }
@@ -2180,6 +2188,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     finish: FinishType | null,
     note?: string
   ) => {
+    assertWritablePersistence();
     if (!currentUser || !['referee', 'organizer', 'admin'].includes(currentRole)) {
       throw new Error('No tienes permisos para registrar batallas.');
     }
@@ -2382,6 +2391,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     isFoul: boolean = true,
     reason?: string
   ) => {
+    assertWritablePersistence();
     if (!currentUser || !['referee', 'organizer', 'admin'].includes(currentRole)) {
       throw new Error('No tienes permisos para registrar penalizaciones.');
     }
@@ -2476,6 +2486,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Assign referee to a group
   const assignRefereeToGroup = (groupId: string, refereeId: string | null) => {
+    assertWritablePersistence();
     const group = groups.find(g => g.id === groupId);
     if (!group) return;
 
@@ -2497,6 +2508,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Assign referee to a stage / phase
   const assignRefereeToStage = (stageId: string, refereeId: string | null) => {
+    assertWritablePersistence();
     const stage = stages.find(s => s.id === stageId);
     if (!stage) return;
 
@@ -2521,6 +2533,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Unassign referee from all matches and groups of tournament
   const unassignRefereeFromAll = (tournamentId: string, refereeId: string) => {
+    assertWritablePersistence();
     const stageIds = stages.filter(s => s.tournamentId === tournamentId).map(s => s.id);
 
     setGroups(prev => {
@@ -2540,6 +2553,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Auto balance referees across groups in a stage
   const autoBalanceRefereesAcrossGroups = (stageId: string) => {
+    assertWritablePersistence();
     const stageGroups = groups.filter(g => g.stageId === stageId);
     if (stageGroups.length === 0) return;
 
@@ -2576,6 +2590,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Claim match as referee (self-selection)
   const claimMatchAsReferee = (matchId: string) => {
+    assertWritablePersistence();
     if (!currentUser || !['referee', 'organizer', 'admin'].includes(currentRole)) {
       throw new Error('No tienes permisos para asumir un match.');
     }
@@ -2584,6 +2599,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Move participant manually between groups (e.g. from Group B to Group C)
   const moveParticipantToGroup = (participantId: string, toGroupId: string) => {
+    assertWritablePersistence();
     const blader = participants.find(p => p.id === participantId);
     const toGroup = groups.find(g => g.id === toGroupId);
     if (!blader || !toGroup) return;
@@ -2648,6 +2664,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Rebalance groups dynamically depending on total participants
   const rebalanceGroups = (stageId: string, targetGroupSize: number = 4) => {
+    assertWritablePersistence();
     const stage = stages.find(s => s.id === stageId);
     if (!stage) return;
     const tParts = participants.filter(p => p.tournamentId === stage.tournamentId);
@@ -2717,6 +2734,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Undo last battle
   const undoBattle = (matchId: string) => {
+    assertWritablePersistence();
     if (!currentUser || !['referee', 'organizer', 'admin'].includes(currentRole)) {
       throw new Error('No tienes permisos para deshacer batallas.');
     }
@@ -2780,6 +2798,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const assignReferee = (matchId: string, refereeId: string | null) => {
+    assertWritablePersistence();
     setMatches(prev => {
       const updated = prev.map(m => m.id === matchId ? { ...m, refereeId } : m);
       saveState({ matches: updated });
@@ -2789,6 +2808,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const assignStationToMatch = (matchId: string, station: string | null) => {
+    assertWritablePersistence();
     setMatches(prev => {
       const updated = prev.map(m => m.id === matchId ? { ...m, station: station || undefined } : m);
       saveState({ matches: updated });
@@ -2798,6 +2818,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const callMatchToStation = (matchId: string) => {
+    assertWritablePersistence();
     const targetMatch = matches.find(m => m.id === matchId);
     if (!targetMatch) return;
     const p1 = participants.find(p => p.id === targetMatch.participant1Id)?.displayName || 'Blader 1';
@@ -2836,6 +2857,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     stageConfig: StageConfig,
     secondStage?: { type: StageType; name?: string; config?: StageConfig }
   ): Tournament => {
+    assertWritablePersistence();
     const tId = createEntityId();
     const baseSlug = (data.name || 'torneo')
       .normalize('NFD')
@@ -2952,6 +2974,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           message: result.message,
         }));
         if (!result.success) {
+          setTournaments((current) => current.filter((tournament) => tournament.id !== newTournament.id));
+          setStages((current) => current.filter((stage) => stage.tournamentId !== newTournament.id));
+          setActiveTournamentId(tournaments[0]?.id || '');
           console.error('[Supabase] No se pudo guardar el torneo recién creado:', result.message);
         }
       });
@@ -2961,6 +2986,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const updateTournament = (id: string, updates: Partial<Tournament>) => {
+    assertWritablePersistence();
     const currentTournament = tournaments.find(t => t.id === id);
     if (!currentTournament) return;
     const updatedTournament = { ...currentTournament, ...updates };
@@ -2989,6 +3015,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           message: result.message,
         }));
         if (!result.success) {
+          setTournaments((current) => current.map((tournament) => (
+            tournament.id === updatedTournament.id ? currentTournament : tournament
+          )));
           console.error('[Supabase] No se pudo guardar la configuración del torneo:', result.message);
         }
       });
@@ -2997,6 +3026,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const duplicateTournament = (id: string): Tournament | null => {
+    assertWritablePersistence();
     const source = tournaments.find(t => t.id === id);
     if (!source) {
       return null;
@@ -3051,6 +3081,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           message: result.message,
         }));
         if (!result.success) {
+          setTournaments((current) => current.filter((tournament) => tournament.id !== duplicated.id));
+          setStages((current) => current.filter((stage) => stage.tournamentId !== duplicated.id));
+          if (activeTournamentId === duplicated.id) {
+            setActiveTournamentId(id);
+          }
           console.error('[Supabase] No se pudo guardar el torneo duplicado:', result.message);
         }
       });
@@ -3060,6 +3095,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const deleteTournament = async (id: string): Promise<{ success: boolean; message: string }> => {
+    assertWritablePersistence();
     if (!tournaments.some((tournament) => tournament.id === id)) {
       return { success: false, message: 'El torneo ya no está disponible.' };
     }
@@ -3119,6 +3155,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Invitations
   const createInvitation = async (email: string, role: 'organizer' | 'referee', tournamentId?: string): Promise<Invitation> => {
+    assertWritablePersistence();
     const normalizedEmail = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
       throw new Error('Introduce un correo electrónico válido.');
@@ -3222,6 +3259,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const revokeInvitation = async (id: string): Promise<void> => {
+    assertWritablePersistence();
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase
@@ -3252,6 +3290,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     userId: string,
     newRole: UserRole
   ): Promise<{ success: boolean; message: string }> => {
+    assertWritablePersistence();
     const supabase = getSupabaseClient();
     if (supabase) {
       const { error } = await supabase.rpc('update_profile_role', {

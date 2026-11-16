@@ -1,4 +1,5 @@
 import express from 'express';
+import { createClient } from '@supabase/supabase-js';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -42,16 +43,34 @@ async function startServer() {
     next();
   });
 
-  app.get('/api/health', (_req, res) => {
+  app.get('/api/health', async (_req, res) => {
     const hasSupabaseConfiguration = Boolean(
       process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY
     );
-    const isReady = !isProduction || hasSupabaseConfiguration;
+    let persistenceStatus: 'ready' | 'unconfigured' | 'unreachable' = 'unconfigured';
+
+    if (hasSupabaseConfiguration) {
+      try {
+        const supabase = createClient(
+          process.env.SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY!
+        );
+        const { error } = await supabase
+          .from('tournaments')
+          .select('id', { head: true, count: 'exact' })
+          .limit(1);
+        persistenceStatus = error ? 'unreachable' : 'ready';
+      } catch {
+        persistenceStatus = 'unreachable';
+      }
+    }
+
+    const isReady = !isProduction || persistenceStatus === 'ready';
 
     res.status(isReady ? 200 : 503).json({
       status: isReady ? 'ok' : 'degraded',
       service: 'appbey-backend',
-      persistence: hasSupabaseConfiguration ? 'configured' : 'unconfigured',
+      persistence: persistenceStatus,
       timestamp: new Date().toISOString(),
     });
   });
