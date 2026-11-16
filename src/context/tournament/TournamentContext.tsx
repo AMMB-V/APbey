@@ -2182,6 +2182,56 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     void adjustSet(matchId, participantId, -1).catch(reportSetAdjustmentError);
   };
 
+  const getAdvancementSlot = (
+    sourceMatch: Match,
+    targetMatch: Match,
+    sourceType: 'winner' | 'loser'
+  ): 0 | 1 => {
+    const sourceRound = rounds.find((round) => round.id === sourceMatch.roundId);
+    const targetRound = rounds.find((round) => round.id === targetMatch.roundId);
+    if (targetRound?.bracket === 'grand_final') {
+      return sourceRound?.bracket === 'winners' ? 0 : 1;
+    }
+    const lastLosersRoundNumber = rounds
+      .filter((round) => round.bracket === 'losers')
+      .reduce((max, round) => Math.max(max, round.number), 0);
+    if (
+      sourceType === 'loser' &&
+      sourceRound?.bracket === 'winners' &&
+      targetRound?.bracket === 'losers' &&
+      targetRound.number === lastLosersRoundNumber
+    ) {
+      return 1;
+    }
+    return ((sourceMatch.position - 1) % 2) === 0 ? 0 : 1;
+  };
+
+  const placeAdvancingParticipant = (
+    sourceMatch: Match,
+    targetMatch: Match,
+    participantId: string,
+    sourceType: 'winner' | 'loser'
+  ): Match => {
+    const slot = getAdvancementSlot(sourceMatch, targetMatch, sourceType);
+    if (targetMatch.participant1Id === participantId || targetMatch.participant2Id === participantId) {
+      return targetMatch;
+    }
+    if (slot === 0 && !targetMatch.participant1Id) {
+      return { ...targetMatch, participant1Id: participantId, version: targetMatch.version + 1 };
+    }
+    if (slot === 1 && !targetMatch.participant2Id) {
+      return { ...targetMatch, participant2Id: participantId, version: targetMatch.version + 1 };
+    }
+    // A partially hydrated legacy bracket may not have deterministic slots yet.
+    if (!targetMatch.participant1Id) {
+      return { ...targetMatch, participant1Id: participantId, version: targetMatch.version + 1 };
+    }
+    if (!targetMatch.participant2Id) {
+      return { ...targetMatch, participant2Id: participantId, version: targetMatch.version + 1 };
+    }
+    return targetMatch;
+  };
+
   const recordBattle = (
     matchId: string,
     scorerId: string | null,
@@ -2221,9 +2271,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (updatedMatch.nextMatchWinnerId) {
         nextMatches = nextMatches.map(nm => {
           if (nm.id === updatedMatch.nextMatchWinnerId) {
-            // Place winner in first empty slot
-            if (!nm.participant1Id) return { ...nm, participant1Id: updatedMatch.winnerId };
-            if (!nm.participant2Id) return { ...nm, participant2Id: updatedMatch.winnerId };
+            return placeAdvancingParticipant(updatedMatch, nm, updatedMatch.winnerId, 'winner');
           }
           return nm;
         });
@@ -2238,8 +2286,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (loserId) {
           nextMatches = nextMatches.map(nm => {
             if (nm.id === updatedMatch.nextMatchLoserId) {
-              if (!nm.participant1Id) return { ...nm, participant1Id: loserId };
-              if (!nm.participant2Id) return { ...nm, participant2Id: loserId };
+              return placeAdvancingParticipant(updatedMatch, nm, loserId, 'loser');
             }
             return nm;
           });
@@ -2329,13 +2376,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             .maybeSingle();
           if (!remoteMatch && !remoteMatchError) {
             const syncResult = await syncTournamentToSupabase(
-              tournament,
-              stages,
+              nextTournaments.find((candidate) => candidate.id === tournament.id) || tournament,
+              nextStages,
               groups,
               rounds,
-              matches,
+              nextMatches,
               participants,
-              battles,
+              [...battles, newBattle],
               penalties
             );
             if (!syncResult.success) {
@@ -2345,6 +2392,14 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               setSupabaseSyncInfo((previous) => ({ ...previous, isConnected: false, message: syncResult.message }));
               return;
             }
+
+            setSupabaseSyncInfo((previous) => ({
+              ...previous,
+              isConnected: true,
+              lastSync: new Date().toLocaleTimeString(),
+              message: syncResult.message,
+            }));
+            return;
           }
         }
       }
@@ -2753,27 +2808,52 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         tourney,
         rounds.find((round) => round.id === match.roundId)
       );
-      const downstreamIds = new Set(
-        [match.nextMatchWinnerId, match.nextMatchLoserId].filter((id): id is string => Boolean(id))
-      );
+      const downstreamIds = new Set<string>();
+      const pendingDownstreamIds = [
+        match.nextMatchWinnerId,
+        match.nextMatchLoserId,
+      ].filter((id): id is string => Boolean(id));
+      while (pendingDownstreamIds.length > 0) {
+        const downstreamId = pendingDownstreamIds.shift();
+        if (!downstreamId || downstreamIds.has(downstreamId)) continue;
+        downstreamIds.add(downstreamId);
+        const downstreamMatch = matches.find((item) => item.id === downstreamId);
+        if (downstreamMatch?.nextMatchWinnerId) pendingDownstreamIds.push(downstreamMatch.nextMatchWinnerId);
+        if (downstreamMatch?.nextMatchLoserId) pendingDownstreamIds.push(downstreamMatch.nextMatchLoserId);
+      }
       const participantIds = new Set(
         [match.participant1Id, match.participant2Id].filter((id): id is string => Boolean(id))
       );
       const nextMatches = matches.map((item) => {
         if (item.id === matchId) return updatedMatch;
         if (!downstreamIds.has(item.id)) return item;
+        const removesParticipant1 = participantIds.has(item.participant1Id || '');
+        const removesParticipant2 = participantIds.has(item.participant2Id || '');
         return {
           ...item,
-          participant1Id: participantIds.has(item.participant1Id || '') ? null : item.participant1Id,
-          participant2Id: participantIds.has(item.participant2Id || '') ? null : item.participant2Id,
-          version: item.version + 1,
+          participant1Id: removesParticipant1 ? null : item.participant1Id,
+          participant2Id: removesParticipant2 ? null : item.participant2Id,
+          score1: removesParticipant1 || removesParticipant2 ? 0 : item.score1,
+          score2: removesParticipant1 || removesParticipant2 ? 0 : item.score2,
+          sets1: removesParticipant1 || removesParticipant2 ? 0 : item.sets1,
+          sets2: removesParticipant1 || removesParticipant2 ? 0 : item.sets2,
+          winnerId: removesParticipant1 || removesParticipant2 ? null : item.winnerId,
+          isBye: removesParticipant1 || removesParticipant2 ? false : item.isBye,
+          status: removesParticipant1 || removesParticipant2 ? 'pending' : item.status,
+          startedAt: removesParticipant1 || removesParticipant2 ? null : item.startedAt,
+          finishedAt: removesParticipant1 || removesParticipant2 ? null : item.finishedAt,
+          version: removesParticipant1 || removesParticipant2 ? item.version + 1 : item.version,
         };
       });
-      const nextBattles = battles.filter(b => b.id !== removedBattleId);
+      const nextBattles = battles.filter(
+        (battle) => battle.id !== removedBattleId && !downstreamIds.has(battle.matchId)
+      );
+      const nextPenalties = penalties.filter((penalty) => !downstreamIds.has(penalty.matchId));
 
       setMatches(nextMatches);
       setBattles(nextBattles);
-      saveState({ matches: nextMatches, battles: nextBattles });
+      setPenalties(nextPenalties);
+      saveState({ matches: nextMatches, battles: nextBattles, penalties: nextPenalties });
 
       if (supabaseSyncInfo.isConfigured) {
         void undoLastBattleInSupabase(match, match.version).then((result) => {
@@ -3588,7 +3668,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         tableName: 'system',
         recordId: 'all',
         action: 'insert',
-        actor: currentUser.id,
+        actor: currentUser?.id || 'system',
         createdAt: new Date().toISOString(),
         note: 'Datos reiniciados a los valores iniciales de prueba.',
       },

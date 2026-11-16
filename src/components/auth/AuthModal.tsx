@@ -93,6 +93,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     setIsLoading(true);
     try {
+      const validationResponse = await fetch(
+        `/api/invitations/validate/${encodeURIComponent(inviteCode.trim().toUpperCase())}`,
+        { headers: { Accept: 'application/json' } }
+      );
+      const validation = await validationResponse.json() as {
+        valid?: boolean;
+        message?: string;
+      };
+      if (!validationResponse.ok || !validation.valid) {
+        setErrorMsg(validation.message || 'La invitación no existe o ha expirado.');
+        return;
+      }
+
       const res = await loginWithInvitation(
         inviteCode.trim(),
         displayName.trim(),

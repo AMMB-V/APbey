@@ -97,7 +97,8 @@ export function generateDoubleElimination(
   }
 
   // Every winners-bracket loss enters the appropriate odd losers round.
-  // The winners-bracket final feeds the last losers round directly.
+  // The winners-bracket final feeds the last losers round directly. The
+  // runtime uses the source position to place each loser deterministically.
   for (let wbRound = 1; wbRound <= wbRoundsCount; wbRound++) {
     const currentMatches = winnersRoundMatches.get(wbRound) || [];
     const targetRound = wbRound === wbRoundsCount ? lbRoundsCount : (wbRound * 2) - 1;

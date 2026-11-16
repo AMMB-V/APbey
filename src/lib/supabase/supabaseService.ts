@@ -716,7 +716,6 @@ export function subscribeToTournamentRealtime(
       },
       (payload) => {
         const m = payload.new as Record<string, unknown>;
-        callbacks.onRemoteDataChange?.();
         if (payload.eventType !== 'DELETE' && callbacks.onMatchUpdate) {
           callbacks.onMatchUpdate({
             id: String(m.id),
@@ -741,7 +740,6 @@ export function subscribeToTournamentRealtime(
       },
       (payload) => {
         const b = payload.new as Record<string, unknown>;
-        callbacks.onRemoteDataChange?.();
         if (payload.eventType === 'INSERT' && callbacks.onBattleInsert) {
           callbacks.onBattleInsert({
             id: String(b.id),
@@ -767,7 +765,6 @@ export function subscribeToTournamentRealtime(
       },
       (payload) => {
         const p = payload.new as Record<string, unknown>;
-        callbacks.onRemoteDataChange?.();
         if (payload.eventType === 'INSERT' && callbacks.onPenaltyInsert) {
           callbacks.onPenaltyInsert({
             id: String(p.id),

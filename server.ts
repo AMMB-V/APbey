@@ -85,6 +85,45 @@ async function startServer() {
     });
   });
 
+  app.get('/api/invitations/validate/:code', async (req, res) => {
+    const code = String(req.params.code || '').trim().toUpperCase();
+    if (!/^[A-Z0-9-]{4,128}$/.test(code)) {
+      return res.status(400).json({ valid: false, message: 'Código de invitación inválido.' });
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey) {
+      return res.status(503).json({ valid: false, message: 'La validación de invitaciones no está configurada.' });
+    }
+
+    try {
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const { data, error } = await supabase
+        .from('invitations')
+        .select('role, tournament_id, expires_at')
+        .eq('code', code)
+        .eq('status', 'pending')
+        .gt('expires_at', new Date().toISOString())
+        .maybeSingle();
+
+      if (error) {
+        console.error('Invitation validation failed', { requestId: res.getHeader('X-Request-Id'), error: error.message });
+        return res.status(503).json({ valid: false, message: 'No se pudo validar la invitación.' });
+      }
+      if (!data) return res.status(404).json({ valid: false, message: 'La invitación no existe o ha expirado.' });
+      return res.json({
+        valid: true,
+        role: data.role,
+        tournamentId: data.tournament_id,
+        expiresAt: data.expires_at,
+      });
+    } catch (error) {
+      console.error('Invitation validation error', { requestId: res.getHeader('X-Request-Id'), error });
+      return res.status(503).json({ valid: false, message: 'No se pudo validar la invitación.' });
+    }
+  });
+
   const isProduction = process.env.NODE_ENV === 'production';
   if (isProduction) {
     const distPath = path.resolve(__dirname, 'dist');
