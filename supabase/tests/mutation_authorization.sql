@@ -109,6 +109,7 @@ begin
     auth.uid(),
     (select referee_id from mutation_fixture),
     (select referee_id from public.matches where id = (select match_id from mutation_fixture));
+  raise notice 'referees_match=%', public.referees_match((select match_id from mutation_fixture));
 end
 $$;
 
