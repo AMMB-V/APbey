@@ -8,6 +8,11 @@ begin
 end
 $$;
 
+drop policy if exists audit_log_admin_read on public.audit_logs;
+drop policy if exists audit_log_authenticated_insert on public.audit_logs;
+drop policy if exists audit_logs_admin_read on public.audit_logs;
+drop policy if exists audit_logs_authenticated_insert on public.audit_logs;
+
 alter table if exists public.audit_logs
   alter column id drop identity if exists;
 
@@ -26,11 +31,6 @@ alter table if exists public.audit_logs
   alter column actor set not null;
 
 alter table if exists public.audit_logs enable row level security;
-
-drop policy if exists audit_log_admin_read on public.audit_logs;
-drop policy if exists audit_log_authenticated_insert on public.audit_logs;
-drop policy if exists audit_logs_admin_read on public.audit_logs;
-drop policy if exists audit_logs_authenticated_insert on public.audit_logs;
 
 create policy audit_logs_admin_read on public.audit_logs
   for select to authenticated using (is_admin());
