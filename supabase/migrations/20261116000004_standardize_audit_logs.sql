@@ -9,7 +9,9 @@ end
 $$;
 
 alter table if exists public.audit_logs
-  alter column id drop identity if exists,
+  alter column id drop identity if exists;
+
+alter table if exists public.audit_logs
   alter column id type uuid using gen_random_uuid(),
   alter column id set default gen_random_uuid(),
   alter column actor type text using actor::text;
