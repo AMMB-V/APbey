@@ -1,118 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { Layers, Shield, AlertTriangle, CheckCircle, Save, Sparkles, Copy, Check } from 'lucide-react';
-
-interface BeySlot {
-  blade: string;
-  ratchet: string;
-  bit: string;
-  weightClass?: string;
-  comboType?: 'Ataque' | 'Defensa' | 'Resistencia' | 'Equilibrio';
-}
-
-const OFFICIAL_BLADES = [
-  'Dran Sword',
-  'Hells Scythe',
-  'Wizard Arrow',
-  'Knight Shield',
-  'Phoenix Wing',
-  'Viper Tail',
-  'Unicorn Sting',
-  'Shark Edge',
-  'Rhino Horn',
-  'Wyvern Gale',
-  'Cobalt Drake',
-  'Dran Dagger',
-  'Hells Chain',
-  'Phoenix Rudder',
-  'Tyranno Beat',
-  'Silver Wolf',
-];
-
-const OFFICIAL_RATCHETS = [
-  '3-60',
-  '4-60',
-  '5-60',
-  '9-60',
-  '3-80',
-  '4-80',
-  '5-80',
-  '1-60',
-  '7-60',
-  '9-80',
-];
-
-const OFFICIAL_BITS = [
-  'Flat (F)',
-  'Taper (T)',
-  'Ball (B)',
-  'Needle (N)',
-  'High Needle (HN)',
-  'Point (P)',
-  'Rush (R)',
-  'Gear Flat (GF)',
-  'Orb (O)',
-  'Hexa (H)',
-  'Gear Point (GP)',
-  'Elevate (E)',
-];
-
-const DEFAULT_DECK: [BeySlot, BeySlot, BeySlot] = [
-  { blade: '', ratchet: '', bit: '' },
-  { blade: '', ratchet: '', bit: '' },
-  { blade: '', ratchet: '', bit: '' },
-];
+import {
+  Deck,
+  DECK_STORAGE_KEY,
+  OFFICIAL_BLADES,
+  OFFICIAL_BITS,
+  OFFICIAL_RATCHETS,
+  getDeckValidationErrors,
+  loadDeck,
+} from '../../lib/deck';
+import { copyTextToClipboard } from '../../lib/clipboard';
 
 export const DeckBuilder: React.FC = () => {
-  const [deck, setDeck] = useState<[BeySlot, BeySlot, BeySlot]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = window.localStorage.getItem('apbey_deck_3on3');
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch {
-          // ignore error
-        }
-      }
-    }
-    return DEFAULT_DECK;
-  });
+  const [deck, setDeck] = useState<Deck>(loadDeck);
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [copiedSuccess, setCopiedSuccess] = useState(false);
 
-  // Validation logic: check for duplicate Blades, Ratchets, or Bits across the 3 slots
-  const validationErrors: string[] = [];
-
-  const blades = deck.map((b) => b.blade.trim());
-  const ratchets = deck.map((b) => b.ratchet.trim());
-  const bits = deck.map((b) => b.bit.trim());
-
-  // Check Blade duplicates
-  if (blades[0] && (blades[0] === blades[1] || blades[0] === blades[2])) {
-    validationErrors.push(`Blade repetida: "${blades[0]}" no puede usarse en más de un Beyblade.`);
-  } else if (blades[1] && blades[1] === blades[2]) {
-    validationErrors.push(`Blade repetida: "${blades[1]}" no puede usarse en más de un Beyblade.`);
-  }
-
-  // Check Ratchet duplicates
-  if (ratchets[0] && (ratchets[0] === ratchets[1] || ratchets[0] === ratchets[2])) {
-    validationErrors.push(`Ratchet repetido: "${ratchets[0]}" infringe la regla de piezas únicas WBO.`);
-  } else if (ratchets[1] && ratchets[1] === ratchets[2]) {
-    validationErrors.push(`Ratchet repetido: "${ratchets[1]}" infringe la regla de piezas únicas WBO.`);
-  }
-
-  // Check Bit duplicates
-  if (bits[0] && (bits[0] === bits[1] || bits[0] === bits[2])) {
-    validationErrors.push(`Bit repetido: "${bits[0]}" infringe la regla de piezas únicas WBO.`);
-  } else if (bits[1] && bits[1] === bits[2]) {
-    validationErrors.push(`Bit repetido: "${bits[1]}" infringe la regla de piezas únicas WBO.`);
-  }
-
+  const validationErrors = getDeckValidationErrors(deck);
   const isDeckValid = validationErrors.length === 0;
 
-  const updateSlot = (index: 0 | 1 | 2, field: keyof BeySlot, value: string) => {
+  const updateSlot = (index: 0 | 1 | 2, field: keyof Deck[number], value: string) => {
     setDeck((prev) => {
-      const copy = [...prev] as [BeySlot, BeySlot, BeySlot];
+      const copy = [...prev] as Deck;
       copy[index] = { ...copy[index], [field]: value };
       return copy;
     });
@@ -120,7 +30,7 @@ export const DeckBuilder: React.FC = () => {
 
   const handleSaveDeck = () => {
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem('apbey_deck_3on3', JSON.stringify(deck));
+      window.localStorage.setItem(DECK_STORAGE_KEY, JSON.stringify(deck));
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3000);
     }
@@ -131,7 +41,7 @@ export const DeckBuilder: React.FC = () => {
       .map((b, i) => `Bey ${i + 1}: ${b.blade} ${b.ratchet} ${b.bit}`)
       .join('\n');
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(text);
+      void copyTextToClipboard(text);
       setCopiedSuccess(true);
       setTimeout(() => setCopiedSuccess(false), 2500);
     }

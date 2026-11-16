@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { SUPABASE_MIGRATION_SQL } from '../../lib/supabase/schema';
+import { copyTextToClipboard } from '../../lib/clipboard';
 import {
   BookOpen,
   Copy,
@@ -18,7 +19,7 @@ export const SoftwareEngineeringGuide: React.FC = () => {
   const [copiedSql, setCopiedSql] = useState(false);
 
   const copySql = () => {
-    navigator.clipboard.writeText(SUPABASE_MIGRATION_SQL);
+    void copyTextToClipboard(SUPABASE_MIGRATION_SQL);
     setCopiedSql(true);
     setTimeout(() => setCopiedSql(false), 2500);
   };
