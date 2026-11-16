@@ -60,10 +60,11 @@ begin
     return jsonb_populate_record(null::public.matches, v_response);
   end if;
 
-  select public.record_battle(
-    p_match, p_scorer, p_finish, p_expected_version
-  )
-  into v_match;
+  select *
+    into v_match
+    from public.record_battle(
+      p_match, p_scorer, p_finish, p_expected_version
+    );
 
   update public.mutation_idempotency
      set response = to_jsonb(v_match)
@@ -177,8 +178,9 @@ begin
     return jsonb_populate_record(null::public.matches, v_response);
   end if;
 
-  select public.undo_last_battle(p_match_id, p_expected_version)
-    into v_match;
+  select *
+    into v_match
+    from public.undo_last_battle(p_match_id, p_expected_version);
 
   update public.mutation_idempotency
      set response = to_jsonb(v_match)
