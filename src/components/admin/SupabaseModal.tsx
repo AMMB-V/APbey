@@ -6,6 +6,7 @@ import {
   getSupabaseSqlEditorUrl,
 } from '../../lib/supabase/client';
 import { SUPABASE_MIGRATION_SQL } from '../../lib/supabase/schema';
+import { copyTextToClipboard } from '../../lib/clipboard';
 import {
   Database,
   CheckCircle2,
@@ -78,7 +79,7 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
   };
 
   const handleCopySql = () => {
-    navigator.clipboard.writeText(SUPABASE_MIGRATION_SQL);
+    void copyTextToClipboard(SUPABASE_MIGRATION_SQL);
     setCopiedSql(true);
     setTimeout(() => setCopiedSql(false), 2500);
   };

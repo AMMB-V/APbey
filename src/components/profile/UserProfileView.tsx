@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Shield, Trophy, Award, Layers, Edit2, Check, Sparkles, LogOut } from 'lucide-react';
 import { useTournament } from '../../context/TournamentContext';
+import { loadDeck } from '../../lib/deck';
 
 export const UserProfileView: React.FC = () => {
   const { currentUser, currentRole, logout, updateProfile, updateProfilePhoto, matches, participants } = useTournament();
@@ -16,23 +17,7 @@ export const UserProfileView: React.FC = () => {
     }
   }, [currentUser?.displayName]);
 
-  const savedDeck = (() => {
-    if (typeof window !== 'undefined') {
-      const stored = window.localStorage.getItem('apbey_deck_3on3');
-      if (stored) {
-        try {
-          return JSON.parse(stored);
-        } catch {
-          // ignore error
-        }
-      }
-    }
-    return [
-      { blade: '', ratchet: '', bit: '' },
-      { blade: '', ratchet: '', bit: '' },
-      { blade: '', ratchet: '', bit: '' },
-    ];
-  })();
+  const savedDeck = loadDeck();
 
   // Calculate real stats from completed matches
   const userMatches = matches.filter(
@@ -267,7 +252,7 @@ export const UserProfileView: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {savedDeck.map((item: any, i: number) => (
+          {savedDeck.map((item, i) => (
             <div
               key={i}
               className="p-3 rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] flex flex-col gap-1 min-h-[70px]"
