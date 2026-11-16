@@ -281,11 +281,15 @@ Cuando Supabase **está configurado**:
 - los torneos se hidratan desde Supabase;
 - Supabase Auth determina la identidad;
 - RLS determina qué datos puede leer o modificar cada sesión;
+- las mutaciones de torneo requieren una sesión activa y una hidratación remota disponible;
 - las batallas y penalizaciones usan control de versión;
+- la publicación de un torneo usa `publish_tournament_snapshot`, una única transacción que
+  hace upsert y reconcilia las entidades eliminadas del snapshot;
 - Realtime notifica cambios de matches, batallas, penalizaciones y entidades relacionadas;
 - una mutación crítica no debe considerarse exitosa si Supabase no la confirma.
 
 `localStorage` no debe considerarse una fuente multiusuario ni un respaldo válido de producción.
+Si Supabase está configurado pero no responde, la aplicación no restaura ni modifica un snapshot local.
 
 ## Arquitectura del repositorio
 
@@ -364,6 +368,7 @@ Las operaciones sensibles incluyen funciones SQL para:
 - deshacer la última batalla;
 - publicar rankings;
 - publicar torneos;
+- publicar y reconciliar snapshots completos de torneos;
 - reclamar invitaciones;
 - gestionar invitaciones;
 - listar perfiles y auditoría administrativa.
@@ -399,7 +404,16 @@ npm run build
 npm run start
 ```
 
-En producción, `server.ts` sirve `dist` y conserva `/api/health`. `vercel.json` sólo cubre el frontend estático; por tanto, un despliegue en Vercel no publica automáticamente el proceso Express.
+En producción, `server.ts` sirve `dist` y conserva `/api/health`. El despliegue recomendado es un servicio Node o contenedor que ejecute `npm start`; el `Dockerfile` incluido publica el frontend y Express en el mismo proceso. Este es el modelo de referencia para producción multiusuario. `vercel.json` sólo cubre el frontend estático y no debe usarse como despliegue multiusuario completo sin una API separada.
+
+Para construir y ejecutar el contenedor:
+
+```powershell
+docker build -t apbey-arena .
+docker run --env-file .env -p 3000:3000 apbey-arena
+```
+
+En producción, `/api/health` devuelve `503` si Supabase no está configurado o no responde. Si existe `SUPABASE_SERVICE_ROLE_KEY`, se usa sólo en el servidor para comprobar la conexión; nunca debe incluirse en el bundle del navegador.
 
 ## Variables de entorno
 
@@ -495,14 +509,14 @@ El script usa `supabase.cmd` y `ExecutionPolicy Bypass` sólo para ese proceso. 
 
 | Área | Estado actual | Qué falta para considerarla completa |
 |---|---|---|
-| React/Vite/Express | Implementado | Elegir y validar un despliegue que publique también Express. |
+| React/Vite/Express | Implementado | Validar el contenedor publicado y sus variables en staging. |
 | Torneos, participantes y check-in | Implementado en UI y contexto | Pruebas E2E y cierre de reglas operativas. |
 | Eliminación simple | Implementado y probado parcialmente | Más casos de integración y avance persistido. |
 | Eliminación doble | Parcial | Cruces reales del losers bracket, propagación y reset elegible. |
 | Round robin | Implementado | Más cobertura de empates, byes y dos vueltas. |
 | Swiss | Avanzado | Rondas configurables, emparejamiento por puntuación, BYEs y prevención de revancha; faltan escenarios E2E. |
 | Desempates | Implementado en motor | Buchholz, Median-Buchholz y puntos configurables se aplican al cálculo; faltan casos oficiales adicionales. |
-| Marcador local | Implementado | Trasladar todo el flujo crítico a operaciones remotas verificadas. |
+| Marcador local | Implementado | Validar en staging los flujos remotos y sus conflictos de concurrencia. |
 | Batallas y penalizaciones RPC | Avanzado | Pruebas multi-cliente con cuentas reales. |
 | Undo | Parcial avanzado | Permisos, motivo obligatorio, auditoría completa y reapertura autorizada. |
 | Realtime | Implementado de forma parcial | Reconexión, idempotencia y pruebas de concurrencia en staging. |
@@ -524,7 +538,8 @@ No se debe publicar como plataforma multiusuario hasta cerrar estos puntos:
 - [ ] Aplicar todas las migraciones en un proyecto Supabase de staging.
 - [ ] Verificar RLS con cuentas reales de `admin`, `organizer`, `referee` y `blader`.
 - [ ] Confirmar que ningún usuario puede leer o mutar un torneo fuera de su ámbito.
-- [ ] Elegir un despliegue que publique frontend y Express, o separar formalmente la API.
+- [x] Definir el despliegue de referencia con frontend y Express en un mismo contenedor.
+- [ ] Publicar y validar ese contenedor en staging.
 - [ ] Probar creación, configuración, inicio, operación y cierre de un torneo desde un checkout limpio.
 - [ ] Confirmar que no existe confirmación falsa cuando falla la red o Supabase.
 - [ ] Probar backup y restauración.

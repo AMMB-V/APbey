@@ -26,6 +26,10 @@ const tournamentSelfReferenceDeletionMigrationPath = resolve(
   process.cwd(),
   'supabase/migrations/20261112000003_fix_tournament_delete_self_references.sql'
 );
+const tournamentSnapshotMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20261116000001_publish_tournament_snapshot_rpc.sql'
+);
 
 describe('audit follow-up migration', () => {
   it('exists and contains the production-critical RPCs', () => {
@@ -36,6 +40,33 @@ describe('audit follow-up migration', () => {
     expect(sql).toContain('expires_at > now()');
     expect(sql).toContain('create or replace function public.claim_invitation');
     expect(sql).toContain('create or replace function public.adjust_manual_set');
+  });
+
+  describe('transactional tournament snapshot migration', () => {
+    it('publishes the complete snapshot through one invoker RPC', () => {
+      const sql = readFileSync(tournamentSnapshotMigrationPath, 'utf8');
+
+      expect(sql).toContain('create or replace function public.publish_tournament_snapshot');
+      expect(sql).not.toContain('security definer');
+      expect(sql).toContain('select public.publish_tournament(');
+      expect(sql).toContain('insert into public.tournament_finish_points');
+      expect(sql).toContain('insert into public.tournament_referees');
+      expect(sql).toContain('insert into public.participants');
+      expect(sql).toContain('insert into public.stages');
+      expect(sql).toContain('insert into public.groups');
+      expect(sql).toContain('insert into public.group_participants');
+      expect(sql).toContain('insert into public.rounds');
+      expect(sql).toContain('insert into public.matches');
+      expect(sql).toContain('insert into public.battles');
+      expect(sql).toContain('insert into public.penalties');
+      expect(sql).toContain('delete from public.matches');
+      expect(sql).toContain('delete from public.participants');
+      expect(sql).toContain('delete from public.tournament_referees');
+      expect(sql).toContain('next_match_winner_id = null');
+      expect(sql).toContain(
+        'grant execute on function public.publish_tournament_snapshot('
+      );
+    });
   });
   it('does not trust a client-supplied invitation code', () => {
     const sql = readFileSync(migrationPath, 'utf8');
