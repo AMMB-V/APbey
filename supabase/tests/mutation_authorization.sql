@@ -91,6 +91,7 @@ end
 $$;
 
 grant select on mutation_fixture to authenticated;
+grant select, insert on mutation_results to authenticated;
 set local role authenticated;
 
 select set_config(
