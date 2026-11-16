@@ -2329,13 +2329,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             .maybeSingle();
           if (!remoteMatch && !remoteMatchError) {
             const syncResult = await syncTournamentToSupabase(
-              tournament,
-              stages,
+              nextTournaments.find((candidate) => candidate.id === tournament.id) || tournament,
+              nextStages,
               groups,
               rounds,
-              matches,
+              nextMatches,
               participants,
-              battles,
+              [...battles, newBattle],
               penalties
             );
             if (!syncResult.success) {
@@ -2345,6 +2345,14 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               setSupabaseSyncInfo((previous) => ({ ...previous, isConnected: false, message: syncResult.message }));
               return;
             }
+
+            setSupabaseSyncInfo((previous) => ({
+              ...previous,
+              isConnected: true,
+              lastSync: new Date().toLocaleTimeString(),
+              message: syncResult.message,
+            }));
+            return;
           }
         }
       }
