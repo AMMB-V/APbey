@@ -8,15 +8,6 @@ begin
 end
 $$;
 
-do $$
-begin
-  if to_regclass('public.audit_logs') is not null
-    and to_regclass('public.audit_log') is null then
-    execute 'create view public.audit_log as select * from public.audit_logs';
-  end if;
-end
-$$;
-
 drop policy if exists audit_log_admin_read on public.audit_logs;
 drop policy if exists audit_log_authenticated_insert on public.audit_logs;
 drop policy if exists audit_logs_admin_read on public.audit_logs;
@@ -29,6 +20,15 @@ alter table if exists public.audit_logs
   alter column id type uuid using gen_random_uuid(),
   alter column id set default gen_random_uuid(),
   alter column actor type text using actor::text;
+
+do $$
+begin
+  if to_regclass('public.audit_logs') is not null
+    and to_regclass('public.audit_log') is null then
+    execute 'create view public.audit_log as select * from public.audit_logs';
+  end if;
+end
+$$;
 
 update public.audit_logs
    set record_id = coalesce(record_id, ''),
