@@ -242,5 +242,10 @@ select ok(passed, test_name)
 from mutation_results
 order by test_name;
 
+select test_name, details
+from mutation_results
+where not passed
+order by test_name;
+
 select * from finish();
 rollback;
