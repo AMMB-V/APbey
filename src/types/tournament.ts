@@ -100,7 +100,7 @@ export interface Stage {
   status: StageStatus;
   matchType: MatchType;
   pointsToWin: number;            // default 4 en grupos, 7 en eliminación final
-  bestOf: number;                 // default 1 (eliminación directa a puntos)
+  bestOf: number;                 // default 1 for groups/Swiss, 3 for elimination
   config: StageConfig;
 }
 

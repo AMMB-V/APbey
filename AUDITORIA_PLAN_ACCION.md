@@ -52,7 +52,7 @@ Las fuentes no son totalmente equivalentes y no deben combinarse sin una decisi�
 | `match_type` | MVP: `1on1` y `3on3` | También `deck` y `5G` | SQL principal: `1on1` y `3on3` | Mantener `1on1`/`3on3` en el MVP y versionar `deck`/`5G` como ampliación. |
 | Decks y catálogo | Fuera del MVP | Reglas descritas como producto | Implementación parcial de tipos/UI | No elevar a P0 sin cambio explícito de alcance. |
 | Stadium/streaming | Fuera del MVP | Vista pública/Reatime, pero no necesariamente proyector | Stadium parcial | Priorizar vista pública y Realtime del MVP; dejar streaming/overlay para fase posterior. |
-| `best_of` | 3 por defecto en eliminación, 1 en grupos/suizo | Best-of-N configurable | `stages.best_of` SQL tiene default 1 | Corregir el valor por etapa al generar configuración y validar que el default de eliminación sea 3. |
+| `best_of` | 3 por defecto en eliminación, 1 en grupos/suizo | Best-of-N configurable | Los generadores y el wizard aplican el default por formato; el esquema SQL conserva 1 como fallback genérico | Corregido en la creación y avance de etapas; validar flujos remotos en staging. |
 | Empates | Round robin admite empate y puntaje 3/1 | No contradice | Tipos y motores no cubren todos los casos | Añadir modelo explícito de empate sólo en formatos que lo permitan; no inferirlo desde `winner_id`. |
 
 La respuesta funcional es conservar el alcance del PDF como contrato del MVP, usar `CLAUDE.md` como arquitectura objetivo y registrar cualquier ampliación como decisión de producto independiente.

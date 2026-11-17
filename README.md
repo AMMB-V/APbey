@@ -517,7 +517,7 @@ El script usa `supabase.cmd` y `ExecutionPolicy Bypass` sólo para ese proceso. 
 | React/Vite/Express | Implementado | Validar el contenedor publicado y sus variables en staging. |
 | Torneos, participantes y check-in | Implementado en UI y contexto | Pruebas E2E y cierre de reglas operativas. |
 | Eliminación simple | Implementado y probado parcialmente | Más casos de integración y avance persistido. |
-| Eliminación doble | Avanzado | Validar en staging todos los cruces, undo y el reset de gran final. |
+| Eliminación doble | Avanzado | Validar en staging todos los cruces, undo y el reset de gran final. Las etapas nuevas de eliminación usan best-of-3 por defecto. |
 | Round robin | Implementado | Más cobertura de empates, byes y dos vueltas. |
 | Swiss | Avanzado | Rondas configurables, emparejamiento por puntuación, BYEs y prevención de revancha; faltan escenarios E2E. |
 | Desempates | Implementado en motor | Buchholz, Median-Buchholz y puntos configurables se aplican al cálculo; faltan casos oficiales adicionales. |
