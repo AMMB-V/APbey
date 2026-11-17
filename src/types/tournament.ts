@@ -19,6 +19,7 @@ export type CardType = 'yellow' | 'red';
 export type ParticipantStatus = 'registered' | 'active' | 'eliminated' | 'disqualified' | 'withdrawn';
 export type BracketType = 'winners' | 'losers' | 'grand_final' | 'group' | 'swiss';
 export type MatchStatus = 'pending' | 'in_progress' | 'completed';
+export type MatchOutcome = 'normal' | 'walkover' | 'disqualification' | 'abandonment' | 'third_place';
 
 export type TiebreakerCriteria =
   | 'points'
@@ -155,6 +156,11 @@ export interface Match {
   nextMatchWinnerId?: string | null;
   nextMatchLoserId?: string | null;
   version: number;
+  outcome?: MatchOutcome | null;
+  outcomeNote?: string | null;
+  reopenedAt?: string | null;
+  reopenedBy?: string | null;
+  reopenReason?: string | null;
   startedAt?: string | null;
   finishedAt?: string | null;
   station?: string | null;            // e.g. 'Estadio 1', 'Mesa 2', 'Arena Xtreme'

@@ -24,4 +24,10 @@ describe('Supabase persistence contracts', () => {
     expect(error.retryable).toBe(true);
     expect(error.requestId).toBe('request-1');
   });
+
+  it('creates a distinct idempotency namespace for authorized reopening', () => {
+    const mutation = createMutationContext('reopen_match', 'match-1:4');
+
+    expect(mutation.idempotencyKey).toBe('reopen_match:match-1:4');
+  });
 });

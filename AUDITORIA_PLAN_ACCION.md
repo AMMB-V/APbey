@@ -59,6 +59,14 @@ La respuesta funcional es conservar el alcance del PDF como contrato del MVP, us
 
 ### Cambios aplicados en esta revisión
 
+- Se añadió una migración incremental para persistir `deck_combos`, registrar resultados operativos
+  (`walkover`, descalificación, abandono y tercer lugar) y permitir reaperturas autorizadas con
+  motivo, control de versión y auditoría. La aplicación ya expone esos controles; todavía deben
+  validarse con cuentas reales en staging.
+- Se añadieron preflight de staging, escaneo de secretos, healthcheck Docker y una verificación
+  reproducible de release (`npm run verify:release`). Estos checks no sustituyen la ejecución
+  contra el proyecto Supabase ni el smoke test del contenedor publicado.
+
 - `index.html` ahora declara `lang="es"`, alineado con RNF-06.
 - `README.md` documenta la diferencia entre arquitectura objetivo y arquitectura existente, y evita presentar `npm ci` como reproducible mientras sólo existe `bun.lock`.
 - Esta auditoría incorpora la matriz de respuesta a `CLAUDE.md`, el PDF y el plan integrado.

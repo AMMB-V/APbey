@@ -32,6 +32,9 @@ jobs:
       - name: Validate migration versions
         run: npm run check:migrations
 
+      - name: Scan tracked source for secrets
+        run: npm run check:secrets
+
       - name: Type-check
         run: npm run lint
 
