@@ -29,12 +29,14 @@ export const ParticipantManager: React.FC = () => {
     reorderParticipants,
     randomizeParticipants,
     currentRole,
+    supabaseSyncInfo,
   } = useTournament();
 
   const [newName, setNewName] = useState('');
   const [newCombos, setNewCombos] = useState('');
   const [bulkText, setBulkText] = useState('');
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const tParticipants = activeTournament
     ? participants.filter((p) => p.tournamentId === activeTournament.id).sort((a, b) => a.seed - b.seed)
@@ -46,25 +48,35 @@ export const ParticipantManager: React.FC = () => {
   const handleAddSingle = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeTournament || !newName.trim()) return;
-    const combos = newCombos
-      .split(',')
-      .map((c) => c.trim())
-      .filter(Boolean);
-    addParticipant(activeTournament.id, newName.trim(), combos.length > 0 ? combos : undefined);
-    setNewName('');
-    setNewCombos('');
+    try {
+      const combos = newCombos
+        .split(',')
+        .map((c) => c.trim())
+        .filter(Boolean);
+      addParticipant(activeTournament.id, newName.trim(), combos.length > 0 ? combos : undefined);
+      setNewName('');
+      setNewCombos('');
+      setActionError('');
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'No se pudo añadir el blader.');
+    }
   };
 
   const handleBulkSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeTournament || !bulkText.trim()) return;
-    const names = bulkText
-      .split('\n')
-      .map((n) => n.trim())
-      .filter((n) => n.length > 0);
-    addBulkParticipants(activeTournament.id, names);
-    setBulkText('');
-    setShowBulkModal(false);
+    try {
+      const names = bulkText
+        .split('\n')
+        .map((n) => n.trim())
+        .filter((n) => n.length > 0);
+      addBulkParticipants(activeTournament.id, names);
+      setBulkText('');
+      setShowBulkModal(false);
+      setActionError('');
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'No se pudo importar la lista.');
+    }
   };
 
   const moveSeed = (index: number, direction: 'up' | 'down') => {
@@ -183,6 +195,12 @@ export const ParticipantManager: React.FC = () => {
           )}
         </div>
       </div>
+
+      {(actionError || (supabaseSyncInfo.isConfigured && !supabaseSyncInfo.isConnected)) && (
+        <div className="rounded-[var(--r-card)] border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-xs text-rose-200">
+          {actionError || supabaseSyncInfo.message}
+        </div>
+      )}
 
       {/* Quick Add Form */}
       {currentRole !== 'public' && (

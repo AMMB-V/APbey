@@ -1027,6 +1027,32 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  const persistParticipants = (tournamentId: string, nextParticipants: Participant[]) => {
+    const tournament = tournaments.find((item) => item.id === tournamentId);
+    if (!tournament || !getSupabaseClient()) return;
+
+    void syncTournamentToSupabase(
+      tournament,
+      stages,
+      groups,
+      rounds,
+      matches,
+      nextParticipants,
+      battles,
+      penalties
+    ).then((result) => {
+      setSupabaseSyncInfo((previous) => ({
+        ...previous,
+        isConnected: result.success,
+        lastSync: result.success ? new Date().toLocaleTimeString() : previous.lastSync,
+        message: result.message,
+      }));
+      if (!result.success) {
+        console.error('[Supabase] No se pudo persistir la lista de participantes:', result.message);
+      }
+    });
+  };
+
   const switchRole = (newRole: UserRole) => {
     console.warn('[Auth] El cambio de rol está deshabilitado en el cliente.');
   };
@@ -1463,6 +1489,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setParticipants(prev => {
       const updated = [...prev, newP];
       saveState({ participants: updated });
+      persistParticipants(tournamentId, updated);
       return updated;
     });
 
@@ -1496,6 +1523,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setParticipants(prev => {
         const updated = [...prev, ...createdList];
         saveState({ participants: updated });
+        persistParticipants(tournamentId, updated);
         return updated;
       });
       logAudit('participants', tournamentId, 'insert', `Importación masiva de ${createdList.length} participantes.`);
@@ -1518,6 +1546,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return part;
       });
       saveState({ participants: normalized });
+      persistParticipants(p.tournamentId, normalized);
       return normalized;
     });
     logAudit('participants', id, 'delete', `Participante ${p.displayName} eliminado.`);
@@ -1528,6 +1557,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setParticipants(prev => {
       const updated = prev.map(p => p.id === id ? { ...p, checkedIn: !p.checkedIn } : p);
       saveState({ participants: updated });
+      const participant = updated.find((item) => item.id === id);
+      if (participant) persistParticipants(participant.tournamentId, updated);
       return updated;
     });
   };
@@ -1537,6 +1568,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setParticipants(prev => {
       const updated = prev.map(p => p.tournamentId === tournamentId ? { ...p, checkedIn: true } : p);
       saveState({ participants: updated });
+      persistParticipants(tournamentId, updated);
       return updated;
     });
     logAudit('participants', tournamentId, 'update', 'Check-in masivo aplicado a todos los bladers.');
@@ -1547,6 +1579,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setParticipants(prev => {
       const updated = prev.map(p => p.id === id ? { ...p, inspected: !p.inspected } : p);
       saveState({ participants: updated });
+      const participant = updated.find((item) => item.id === id);
+      if (participant) persistParticipants(participant.tournamentId, updated);
       return updated;
     });
   };
@@ -1621,6 +1655,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const others = prev.filter(p => p.tournamentId !== tournamentId);
       const updated = [...others, ...normalized];
       saveState({ participants: updated });
+      persistParticipants(tournamentId, updated);
       return updated;
     });
     logAudit('participants', tournamentId, 'update', 'Siembra manual reordenada por el organizador.');
@@ -1634,6 +1669,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const others = prev.filter(p => p.tournamentId !== tournamentId);
       const updated = [...others, ...shuffled];
       saveState({ participants: updated });
+      persistParticipants(tournamentId, updated);
       return updated;
     });
     logAudit('participants', tournamentId, 'update', 'Siembra aleatoria generada.');
