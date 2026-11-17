@@ -529,7 +529,7 @@ El script usa `supabase.cmd` y `ExecutionPolicy Bypass` sólo para ese proceso. 
 | RBAC y RLS | Avanzado | Matriz completa con cuentas persistentes de admin, organizer, referee y blader. |
 | Invitaciones | Implementado con fallback de `mailto` | Desplegar y comprobar entrega transaccional de correo. |
 | Rankings Excel | Implementado | Previsualización, versionado, rollback y auditoría del archivo. |
-| Deck 3on3 | Implementado como herramienta local | Entidad persistente, asociación segura e historial de inspección. |
+| Deck 3on3 | Implementado | La migración añade `deck_combos`; falta aplicar y validar el esquema en staging. |
 | Tier List | Placeholder honesto | Fuente oficial, publicación y trazabilidad de tiers. |
 | Accesibilidad | Parcial | Auditoría automatizada, foco completo, teclado y axe. |
 | Pruebas | Unitarias y SQL en crecimiento | Integración API, RLS por rol, E2E, accesibilidad y responsive. |
@@ -578,6 +578,17 @@ No se debe publicar como plataforma multiusuario hasta cerrar estos puntos:
 - [ ] Añadir auditoría de accesibilidad y pruebas en móvil, tablet, escritorio y proyector.
 - [ ] Ejecutar `npm run lint`, `npm run test`, `npm run build` y las pruebas SQL desde checkout limpio.
 - [ ] Ejecutar un smoke test del despliegue publicado, incluyendo `/api/health` y una mutación autenticada.
+
+Para repetir la validación local antes de publicar staging:
+
+```bash
+npm run verify:release
+STAGING_HEALTH_URL=https://staging.example.com/api/health npm run staging:preflight
+```
+
+El preflight exige `SUPABASE_URL`, `SUPABASE_ANON_KEY` y que `/api/health` confirme
+`status: "ok"` con `persistence: "ready"`. La aplicación de migraciones y la
+prueba con cuentas reales siguen siendo una operación del proyecto Supabase de staging.
 
 ## Documentación relacionada
 

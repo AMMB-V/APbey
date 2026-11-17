@@ -100,6 +100,7 @@ create table participants (
   seed int,
   checked_in boolean not null default false,
   inspected boolean not null default false,
+  deck_combos text[] not null default '{}',
   status participant_status not null default 'registered',
   unique (tournament_id, seed)
 );
@@ -166,6 +167,11 @@ create table matches (
   next_match_winner_id uuid references matches(id),
   next_match_loser_id uuid references matches(id),
   version int not null default 1,
+  outcome text check (outcome is null or outcome in ('normal', 'walkover', 'disqualification', 'abandonment', 'third_place')),
+  outcome_note text,
+  reopened_at timestamptz,
+  reopened_by uuid references auth.users(id),
+  reopen_reason text,
   started_at timestamptz,
   finished_at timestamptz,
   check (not is_draw or winner_id is null)

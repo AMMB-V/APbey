@@ -717,7 +717,13 @@ export function subscribeToTournamentRealtime(
   const supabase = getSupabaseClient();
   if (!supabase) return () => {};
 
-  const channel = supabase
+  let channel: ReturnType<typeof supabase.channel> | undefined;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let disposed = false;
+
+  const connect = () => {
+    if (disposed) return;
+    channel = supabase
     .channel('live_tournament_global')
     .on(
       'postgres_changes',
@@ -740,6 +746,11 @@ export function subscribeToTournamentRealtime(
             winnerId: (m.winner_id as string) || undefined,
             refereeId: (m.referee_id as string) || undefined,
             version: Number(m.version) || 0,
+            outcome: (m.outcome as Match['outcome']) || null,
+            outcomeNote: (m.outcome_note as string) || null,
+            reopenedAt: (m.reopened_at as string) || null,
+            reopenedBy: (m.reopened_by as string) || null,
+            reopenReason: (m.reopen_reason as string) || null,
           });
         }
       }
@@ -861,10 +872,22 @@ export function subscribeToTournamentRealtime(
       ) {
         callbacks.onStatusChange?.(status);
       }
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        if (retryTimer) clearTimeout(retryTimer);
+        retryTimer = setTimeout(() => {
+          if (channel) supabase.removeChannel(channel);
+          channel = undefined;
+          connect();
+        }, 1_000);
+      }
     });
+  };
 
+  connect();
   return () => {
-    supabase.removeChannel(channel);
+    disposed = true;
+    if (retryTimer) clearTimeout(retryTimer);
+    if (channel) supabase.removeChannel(channel);
   };
 }
 

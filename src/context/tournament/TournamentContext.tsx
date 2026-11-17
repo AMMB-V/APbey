@@ -597,9 +597,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const unsubscribe = subscribeToTournamentRealtime(undefined, {
       onMatchUpdate: (incomingMatch) => {
         if (!incomingMatch.id) return;
-        setMatches((current) => current.map((match) => (
-          match.id === incomingMatch.id ? { ...match, ...incomingMatch } : match
-        )));
+        setMatches((current) => current.map((match) => {
+          if (match.id !== incomingMatch.id) return match;
+          const incomingVersion = incomingMatch.version ?? 0;
+          return incomingVersion >= match.version ? { ...match, ...incomingMatch } : match;
+        }));
         setSupabaseSyncInfo((previous) => ({
           ...previous,
           isConnected: true,
