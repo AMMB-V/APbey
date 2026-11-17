@@ -54,7 +54,8 @@ async function startServer() {
 
   app.get('/api/health', async (_req, res) => {
     const hasSupabaseConfiguration = Boolean(
-      process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY
+      process.env.SUPABASE_URL &&
+      (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY)
     );
     let persistenceStatus: 'ready' | 'unconfigured' | 'unreachable' = 'unconfigured';
 
@@ -62,7 +63,9 @@ async function startServer() {
       try {
         const supabase = createClient(
           process.env.SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY!
+          process.env.SUPABASE_SERVICE_ROLE_KEY ||
+          process.env.SUPABASE_SECRET_KEY ||
+          process.env.SUPABASE_ANON_KEY!
         );
         const { error } = await supabase
           .from('tournaments')
@@ -92,7 +95,10 @@ async function startServer() {
     }
 
     const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_SECRET_KEY ||
+      process.env.SUPABASE_ANON_KEY;
     if (!supabaseUrl || !supabaseKey) {
       return res.status(503).json({ valid: false, message: 'La validación de invitaciones no está configurada.' });
     }
