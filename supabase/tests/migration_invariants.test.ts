@@ -38,6 +38,10 @@ const doubleEliminationMigrationPath = resolve(
   process.cwd(),
   'supabase/migrations/20261116000003_double_elimination_reset.sql'
 );
+const operationalMatchControlsMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20261116000005_operational_match_controls.sql'
+);
 
 describe('audit follow-up migration', () => {
   it('exists and contains the production-critical RPCs', () => {
@@ -105,6 +109,20 @@ describe('audit follow-up migration', () => {
       expect(sql).toContain('is_bye = true');
       expect(sql).toContain('drop trigger if exists route_double_elimination_progression');
       expect(sql).toContain('create trigger route_double_elimination_progression');
+    });
+
+    describe('operational match controls migration', () => {
+      it('adds deck persistence and audited authorized reopening', () => {
+        const sql = readFileSync(operationalMatchControlsMigrationPath, 'utf8');
+
+        expect(sql).toContain('add column if not exists deck_combos');
+        expect(sql).toContain("outcome in ('normal', 'walkover', 'disqualification', 'abandonment', 'third_place')");
+        expect(sql).toContain('create or replace function public.reopen_match');
+        expect(sql).toContain('reopen_reason_required');
+        expect(sql).toContain('version_conflict');
+        expect(sql).toContain("'matches', p_match_id, 'reopen'");
+        expect(sql).toContain('grant execute on function public.reopen_match(uuid, int, text) to authenticated');
+      });
     });
   });
   it('does not trust a client-supplied invitation code', () => {
