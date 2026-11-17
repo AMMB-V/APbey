@@ -1874,7 +1874,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         {
           name: 'Fase Final (Eliminación Directa)',
           pointsToWin: tournament?.pointsToWinPlayoffs || 5,
-          bestOf: 1,
+          bestOf: 3,
           thirdPlaceMatch: true,
         }
       )
@@ -1887,7 +1887,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         {
           name: 'Fase Final (Eliminación Directa)',
           pointsToWin: tournament?.pointsToWinPlayoffs || 5,
-          bestOf: 1,
+          bestOf: 3,
           thirdPlaceMatch: true,
         }
       );
@@ -1975,7 +1975,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       status: 'pending',
       matchType: '3on3',
       pointsToWin: type === 'group_stage' ? 4 : 5,
-      bestOf: 1,
+      bestOf: type === 'group_stage' || type === 'round_robin' || type === 'swiss' ? 1 : 3,
       config: {
         stageStructure: 'multi_stage',
         advanceCount: 2,
@@ -2988,7 +2988,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       status: 'pending',
       matchType: '3on3',
       pointsToWin: stageType === 'group_stage' ? 4 : 4,
-      bestOf: 1, // Eliminación directa a puntos por defecto (best_of = 1)
+      bestOf: stageType === 'group_stage' || stageType === 'round_robin' || stageType === 'swiss' ? 1 : 3,
       config: {
         ...stageConfig,
         stageStructure: stageConfig.stageStructure ?? 'two_stage',
@@ -3008,7 +3008,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           status: 'pending' as const,
           matchType: '3on3' as const,
           pointsToWin: secondStage.type === 'group_stage' ? 4 : 7,
-          bestOf: 1,
+          bestOf: secondStage.type === 'group_stage' || secondStage.type === 'round_robin' || secondStage.type === 'swiss' ? 1 : 3,
           config: {
             ...(secondStage.config || {}),
             stageStructure: 'two_stage' as const,

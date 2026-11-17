@@ -76,4 +76,18 @@ describe('Swiss stage advancement', () => {
       winnerId: null,
     }], participants)).toThrow('matches pendientes');
   });
+
+  it('defaults generated playoff stages to best-of-three', () => {
+    const result = advanceSwissStageToPlayoffs(
+    't1',
+    stage,
+    [
+      completedMatch('m1', 'p1', 'p2', 'p1'),
+      completedMatch('m2', 'p3', 'p4', 'p3'),
+    ],
+    participants
+    );
+
+    expect(result.nextStage.bestOf).toBe(3);
+  });
 });

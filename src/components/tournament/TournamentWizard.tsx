@@ -221,7 +221,9 @@ export const TournamentWizard: React.FC<{
   const [grandFinalType, setGrandFinalType] = useState<NonNullable<typeof activeStage>['config']['grandFinalType']>(
     activeStage?.config.grandFinalType ?? 'one_or_two_matches'
   );
-  const [bestOf, setBestOf] = useState<number>(activeStage?.bestOf ?? 1); // best_of = 1 default
+  const [bestOf, setBestOf] = useState<number>(
+    activeStage?.bestOf ?? (activeStage?.type === 'group_stage' || activeStage?.type === 'round_robin' || activeStage?.type === 'swiss' ? 1 : 3)
+  );
   const [pointsToWin, setPointsToWin] = useState<number>(activeStage?.pointsToWin ?? 4);
 
   // Tiebreaker priority order for current stage
@@ -240,7 +242,9 @@ export const TournamentWizard: React.FC<{
     setPointsPerSetWin(activeStage?.config.pointsPerSetWin ?? 0);
     setPointsPerBye(activeStage?.config.pointsPerBye ?? 1);
     setGrandFinalType(activeStage?.config.grandFinalType ?? 'one_or_two_matches');
-    setBestOf(activeStage?.bestOf ?? 1);
+    setBestOf(activeStage?.bestOf ?? (
+      activeStage?.type === 'group_stage' || activeStage?.type === 'round_robin' || activeStage?.type === 'swiss' ? 1 : 3
+    ));
     setPointsToWin(activeStage?.pointsToWin ?? 4);
     setStageTiebreakers(activeStage?.config.tiebreakers || ['points', 'median_buchholz', 'head_to_head', 'point_diff', 'seed']);
   }, [selectedStageId, activeStage?.id]);
@@ -855,7 +859,7 @@ export const TournamentWizard: React.FC<{
                 className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded-lg p-2 bg-[var(--grafito)] text-[var(--hueso)]"
               />
               <p className="text-[11px] text-[var(--acero)]">
-                Eliminación directa a puntos por defecto: best_of = 1.
+                Grupos/Swiss usan best_of = 1; eliminación directa usa best_of = 3 por defecto.
               </p>
             </div>
           </div>

@@ -60,7 +60,7 @@ export function advanceSwissStageToPlayoffs(
     status: 'in_progress',
     matchType: currentStage.matchType,
     pointsToWin: nextStageConfig.pointsToWin || 7,
-    bestOf: nextStageConfig.bestOf || 1,
+    bestOf: nextStageConfig.bestOf ?? 3,
     config: {
       tiebreakers: ['points', 'point_diff', 'seed'],
       thirdPlaceMatch: nextStageConfig.thirdPlaceMatch !== false,
@@ -179,7 +179,7 @@ export function advanceGroupStageToPlayoffs(
     status: 'in_progress',
     matchType: currentStage.matchType,
     pointsToWin: nextStageConfig.pointsToWin || 7, // Standard 7 pts for finals
-    bestOf: nextStageConfig.bestOf || 1,           // default best_of = 1
+    bestOf: nextStageConfig.bestOf ?? 3,
     config: {
       tiebreakers: ['points', 'point_diff', 'seed'],
       thirdPlaceMatch: nextStageConfig.thirdPlaceMatch !== false,
