@@ -59,9 +59,9 @@ begin
   on conflict (tournament_id, profile_id) do nothing;
 
   insert into public.participants (
-    id, tournament_id, display_name, seed, checked_in, inspected, status
+    id, tournament_id, display_name, seed, checked_in, inspected, deck_combos, status
   )
-  select id, tournament_id, display_name, seed, checked_in, inspected, status
+  select id, tournament_id, display_name, seed, checked_in, inspected, deck_combos, status
     from jsonb_to_recordset(coalesce(p_participants, '[]'::jsonb))
       as payload(
         id uuid,
@@ -70,6 +70,7 @@ begin
         seed integer,
         checked_in boolean,
         inspected boolean,
+        deck_combos text[],
         status participant_status
       )
   on conflict (id) do update set
@@ -77,6 +78,7 @@ begin
     seed = excluded.seed,
     checked_in = excluded.checked_in,
     inspected = excluded.inspected,
+    deck_combos = excluded.deck_combos,
     status = excluded.status;
 
   insert into public.stages (
@@ -151,12 +153,14 @@ begin
     id, tournament_id, stage_id, round_id, group_id, position,
     participant1_id, participant2_id, winner_id, is_draw, is_bye,
     score1, score2, sets1, sets2, status, referee_id,
-    next_match_winner_id, next_match_loser_id, version, started_at, finished_at
+    next_match_winner_id, next_match_loser_id, version, outcome, outcome_note,
+    reopened_at, reopened_by, reopen_reason, started_at, finished_at
   )
   select id, tournament_id, stage_id, round_id, group_id, position,
          participant1_id, participant2_id, winner_id, is_draw, is_bye,
          score1, score2, sets1, sets2, status, referee_id,
-         next_match_winner_id, next_match_loser_id, version, started_at, finished_at
+         next_match_winner_id, next_match_loser_id, version, outcome, outcome_note,
+         reopened_at, reopened_by, reopen_reason, started_at, finished_at
     from jsonb_to_recordset(coalesce(p_matches, '[]'::jsonb))
       as payload(
         id uuid,
@@ -179,6 +183,11 @@ begin
         next_match_winner_id uuid,
         next_match_loser_id uuid,
         version integer,
+        outcome text,
+        outcome_note text,
+        reopened_at timestamptz,
+        reopened_by uuid,
+        reopen_reason text,
         started_at timestamptz,
         finished_at timestamptz
       )
@@ -201,6 +210,11 @@ begin
     next_match_winner_id = excluded.next_match_winner_id,
     next_match_loser_id = excluded.next_match_loser_id,
     version = excluded.version,
+    outcome = excluded.outcome,
+    outcome_note = excluded.outcome_note,
+    reopened_at = excluded.reopened_at,
+    reopened_by = excluded.reopened_by,
+    reopen_reason = excluded.reopen_reason,
     started_at = excluded.started_at,
     finished_at = excluded.finished_at;
 

@@ -42,7 +42,9 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
     addSetToMatch,
     removeSetFromMatch,
     recordPenalty,
+    resolveMatch,
     undoBattle,
+    reopenMatch,
     toggleInspected,
     assignReferee,
     claimMatchAsReferee,
@@ -89,6 +91,10 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
   const [penaltyTarget, setPenaltyTarget] = useState<'p1' | 'p2'>('p1');
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [administrativeOutcome, setAdministrativeOutcome] = useState<
+    'walkover' | 'disqualification' | 'abandonment' | 'third_place'
+  >('walkover');
+  const [administrativeNote, setAdministrativeNote] = useState('');
 
   const match = matches.find((m) => m.id === selectedMatchId) || activeMatches[0];
   const stage = match ? stages.find((s) => s.id === match.stageId) : undefined;
@@ -675,6 +681,41 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
               Deshacer Batalla (Undo)
             </button>
           </div>
+
+          <div className="grid gap-2 border-t border-[var(--costura)] pt-3 sm:grid-cols-[1fr_1fr_auto]">
+            <select
+              value={administrativeOutcome}
+              onChange={(event) => setAdministrativeOutcome(event.target.value as typeof administrativeOutcome)}
+              className="text-xs border border-[var(--costura)] rounded-[var(--r-control)] px-2 py-2 bg-[var(--grafito)] text-[var(--hueso)]"
+              aria-label="Resultado administrativo"
+            >
+              <option value="walkover">Walk-over</option>
+              <option value="disqualification">Descalificación</option>
+              <option value="abandonment">Abandono</option>
+              <option value="third_place">Tercer lugar</option>
+            </select>
+            <input
+              value={administrativeNote}
+              onChange={(event) => setAdministrativeNote(event.target.value)}
+              placeholder="Motivo o nota del resultado"
+              className="text-xs border border-[var(--costura)] rounded-[var(--r-control)] px-2 py-2 bg-[var(--grafito)] text-[var(--hueso)]"
+              aria-label="Motivo del resultado administrativo"
+            />
+            <button
+              type="button"
+              disabled={!selectedScorer}
+              onClick={() => {
+                const winnerId = selectedScorer === 'p1' ? match.participant1Id : match.participant2Id;
+                if (!winnerId) return;
+                resolveMatch(match.id, administrativeOutcome, winnerId, administrativeNote);
+                setSelectedScorer(null);
+                setAdministrativeNote('');
+              }}
+              className="acero-btn acero-btn--secondary text-xs px-3 py-2 disabled:opacity-40"
+            >
+              Cerrar resultado
+            </button>
+          </div>
         </div>
       )}
 
@@ -687,10 +728,18 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
           </div>
           {isCompleted && canArbitrate && (
             <button
-              onClick={() => undoBattle(match.id)}
+              onClick={() => {
+                const reason = window.prompt('Motivo obligatorio para reabrir el match:') || '';
+                if (reason.trim().length < 10) {
+                  setSnackbarMessage('La reapertura requiere un motivo de al menos 10 caracteres.');
+                  setSnackbarOpen(true);
+                  return;
+                }
+                reopenMatch(match.id, reason);
+              }}
               className="text-xs text-[var(--tarjeta-amarilla)] hover:underline font-semibold flex items-center gap-1"
             >
-              <RotateCcw className="w-3 h-3" /> Reabrir / Deshacer Último Asalto
+              <RotateCcw className="w-3 h-3" /> Reabrir match
             </button>
           )}
         </div>

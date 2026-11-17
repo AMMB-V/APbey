@@ -4,7 +4,8 @@ export type PersistenceOperation =
   | 'publish_tournament_snapshot'
   | 'record_battle'
   | 'record_penalty'
-  | 'undo_last_battle';
+  | 'undo_last_battle'
+  | 'reopen_match';
 
 export type PersistenceErrorCode =
   | 'AUTH_REQUIRED'

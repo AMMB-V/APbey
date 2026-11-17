@@ -64,6 +64,7 @@ describe('audit follow-up migration', () => {
       expect(sql).toContain('insert into public.tournament_finish_points');
       expect(sql).toContain('insert into public.tournament_referees');
       expect(sql).toContain('insert into public.participants');
+      expect(sql).toContain('deck_combos');
       expect(sql).toContain('insert into public.stages');
       expect(sql).toContain('insert into public.groups');
       expect(sql).toContain('insert into public.group_participants');
@@ -75,6 +76,7 @@ describe('audit follow-up migration', () => {
       expect(sql).toContain('delete from public.participants');
       expect(sql).toContain('delete from public.tournament_referees');
       expect(sql).toContain('next_match_winner_id = null');
+      expect(sql).toContain('outcome_note');
       expect(sql).toContain(
         'grant execute on function public.publish_tournament_snapshot('
       );

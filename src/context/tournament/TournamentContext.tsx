@@ -6,6 +6,7 @@ import {
   Group,
   Invitation,
   Match,
+  MatchOutcome,
   Participant,
   Penalty,
   Round,
@@ -31,6 +32,7 @@ import {
   loadAdminProfiles,
   loadAdminAuditLogs,
   persistAuditLogToSupabase,
+  reopenMatchInSupabase,
 } from '../../lib/supabase/supabaseService';
 import {
   getSupabaseClient,
@@ -163,7 +165,9 @@ interface TournamentContextType {
   addSetToMatch: (matchId: string, participantId: string) => void;
   removeSetFromMatch: (matchId: string, participantId: string) => void;
   recordPenalty: (matchId: string, offenderId: string, card?: 'yellow' | 'red', isFoul?: boolean, reason?: string) => void;
+  resolveMatch: (matchId: string, outcome: Exclude<MatchOutcome, 'normal'>, winnerId: string, note?: string) => void;
   undoBattle: (matchId: string) => void;
+  reopenMatch: (matchId: string, reason: string) => void;
   assignReferee: (matchId: string, refereeId: string | null) => void;
   assignRefereeToGroup: (groupId: string, refereeId: string | null) => void;
   assignRefereeToStage: (stageId: string, refereeId: string | null) => void;
@@ -2438,6 +2442,93 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     );
   };
 
+  const resolveMatch = (
+    matchId: string,
+    outcome: Exclude<MatchOutcome, 'normal'>,
+    winnerId: string,
+    note?: string
+  ) => {
+    assertWritablePersistence();
+    if (!currentUser || !['referee', 'organizer', 'admin'].includes(currentRole)) {
+      throw new Error('No tienes permisos para cerrar el match administrativamente.');
+    }
+    const match = matches.find((item) => item.id === matchId);
+    if (!match || match.status === 'completed') return;
+    if (![match.participant1Id, match.participant2Id].includes(winnerId)) {
+      throw new Error('El ganador debe ser uno de los participantes del match.');
+    }
+
+    const updatedMatch: Match = {
+      ...match,
+      winnerId,
+      isDraw: false,
+      status: 'completed',
+      outcome,
+      outcomeNote: note?.trim() || null,
+      finishedAt: new Date().toISOString(),
+      version: match.version + 1,
+    };
+    let nextMatches = matches.map((item) => item.id === matchId ? updatedMatch : item);
+    const loserId = winnerId === match.participant1Id ? match.participant2Id : match.participant1Id;
+
+    if (updatedMatch.nextMatchWinnerId) {
+      nextMatches = nextMatches.map((item) => item.id === updatedMatch.nextMatchWinnerId
+        ? placeAdvancingParticipant(updatedMatch, item, winnerId, 'winner')
+        : item);
+    }
+    if (updatedMatch.nextMatchLoserId && loserId) {
+      nextMatches = nextMatches.map((item) => item.id === updatedMatch.nextMatchLoserId
+        ? placeAdvancingParticipant(updatedMatch, item, loserId, 'loser')
+        : item);
+    }
+
+    const completion = getTournamentCompletionState(match.tournamentId, stages, nextMatches);
+    const nextStages = completion?.tournamentComplete
+      ? stages.map((stage) => stage.id === completion.stageId
+        ? { ...stage, status: 'completed' as const }
+        : stage)
+      : stages;
+    const nextTournaments = completion?.tournamentComplete
+      ? tournaments.map((tournament) => tournament.id === match.tournamentId
+        ? { ...tournament, status: 'completed' as const }
+        : tournament)
+      : tournaments;
+
+    setMatches(nextMatches);
+    if (completion?.tournamentComplete) {
+      setStages(nextStages);
+      setTournaments(nextTournaments);
+    }
+    saveState({
+      matches: nextMatches,
+      ...(completion?.tournamentComplete
+        ? { stages: nextStages, tournaments: nextTournaments }
+        : {}),
+    });
+
+    if (supabaseSyncInfo.isConfigured) {
+      void syncTournamentToSupabase(
+        nextTournaments.find((item) => item.id === match.tournamentId) || tournaments.find((item) => item.id === match.tournamentId)!,
+        nextStages,
+        groups,
+        rounds,
+        nextMatches,
+        participants,
+        battles,
+        penalties
+      ).then((result) => {
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConnected: result.success,
+          lastSync: result.success ? new Date().toLocaleTimeString() : previous.lastSync,
+          message: result.message,
+        }));
+      });
+    }
+
+    logAudit('matches', matchId, 'update', `Match cerrado como ${outcome} por ${currentUser.displayName}.`);
+  };
+
   // Record a penalty / foul / card
   const recordPenalty = (
     matchId: string,
@@ -2875,6 +2966,112 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } catch (err: unknown) {
       console.error(err);
     }
+  };
+
+  const reopenMatch = (matchId: string, reason: string) => {
+    assertWritablePersistence();
+    if (!currentUser || !['referee', 'organizer', 'admin'].includes(currentRole)) {
+      throw new Error('No tienes permisos para reabrir matches.');
+    }
+    if (reason.trim().length < 10) {
+      throw new Error('La reapertura requiere un motivo de al menos 10 caracteres.');
+    }
+    const match = matches.find((item) => item.id === matchId);
+    if (!match || match.status !== 'completed') return;
+
+    const downstreamIds = new Set<string>();
+    const queue = [match.nextMatchWinnerId, match.nextMatchLoserId]
+      .filter((id): id is string => Boolean(id));
+    while (queue.length > 0) {
+      const downstreamId = queue.shift();
+      if (!downstreamId || downstreamIds.has(downstreamId)) continue;
+      downstreamIds.add(downstreamId);
+      const downstream = matches.find((item) => item.id === downstreamId);
+      if (downstream?.nextMatchWinnerId) queue.push(downstream.nextMatchWinnerId);
+      if (downstream?.nextMatchLoserId) queue.push(downstream.nextMatchLoserId);
+    }
+
+    const participantIds = new Set(
+      [match.participant1Id, match.participant2Id].filter((id): id is string => Boolean(id))
+    );
+    const reopenedMatch: Match = {
+      ...match,
+      winnerId: null,
+      isDraw: false,
+      score1: 0,
+      score2: 0,
+      sets1: 0,
+      sets2: 0,
+      status: 'pending',
+      outcome: null,
+      outcomeNote: null,
+      reopenedAt: new Date().toISOString(),
+      reopenedBy: currentUser.id,
+      reopenReason: reason.trim(),
+      finishedAt: null,
+      version: match.version + 1,
+    };
+    const nextMatches = matches.map((item) => {
+      if (item.id === matchId) return reopenedMatch;
+      if (!downstreamIds.has(item.id)) return item;
+      const clearsParticipant = participantIds.has(item.participant1Id || '')
+        || participantIds.has(item.participant2Id || '');
+      return clearsParticipant
+        ? {
+          ...item,
+          participant1Id: participantIds.has(item.participant1Id || '') ? null : item.participant1Id,
+          participant2Id: participantIds.has(item.participant2Id || '') ? null : item.participant2Id,
+          winnerId: null,
+          score1: 0,
+          score2: 0,
+          sets1: 0,
+          sets2: 0,
+          status: 'pending' as const,
+          isBye: false,
+          startedAt: null,
+          finishedAt: null,
+          version: item.version + 1,
+        }
+        : item;
+    });
+    const nextBattles = battles.filter((battle) => battle.matchId !== matchId && !downstreamIds.has(battle.matchId));
+    const nextPenalties = penalties.filter((penalty) => penalty.matchId !== matchId && !downstreamIds.has(penalty.matchId));
+    setMatches(nextMatches);
+    setBattles(nextBattles);
+    setPenalties(nextPenalties);
+    saveState({ matches: nextMatches, battles: nextBattles, penalties: nextPenalties });
+
+    const tournament = tournaments.find((item) => item.id === match.tournamentId);
+    if (supabaseSyncInfo.isConfigured && tournament) {
+      void reopenMatchInSupabase(match, reason).then(async (result) => {
+        if (!result.success) {
+          setMatches(matches);
+          setBattles(battles);
+          setPenalties(penalties);
+          saveState({ matches, battles, penalties });
+          setSupabaseSyncInfo((previous) => ({ ...previous, isConnected: false, message: result.message }));
+          return;
+        }
+        const syncResult = await syncTournamentToSupabase(
+          tournament,
+          stages,
+          groups,
+          rounds,
+          nextMatches,
+          participants,
+          nextBattles,
+          nextPenalties
+        );
+        setSupabaseSyncInfo((previous) => ({
+          ...previous,
+          isConnected: syncResult.success,
+          lastSync: syncResult.success ? new Date().toLocaleTimeString() : previous.lastSync,
+          message: syncResult.message,
+        }));
+      });
+    }
+
+    logAudit('matches', matchId, 'reopen', `Match reabierto por ${currentUser.displayName}: ${reason.trim()}`);
   };
 
   const assignReferee = (matchId: string, refereeId: string | null) => {
@@ -3721,7 +3918,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         addSetToMatch,
         removeSetFromMatch,
         recordPenalty,
+        resolveMatch,
         undoBattle,
+        reopenMatch,
         assignReferee,
         assignRefereeToGroup,
         assignRefereeToStage,

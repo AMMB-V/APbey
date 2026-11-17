@@ -12,6 +12,7 @@ import {
   UserProfile,
   FinishPointsConfig,
   FinishType,
+  MatchOutcome,
 } from '../../types/tournament';
 import { BladerRanking, HallOfFameEntry } from '../../types/rankings';
 import {
@@ -291,6 +292,7 @@ export async function syncTournamentToSupabase(
       seed: p.seed,
       checked_in: p.checkedIn,
       inspected: p.inspected,
+      deck_combos: p.deckCombos || [],
       status: p.status,
     }));
 
@@ -356,6 +358,11 @@ export async function syncTournamentToSupabase(
       next_match_winner_id: m.nextMatchWinnerId || null,
       next_match_loser_id: m.nextMatchLoserId || null,
       version: m.version,
+      outcome: m.outcome || null,
+      outcome_note: m.outcomeNote || null,
+      reopened_at: m.reopenedAt || null,
+      reopened_by: m.reopenedBy || null,
+      reopen_reason: m.reopenReason || null,
       started_at: m.startedAt || null,
       finished_at: m.finishedAt || null,
     }));
@@ -587,6 +594,7 @@ export async function loadTournamentsFromSupabase(): Promise<{
       seed: p.seed ?? 0,
       checkedIn: p.checked_in,
       inspected: p.inspected,
+      deckCombos: Array.isArray(p.deck_combos) ? p.deck_combos.map(String) : undefined,
       status: p.status,
     }));
 
@@ -649,6 +657,11 @@ export async function loadTournamentsFromSupabase(): Promise<{
       nextMatchWinnerId: m.next_match_winner_id || undefined,
       nextMatchLoserId: m.next_match_loser_id || undefined,
       version: m.version ?? 1,
+      outcome: (m.outcome as MatchOutcome | null) || null,
+      outcomeNote: m.outcome_note || null,
+      reopenedAt: m.reopened_at || null,
+      reopenedBy: m.reopened_by || null,
+      reopenReason: m.reopen_reason || null,
       startedAt: m.started_at || undefined,
       finishedAt: m.finished_at || undefined,
     }));
@@ -1009,6 +1022,52 @@ export async function undoLastBattleInSupabase(
       err,
       mutation.requestId,
       'Error desconocido de sincronización.'
+    ));
+  }
+}
+
+export async function reopenMatchInSupabase(
+  match: Match,
+  reason: string
+): Promise<PersistenceResult> {
+  const mutation = createMutationContext('reopen_match', `${match.id}:${match.version}`);
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return failureFromPersistenceError(normalizePersistenceError(
+      new Error('Supabase no está configurado.'),
+      mutation.requestId
+    ));
+  }
+
+  try {
+    const identity = await getAuthenticatedSupabaseUser();
+    if ('error' in identity) {
+      return failureFromPersistenceError(normalizePersistenceError(
+        new Error(identity.error),
+        mutation.requestId
+      ));
+    }
+    const { error } = await supabase.rpc('reopen_match', {
+      p_match_id: match.id,
+      p_expected_version: match.version,
+      p_reason: reason,
+    });
+    if (error) {
+      const normalizedError = normalizePersistenceError(error, mutation.requestId);
+      const lowerMessage = error.message.toLowerCase();
+      const message = lowerMessage.includes('version_conflict')
+        ? 'El match cambió en otra sesión. Recarga el torneo antes de reabrirlo.'
+        : lowerMessage.includes('reopen_reason_required')
+        ? 'La reapertura requiere un motivo de al menos 10 caracteres.'
+        : `No se pudo reabrir el match: ${error.message} (request ${mutation.requestId})`;
+      return failureFromPersistenceError({ ...normalizedError, message });
+    }
+    return successFromPersistence('Match reabierto y auditado en Supabase.', mutation.requestId);
+  } catch (err) {
+    return failureFromPersistenceError(normalizePersistenceError(
+      err,
+      mutation.requestId,
+      'Error desconocido al reabrir el match.'
     ));
   }
 }
