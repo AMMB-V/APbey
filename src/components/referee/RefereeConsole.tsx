@@ -301,7 +301,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
             <div>
-              <span className="font-bold">Modo Solo Lectura (Espectador / Blader):</span> Tu rol actual es "{currentRole}". El registro de asaltos, faltas y asignación de mesa requiere rol de Árbitro u Organizador oficial (OWASP ASVS SEC-01).
+              <span className="font-bold">Modo Solo Lectura:</span> Tu rol actual es "{currentRole}". El registro de asaltos, faltas y asignación de mesa requiere rol de Árbitro u Organizador oficial.
             </div>
           </div>
         </div>
@@ -586,7 +586,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
       {!isCompleted && canArbitrate && (
         <div className="bg-[var(--chasis)] rounded-[var(--r-card)] border border-[var(--costura)] p-4 shadow-xs space-y-3">
           <div className="text-xs font-bold text-[var(--acero)] uppercase tracking-wider flex items-center justify-between">
-            <span>Botonera Oficial BeyScore (56px táctil de 1 toque)</span>
+            <span>Botonera Oficial BeyScore</span>
             <span className="text-[10px] text-[var(--acero)]">Reglamento WBO Beyblade X</span>
           </div>
 
@@ -812,7 +812,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
                 className="w-full text-xs font-medium border border-[var(--costura)] rounded-[var(--r-control)] p-2 bg-[var(--grafito)] text-[var(--hueso)] focus:outline-hidden"
               >
                 <option value="Lanzamiento sin contacto reglamentario">Lanzamiento sin contacto reglamentario</option>
-                <option value="Lanzamiento fuera de tiempo (Shoot delay)">Lanzamiento fuera de tiempo (Shoot delay)</option>
+                <option value="Lanzamiento fuera de tiempo">Lanzamiento fuera de tiempo</option>
                 <option value="Contacto corporal o invasión de arena">Contacto corporal o invasión de arena</option>
                 <option value="Lanzador no autorizado o posición antirreglamentaria">Lanzador no autorizado o posición antirreglamentaria</option>
                 <option value="Conducta antideportiva menor">Conducta antideportiva menor</option>

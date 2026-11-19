@@ -369,7 +369,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                   {officialP1.displayName}
                 </span>
                 <span className="text-[10px] text-[var(--acero)] uppercase tracking-wider block font-semibold mt-0.5">
-                  Lado Azul (P1)
+                  Lado Azul
                 </span>
               </div>
               <div className="my-1.5 sm:my-2 font-mono font-black text-5xl sm:text-7xl tracking-tighter text-[var(--hueso)] select-none drop-shadow-md">
@@ -393,7 +393,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                   {officialP2.displayName}
                 </span>
                 <span className="text-[10px] text-[var(--acero)] uppercase tracking-wider block font-semibold mt-0.5">
-                  Lado Naranja (P2)
+                  Lado Naranja
                 </span>
               </div>
               <div className="my-1.5 sm:my-2 font-mono font-black text-5xl sm:text-7xl tracking-tighter text-[var(--hueso)] select-none drop-shadow-md">
@@ -413,7 +413,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               <Scale className="w-4 h-4 text-amber-400" />
               <span className="text-xs font-bold text-[var(--hueso)]">Reglamento & Faltas:</span>
               <span className="text-[11px] text-[var(--acero)]">
-                {matchPenalties.length > 0 ? `${matchPenalties.length} sanción(es) aplicada(s)` : 'Sin faltas en el combate'}
+                {matchPenalties.length > 0 ? (matchPenalties.length === 1 ? '1 sanción aplicada' : `${matchPenalties.length} sanciones aplicadas`) : 'Sin faltas en el combate'}
               </span>
             </div>
 
@@ -614,12 +614,12 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                   const isP1 = b.scorerId === officialP1.id;
                   const finishLabel =
                     b.finish === 'spin'
-                      ? 'Spin Finish (+1)'
+                      ? 'Spin Finish · +1'
                       : b.finish === 'over'
-                      ? 'Over Finish (+2)'
+                      ? 'Over Finish · +2'
                       : b.finish === 'burst'
-                      ? 'Burst Finish (+2)'
-                      : 'Xtreme Finish (+3)';
+                      ? 'Burst Finish · +2'
+                      : 'Xtreme Finish · +3';
 
                   return (
                     <div
@@ -703,7 +703,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                       : 'border-[var(--costura)] bg-[var(--grafito)] text-[var(--acero)]'
                   }`}
                 >
-                  {officialP1.displayName} (P1)
+                  {officialP1.displayName}
                 </button>
                 <button
                   type="button"
@@ -714,7 +714,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                       : 'border-[var(--costura)] bg-[var(--grafito)] text-[var(--acero)]'
                   }`}
                 >
-                  {officialP2.displayName} (P2)
+                  {officialP2.displayName}
                 </button>
               </div>
             </div>
@@ -727,7 +727,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                 onChange={(e) => setFoulReason(e.target.value)}
                 className="w-full bg-[var(--grafito)] border border-[var(--costura)] rounded-xl px-3 py-2 text-xs text-[var(--hueso)] min-h-[44px]"
               >
-                <option value="Lanzamiento anticipado (False Start)">Lanzamiento anticipado (False Start)</option>
+                <option value="Lanzamiento anticipado">Lanzamiento anticipado</option>
                 <option value="Contacto con el estadio antes del choque">Contacto con el estadio antes del choque</option>
                 <option value="Invasión de zona de combate">Invasión de zona de combate</option>
                 <option value="Tocar el Beyblade en movimiento">Tocar el Beyblade en movimiento</option>

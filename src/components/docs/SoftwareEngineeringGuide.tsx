@@ -197,7 +197,7 @@ export const SoftwareEngineeringGuide: React.FC = () => {
           <div className="bg-[var(--grafito)] border border-[var(--costura)] rounded-lg p-3 font-mono text-[11px] space-y-1.5 text-[var(--hueso)]">
             <div><span className="text-blue-700 font-bold">NEXT_PUBLIC_SUPABASE_URL</span>=https://xyzcompany.supabase.co</div>
             <div><span className="text-blue-700 font-bold">NEXT_PUBLIC_SUPABASE_ANON_KEY</span>=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</div>
-            <div><span className="text-rose-700 font-bold">SUPABASE_SERVICE_ROLE_KEY</span>=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... <span className="text-[var(--acero)] font-sans italic">(Solo servidor)</span></div>
+            <div><span className="text-rose-700 font-bold">SUPABASE_SERVICE_ROLE_KEY</span>=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... <span className="text-[var(--acero)] font-sans italic">· Solo servidor</span></div>
           </div>
         </div>
       </section>

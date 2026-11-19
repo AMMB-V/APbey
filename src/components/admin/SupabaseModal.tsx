@@ -95,7 +95,7 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
             </div>
             <div>
               <h2 className="text-base font-bold tracking-tight">Conexión a Base de Datos Supabase</h2>
-              <p className="text-xs text-[var(--acero)]">PostgreSQL 15 · Row Level Security (RLS) · Realtime</p>
+              <p className="text-xs text-[var(--acero)]">PostgreSQL 15 · Row Level Security · Realtime</p>
             </div>
           </div>
           <button

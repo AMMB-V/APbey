@@ -142,7 +142,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
             <button
               onClick={() => handleZoom(-0.15)}
               className="p-1 hover:text-white hover:bg-[var(--chasis)] rounded"
-              title="Reducir zoom (-)"
+              title="Reducir zoom"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
@@ -152,7 +152,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
             <button
               onClick={() => handleZoom(0.15)}
               className="p-1 hover:text-white hover:bg-[var(--chasis)] rounded"
-              title="Aumentar zoom (+)"
+              title="Aumentar zoom"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>

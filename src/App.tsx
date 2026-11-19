@@ -288,7 +288,7 @@ function TournamentApp() {
                 <span className="font-bold text-[var(--hueso)]">{activeTournament.name}</span>
                 <span className="hidden sm:inline">·</span>
                 <span className="hidden sm:inline text-[var(--acero)]">
-                  {activeTournament.venueName || 'Sede no definida'} ({activeTournament.country || 'PA'})
+                  {activeTournament.venueName || 'Sede no definida'} · {activeTournament.country || 'PA'}
                 </span>
               </>
             ) : (
@@ -455,7 +455,7 @@ function TournamentApp() {
               <div className="flex items-center gap-1.5 font-mono text-[11px]">
                 <Shield className="w-3.5 h-3.5 text-emerald-400" />
                 <span>
-                  Sesión: <strong className="uppercase text-[var(--hueso)]">{currentUser.displayName}</strong> ({currentRole})
+                  Sesión: <strong className="uppercase text-[var(--hueso)]">{currentUser.displayName}</strong> · {currentRole}
                 </span>
               </div>
             ) : (

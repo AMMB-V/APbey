@@ -174,7 +174,7 @@ export const DeckBuilder: React.FC = () => {
                     `${bey.blade} ${bey.ratchet} ${bey.bit}`
                   ) : (
                     <span className="text-[var(--acero)] text-[11px] font-normal italic">
-                      {bey.blade || '(Sin combo configurado)'}
+                      {bey.blade || 'Sin combo configurado'}
                     </span>
                   )}
                 </div>
@@ -186,7 +186,7 @@ export const DeckBuilder: React.FC = () => {
                   htmlFor={`blade-select-${idx}`}
                   className="text-xs font-bold text-[var(--hueso)] flex items-center justify-between"
                 >
-                  <span>Blade (Cuchilla)</span>
+                  <span>Blade</span>
                   <span className="text-[10px] text-[var(--acero)]">Metal exterior</span>
                 </label>
                 <select
@@ -210,7 +210,7 @@ export const DeckBuilder: React.FC = () => {
                   htmlFor={`ratchet-select-${idx}`}
                   className="text-xs font-bold text-[var(--hueso)] flex items-center justify-between"
                 >
-                  <span>Ratchet (Trinquete)</span>
+                  <span>Ratchet</span>
                   <span className="text-[10px] text-[var(--acero)]">Altura & salientes</span>
                 </label>
                 <select
@@ -234,7 +234,7 @@ export const DeckBuilder: React.FC = () => {
                   htmlFor={`bit-select-${idx}`}
                   className="text-xs font-bold text-[var(--hueso)] flex items-center justify-between"
                 >
-                  <span>Bit (Punta de Eje)</span>
+                  <span>Bit</span>
                   <span className="text-[10px] text-[var(--acero)]">Tracción Xtreme</span>
                 </label>
                 <select

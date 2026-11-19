@@ -42,7 +42,7 @@ export interface TiebreakerMeta {
 export const ALL_TIEBREAKER_OPTIONS: TiebreakerMeta[] = [
   {
     id: 'points',
-    label: 'Puntos en la tabla (3x Victoria, 1x Empate)',
+    label: 'Puntos en la tabla',
     subtitle: 'Puntuación base de clasificación de la etapa',
     description: '3 puntos por victoria y 1 punto por empate en combates completados.',
     tag: 'Base Oficial',
@@ -50,7 +50,7 @@ export const ALL_TIEBREAKER_OPTIONS: TiebreakerMeta[] = [
   },
   {
     id: 'head_to_head',
-    label: 'Enfrentamiento directo (Duelo particular)',
+    label: 'Enfrentamiento directo',
     subtitle: 'Resultado directo entre los bladers empatados',
     description: 'En empate entre 2 o más participantes, clasifica quien ganó el combate directo entre ellos.',
     tag: 'Clave WBO',
@@ -58,15 +58,15 @@ export const ALL_TIEBREAKER_OPTIONS: TiebreakerMeta[] = [
   },
   {
     id: 'points_average',
-    label: 'Puntos promedio por combate (Anotación media)',
-    subtitle: 'Cociente entre puntos a favor y partidos jugados (PF / Partidos)',
+    label: 'Puntos promedio por combate',
+    subtitle: 'Cociente entre puntos a favor y partidos jugados',
     description: 'Calcula el promedio ofensivo dividiendo los puntos a favor entre los combates disputados.',
     tag: 'Promedio',
     accent: 'bg-indigo-700 text-white',
   },
   {
     id: 'game_wins',
-    label: 'Juegos / sets ganados',
+    label: 'Juegos y sets ganados',
     subtitle: 'Cantidad de sets ganados en los combates disputados',
     description: 'Desempata según el total de sets ganados, antes de recurrir a la siembra.',
     tag: 'Sets',
@@ -74,7 +74,7 @@ export const ALL_TIEBREAKER_OPTIONS: TiebreakerMeta[] = [
   },
   {
     id: 'points_for',
-    label: 'Puntos totales anotados (Puntos a favor)',
+    label: 'Puntos totales anotados',
     subtitle: 'Suma acumulada total de puntos a favor en la etapa',
     description: 'Mayor cantidad bruta de puntos anotados en todas las batallas. Premia el estilo ofensivo.',
     tag: 'Puntos Totales',
@@ -82,7 +82,7 @@ export const ALL_TIEBREAKER_OPTIONS: TiebreakerMeta[] = [
   },
   {
     id: 'point_diff',
-    label: 'Diferencia neta de puntos (PF - PC)',
+    label: 'Diferencia neta de puntos',
     subtitle: 'Puntos a favor restando los puntos recibidos en contra',
     description: 'Diferencial aritmético neto entre puntos anotados y recibidos durante los combates.',
     tag: 'Diferencial',
@@ -90,7 +90,7 @@ export const ALL_TIEBREAKER_OPTIONS: TiebreakerMeta[] = [
   },
   {
     id: 'points_ratio',
-    label: 'Cociente / Ratio de puntos (PF / PC)',
+    label: 'Ratio de puntos',
     subtitle: 'Proporción matemática entre puntos marcados y recibidos',
     description: 'Evita empates cuando los competidores tienen idéntico diferencial neto pero mayor solidez defensiva.',
     tag: 'Cociente',
@@ -98,7 +98,7 @@ export const ALL_TIEBREAKER_OPTIONS: TiebreakerMeta[] = [
   },
   {
     id: 'median_buchholz',
-    label: 'Median-Buchholz (Desempate oficial)',
+    label: 'Median-Buchholz',
     subtitle: 'Fuerza de rivales descartando el valor más alto y más bajo',
     description: 'Suma los puntos de los rivales y descarta el mayor y el menor cuando hay al menos tres rivales. Los BYEs no cuentan.',
     tag: 'Challonge',
@@ -106,7 +106,7 @@ export const ALL_TIEBREAKER_OPTIONS: TiebreakerMeta[] = [
   },
   {
     id: 'buchholz',
-    label: 'Sistema Buchholz (Fuerza de rivales)',
+    label: 'Sistema Buchholz',
     subtitle: 'Suma acumulada de puntos de los contrincantes enfrentados',
     description: 'Premia a los competidores con un calendario más exigente frente a oponentes de mayor puntaje.',
     tag: 'Suizo',
@@ -114,7 +114,7 @@ export const ALL_TIEBREAKER_OPTIONS: TiebreakerMeta[] = [
   },
   {
     id: 'seed',
-    label: 'Siembra inicial del torneo (Seeding ranking)',
+    label: 'Siembra inicial del torneo',
     subtitle: 'Posición de siembra reglamentaria asignada al registrarse',
     description: 'Último recurso reglamentario basado en el ranking o posición de siembra inicial asignada.',
     tag: 'Siembra',
@@ -730,7 +730,7 @@ export const TournamentWizard: React.FC<{
                   onChange={(event) => setGrandFinalType(event.target.value as typeof grandFinalType)}
                   className="w-full text-xs border border-[var(--costura)] rounded p-2 bg-[var(--grafito)] text-[var(--hueso)]"
                 >
-                  <option value="one_or_two_matches">1-2 combates (reset si es necesario)</option>
+                  <option value="one_or_two_matches">1 o 2 combates con reset si es necesario</option>
                   <option value="one_match">Un combate</option>
                   <option value="none">Sin gran final</option>
                 </select>
@@ -1053,7 +1053,7 @@ export const TournamentWizard: React.FC<{
                   type="text"
                   value={newStageName}
                   onChange={(event) => setNewStageName(event.target.value)}
-                  placeholder="Nombre de la nueva etapa (opcional)"
+                  placeholder="Nombre de la nueva etapa"
                   className="grow text-xs border border-[var(--costura)] rounded-lg px-3 py-2 bg-[var(--grafito)] text-[var(--hueso)]"
                 />
                 <select

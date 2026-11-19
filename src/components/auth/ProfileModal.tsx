@@ -77,7 +77,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
           </label>
 
           <label className="block space-y-1">
-            <span className="text-xs font-semibold text-[var(--acero)]">Nueva contraseña <span className="font-normal">(opcional)</span></span>
+            <span className="text-xs font-semibold text-[var(--acero)]">Nueva contraseña <span className="font-normal text-[10px]">Opcional</span></span>
             <div className="relative">
               <KeyRound className="absolute left-3 top-2.5 w-4 h-4 text-[var(--acero)]" />
               <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} placeholder="Mínimo 8 caracteres" className="w-full pl-9 pr-3 py-2 text-xs bg-[var(--grafito)] border border-[var(--costura)] rounded-[var(--r-control)]" />

@@ -227,7 +227,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 <div className="flex items-center gap-3">
                   <Tv className="w-5 h-5 text-emerald-400 shrink-0" />
                   <div>
-                    <div className="text-xs font-bold">En Vivo (Estadio)</div>
+                    <div className="text-xs font-bold">Modo Estadio</div>
                     <div className="text-[10px] text-[var(--acero)]">Modo proyector y marcador en vivo</div>
                   </div>
                 </div>

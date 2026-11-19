@@ -301,9 +301,9 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
                     <th className="py-2.5 px-2 text-center" title="Partidos Perdidos">PP</th>
                     <th className="py-2.5 px-2 text-center" title="Puntos a Favor">PF</th>
                     <th className="py-2.5 px-2 text-center" title="Puntos en Contra">PC</th>
-                    <th className="py-2.5 px-2 text-center" title="Diferencia de Puntos (PF - PC)">DIF</th>
-                    <th className="py-2.5 px-2 text-center" title="Puntos Promedio por Partido (PF / PJ)">PROM</th>
-                    <th className="py-2.5 px-3 text-center font-bold text-[var(--hueso)]" title="Puntos en la tabla (3 por victoria, 1 por empate)">PTS</th>
+                    <th className="py-2.5 px-2 text-center" title="Diferencia de Puntos">DIF</th>
+                    <th className="py-2.5 px-2 text-center" title="Puntos Promedio por Partido">PROM</th>
+                    <th className="py-2.5 px-3 text-center font-bold text-[var(--hueso)]" title="Puntos en la tabla">PTS</th>
                     {(currentRole === 'organizer' || currentRole === 'admin') && (
                       <th className="py-2.5 px-2 text-right">Mover Grupo</th>
                     )}

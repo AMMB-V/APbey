@@ -220,10 +220,10 @@ export const AdminPanel: React.FC = () => {
           <div>
             <div className="text-xs font-bold font-mono">
               Base de Datos: {supabaseSyncInfo.isConnected
-                ? `Supabase conectado${configuredSupabaseUrl ? ` (${configuredSupabaseUrl})` : ''}`
+                ? `Supabase conectado${configuredSupabaseUrl ? ` · ${configuredSupabaseUrl}` : ''}`
                 : supabaseSyncInfo.isConfigured
-                ? 'Supabase configurado (inicia sesión para sincronizar)'
-                : 'Modo local (sin conexión a Supabase)'}
+                ? 'Supabase configurado · Inicia sesión para sincronizar'
+                : 'Modo local · Sin conexión remota'}
             </div>
             <div className="text-[11px] text-[var(--acero)]">
               {supabaseSyncInfo.message} {supabaseSyncInfo.lastSync && `· Última sinc: ${supabaseSyncInfo.lastSync}`}
@@ -278,7 +278,7 @@ export const AdminPanel: React.FC = () => {
           }`}
         >
           <Users className="w-3.5 h-3.5 text-[var(--acero)]" />
-          <span>Invitaciones & Roles (RBAC)</span>
+          <span>Invitaciones y Roles</span>
           <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-neutral-800 text-neutral-300">
             {users.length} usuarios
           </span>
@@ -376,7 +376,7 @@ export const AdminPanel: React.FC = () => {
                 onChange={(e) => setInviteTournamentId(e.target.value)}
                 className="w-full text-xs font-medium border border-[var(--costura)] rounded-[var(--r-control)] p-2 bg-[var(--grafito)] text-[var(--hueso)] focus:outline-hidden"
               >
-                <option value="">Acceso general (Sin torneo exclusivo)</option>
+                <option value="">Acceso general a todos los torneos</option>
                 {tournaments.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
@@ -538,7 +538,7 @@ export const AdminPanel: React.FC = () => {
           <div className="pt-4 border-t border-[var(--costura)]">
             <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--acero)] mb-2">
               <History className="w-4 h-4 text-[var(--cobalto)]" />
-              Bitácora de Auditoría (Audit Log)
+              Bitácora de Auditoría
             </div>
 
             <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1 divide-y divide-[var(--costura)]">

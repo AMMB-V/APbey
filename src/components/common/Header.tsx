@@ -249,7 +249,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onOpenCommandPalette}
-              title="Búsqueda rápida (Ctrl+K)"
+              title="Búsqueda rápida · Ctrl+K"
               className="p-2 text-[var(--acero)] hover:text-[var(--hueso)] bg-[var(--grafito)] border border-[var(--costura)] hover:border-[var(--acero)] rounded-xl min-w-[38px] min-h-[38px] flex items-center justify-center transition-colors"
             >
               <Search className="w-4 h-4" />

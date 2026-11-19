@@ -211,7 +211,7 @@ export const ParticipantManager: React.FC = () => {
           <div className="grow w-full sm:w-auto">
             <input
               type="text"
-              placeholder="Nombre o Nickname del Blader (ej. Ekusu Kurosu)"
+              placeholder="Nombre del Blader"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               required
@@ -222,7 +222,7 @@ export const ParticipantManager: React.FC = () => {
           <div className="grow w-full sm:w-auto">
             <input
               type="text"
-              placeholder="Deck Combos 3on3 (ej. Dran Sword 3-60F, Wizard Rod 9-60B, Phoenix Wing 5-60P)"
+              placeholder="Combos 3on3: Dran Sword 3-60F, Wizard Rod 9-60B..."
               value={newCombos}
               onChange={(e) => setNewCombos(e.target.value)}
               className="w-full text-xs font-medium border border-[var(--costura)] rounded-[var(--r-control)] px-3 py-2 bg-[var(--grafito)] text-[var(--hueso)] focus:outline-hidden focus:border-[var(--cobalto)] font-mono"
@@ -247,7 +247,7 @@ export const ParticipantManager: React.FC = () => {
               <tr>
                 <th className="py-2.5 px-3 w-16 text-center">Siembra</th>
                 <th className="py-2.5 px-4">Blader / Participante</th>
-                <th className="py-2.5 px-4">Deck Registrado (3on3)</th>
+                <th className="py-2.5 px-4">Deck Registrado</th>
                 <th className="py-2.5 px-3 text-center">Check-In</th>
                 <th className="py-2.5 px-3 text-center">Bey Check</th>
                 {currentRole !== 'public' && (
@@ -312,7 +312,7 @@ export const ParticipantManager: React.FC = () => {
                           ))}
                         </div>
                       ) : (
-                        <span className="text-[var(--acero)] italic">Sin combos registrados (1on1 o pendiente)</span>
+                        <span className="text-[var(--acero)] italic">Sin combos registrados</span>
                       )}
                     </td>
 

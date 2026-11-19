@@ -408,7 +408,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                   <div className="flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-[var(--acero)] shrink-0" />
                     <span className="truncate">
-                      {tourney.venueName || 'Arena Central'} ({tourney.country})
+                      {tourney.venueName || 'Arena Central'} · {tourney.country}
                     </span>
                   </div>
 
@@ -593,15 +593,15 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                   onChange={(e) => handleTemplateChange(e.target.value)}
                   className="w-full text-xs font-medium border border-[var(--costura)] rounded-[var(--r-control)] px-3 py-2 bg-[var(--grafito)] text-[var(--hueso)] focus:outline-hidden focus:border-[var(--cobalto)]"
                 >
-                  <option value="">-- Configuración Estándar Oficial WBO --</option>
+                  <option value="">Configuración Estándar Oficial WBO</option>
                   {tournaments.map((t) => (
                     <option key={t.id} value={t.id}>
-                      Usar Plantilla: {t.name} ({t.venueName || 'Arena Central'})
+                      Plantilla: {t.name} · {t.venueName || 'Arena Central'}
                     </option>
                   ))}
                 </select>
                 <p className="text-[10px] text-[var(--acero)]">
-                  Copia formato, metas y reglas de desempate. No copia participantes, combates ni árbitros asignados.
+                  Copia formato, metas y reglas de desempate.
                 </p>
               </div>
 
@@ -704,7 +704,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                         : 'bg-[var(--grafito)] border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)]'
                     }`}
                   >
-                    <div className="text-xs font-bold text-[var(--hueso)]">Sistema Suizo (Swiss)</div>
+                    <div className="text-xs font-bold text-[var(--hueso)]">Sistema Suizo</div>
                     <div className="text-[10px] text-[var(--acero)] mt-0.5">Rondas contra rivales de igual puntaje. Sin eliminación temprana.</div>
                   </button>
                 </div>
@@ -755,7 +755,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                   </label>
                 </div>
                 <p className="text-[10px] text-[var(--acero)]">
-                  La opción habitual para nuestros torneos es <strong className="text-[var(--hueso)]">dos etapas</strong>.
+                  Formato estándar recomendado: <strong className="text-[var(--hueso)]">dos etapas</strong>.
                 </p>
               </fieldset>
 
@@ -763,7 +763,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                 <fieldset className="space-y-2 rounded-xl border border-[var(--cobalto)]/40 bg-[var(--cobalto)]/10 p-3">
                   <legend className="text-xs font-bold text-[var(--hueso)]">Formato de la segunda etapa</legend>
                   <p className="text-[10px] text-[var(--acero)]">
-                    Define ahora qué ocurre después de la fase inicial. Podrás ajustar sus reglas antes de iniciar el torneo.
+                    Define la fase posterior a la etapa inicial.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {([
@@ -833,7 +833,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                     className="w-full text-xs font-medium border border-[var(--costura)] rounded-[var(--r-control)] px-3 py-2 bg-[var(--grafito)] text-[var(--hueso)] focus:outline-hidden"
                   >
                     <option value={8}>8 Bladers</option>
-                    <option value={16}>16 Bladers (Recomendado)</option>
+                    <option value={16}>16 Bladers</option>
                     <option value={32}>32 Bladers</option>
                     <option value={64}>64 Bladers</option>
                   </select>
@@ -847,7 +847,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                 </summary>
                 <div className="p-3 border-t border-[var(--costura)] space-y-2">
                 <div className="text-xs font-bold text-[var(--hueso)]">
-                  Puntos para Ganar el Match (WBO Ruleset):
+                  Puntos para ganar el match:
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <div>
