@@ -7,6 +7,10 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.SUPABASE_SECRET_KEY) {
+  console.warn('Warning: Neither SUPABASE_SERVICE_ROLE_KEY nor SUPABASE_SECRET_KEY is set. Admin operations (invitation validation, referee assignments) will not work.');
+}
+
 const response = await fetch(healthUrl, {
   headers: { Accept: 'application/json' },
   signal: AbortSignal.timeout(10_000),

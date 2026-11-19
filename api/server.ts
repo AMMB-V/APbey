@@ -38,11 +38,32 @@ export default async function handler(req: Request, res: Response): Promise<void
     ? `/${url.searchParams.get('path')!.replace(/^\/+/, '')}`
     : url.pathname;
   if (requestPath === '/api/health' || requestPath === '/health') {
-    const hasConfiguration = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY);
-    sendJson(res, hasConfiguration ? 200 : 503, {
-      status: hasConfiguration ? 'ok' : 'degraded',
-      service: 'appbey-backend',
-      persistence: hasConfiguration ? 'ready' : 'unconfigured',
+    const hasConfiguration = Boolean(
+      process.env.SUPABASE_URL &&
+      (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY)
+    );
+    let persistenceStatus: 'ready' | 'unconfigured' | 'unreachable' = 'unconfigured';
+    if (hasConfiguration) {
+      try {
+        const supabase = createClient(
+          process.env.SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY ||
+          process.env.SUPABASE_SECRET_KEY ||
+          process.env.SUPABASE_ANON_KEY!
+        );
+        const { error } = await supabase
+          .from('tournaments')
+          .select('id', { head: true, count: 'exact' })
+          .limit(1);
+        persistenceStatus = error ? 'unreachable' : 'ready';
+      } catch {
+        persistenceStatus = 'unreachable';
+      }
+    }
+    sendJson(res, persistenceStatus === 'ready' || persistenceStatus === 'unconfigured' ? 200 : 503, {
+      status: persistenceStatus === 'unreachable' ? 'degraded' : 'ok',
+      service: 'apbey-backend',
+      persistence: persistenceStatus,
       requestId,
       timestamp: new Date().toISOString(),
     });
@@ -62,7 +83,7 @@ export default async function handler(req: Request, res: Response): Promise<void
   }
 
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseKey) {
     sendJson(res, 503, { valid: false, message: 'La validación de invitaciones no está configurada.' });
     return;

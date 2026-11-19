@@ -189,7 +189,7 @@ export async function persistRefereeAssignments(
     }
   }
 
-  const { error: auditError } = await supabase.from('audit_logs').insert({
+  const { error: auditError } = await supabase.from('audit_log').insert({
     table_name: 'tournament_referees',
     record_id: tournamentId,
     action: 'update',

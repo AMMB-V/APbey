@@ -9,6 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function startServer() {
+  const isProduction = process.env.NODE_ENV === 'production';
   const app = express();
   const port = Number(process.env.PORT) || 3000;
 
@@ -81,7 +82,7 @@ async function startServer() {
 
     res.status(isReady ? 200 : 503).json({
       status: isReady ? 'ok' : 'degraded',
-      service: 'appbey-backend',
+      service: 'apbey-backend',
       persistence: persistenceStatus,
       requestId: res.getHeader('X-Request-Id'),
       timestamp: new Date().toISOString(),
@@ -130,7 +131,6 @@ async function startServer() {
     }
   });
 
-  const isProduction = process.env.NODE_ENV === 'production';
   if (isProduction) {
     const distPath = path.resolve(__dirname, 'dist');
     app.use(express.static(distPath, {
