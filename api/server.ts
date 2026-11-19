@@ -56,32 +56,44 @@ export default async function handler(req: Request, res: Response): Promise<void
     ? `/${url.searchParams.get('path')!.replace(/^\/+/, '')}`
     : url.pathname;
   if (requestPath === '/api/health' || requestPath === '/health') {
-    const hasConfiguration = Boolean(
-      process.env.SUPABASE_URL &&
-      (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY)
-    );
+    const candidateKeys = [
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      process.env.SUPABASE_SECRET_KEY,
+      process.env.SUPABASE_ANON_KEY,
+    ].filter(Boolean) as string[];
+
+    const hasConfiguration = Boolean(process.env.SUPABASE_URL && candidateKeys.length > 0);
     let persistenceStatus: 'ready' | 'unconfigured' | 'unreachable' = 'unconfigured';
     let persistenceError: string | null = null;
+
     if (hasConfiguration) {
-      try {
-        const supabase = createClient(
-          process.env.SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY ||
-          process.env.SUPABASE_SECRET_KEY ||
-          process.env.SUPABASE_ANON_KEY!
-        );
-        const { error } = await supabase
-          .from('tournaments')
-          .select('id', { head: true, count: 'exact' })
-          .limit(1);
-        if (error) {
-          persistenceError = error.message;
-          console.error('[Health] persistence check error:', error);
+      for (const candidateKey of candidateKeys) {
+        try {
+          const supabase = createClient(process.env.SUPABASE_URL!, candidateKey, {
+            auth: { persistSession: false, autoRefreshToken: false },
+          });
+          const { error } = await supabase
+            .from('tournaments')
+            .select('id')
+            .limit(1);
+
+          if (!error) {
+            persistenceStatus = 'ready';
+            persistenceError = null;
+            break;
+          } else {
+            persistenceError = error.message || error.details || error.code || JSON.stringify(error);
+            console.error('[Health] persistence check key failure:', {
+              error,
+              keyPrefix: candidateKey.slice(0, 8),
+            });
+          }
+        } catch (err) {
+          persistenceError = err instanceof Error ? err.message : String(err);
+          console.error('[Health] persistence check exception:', err);
         }
-        persistenceStatus = error ? 'unreachable' : 'ready';
-      } catch (err) {
-        persistenceError = err instanceof Error ? err.message : String(err);
-        console.error('[Health] persistence check exception:', err);
+      }
+      if (persistenceStatus !== 'ready') {
         persistenceStatus = 'unreachable';
       }
     }
