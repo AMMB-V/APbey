@@ -107,7 +107,7 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
 
         {/* Zone 2: Navigation (Responsive: visible on tablet md: and desktop) */}
-        <nav aria-label="Navegación principal" className="hidden md:flex flex-1 min-w-0 items-center justify-start xl:justify-center gap-1 overflow-x-auto tablet-scroll-nav xl:overflow-visible">
+        <nav aria-label="Navegación principal" className="hidden md:flex flex-1 min-w-0 items-center justify-start xl:justify-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden tablet-scroll-nav xl:overflow-visible">
           {/* 1. Torneos */}
           <button
             type="button"

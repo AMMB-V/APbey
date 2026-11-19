@@ -372,7 +372,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                   Lado Azul (P1)
                 </span>
               </div>
-              <div className="my-3 font-mono font-black text-6xl sm:text-8xl tracking-tighter text-[var(--hueso)] select-none drop-shadow-md">
+              <div className="my-1.5 sm:my-2 font-mono font-black text-5xl sm:text-7xl tracking-tighter text-[var(--hueso)] select-none drop-shadow-md">
                 {activeP1Score}
               </div>
               {p1Winner && (
@@ -396,7 +396,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                   Lado Naranja (P2)
                 </span>
               </div>
-              <div className="my-3 font-mono font-black text-6xl sm:text-8xl tracking-tighter text-[var(--hueso)] select-none drop-shadow-md">
+              <div className="my-1.5 sm:my-2 font-mono font-black text-5xl sm:text-7xl tracking-tighter text-[var(--hueso)] select-none drop-shadow-md">
                 {activeP2Score}
               </div>
               {p2Winner && (

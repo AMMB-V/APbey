@@ -887,29 +887,63 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                   </div>
                 </details>
 
-              {/* Buttons */}
-              <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-[var(--costura)]">
-                <button
-                  type="button"
-                  onClick={closeCreateModal}
-                  className="px-4 py-2 text-xs font-semibold rounded-[var(--r-control)] border border-[var(--costura)] text-[var(--acero)] hover:text-white"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => handleCreateSubmit(e, 'bracket')}
-                  className="px-4 py-2 text-xs font-semibold rounded-[var(--r-control)] border border-[var(--costura)] hover:bg-[var(--grafito)] text-[var(--hueso)] transition-colors"
-                >
-                  Guardar como Borrador
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-xs font-bold rounded-[var(--r-control)] bg-[var(--hueso)] text-[var(--tinta)] hover:bg-white transition-all shadow-sm flex items-center gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Crear Torneo y Registrar Bladers →</span>
-                </button>
+              {/* Buttons with Previous / Next step navigation */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-[var(--costura)]">
+                <div>
+                  {creationStep > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => setCreationStep((prev) => (prev > 1 ? (prev - 1 as 1 | 2 | 3) : 1))}
+                      className="px-3.5 py-1.5 text-xs font-semibold rounded-[var(--r-control)] border border-[var(--costura)] text-[var(--acero)] hover:text-white hover:bg-[var(--grafito)] transition-colors"
+                    >
+                      ← Paso Anterior
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={closeCreateModal}
+                      className="px-3.5 py-1.5 text-xs font-semibold rounded-[var(--r-control)] border border-[var(--costura)] text-[var(--acero)] hover:text-white"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {creationStep < 3 ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (creationStep === 1 && newName.trim().length < 3) {
+                          setFormError('El nombre del torneo debe tener al menos 3 caracteres.');
+                          return;
+                        }
+                        setFormError(null);
+                        setCreationStep((prev) => (prev < 3 ? (prev + 1 as 1 | 2 | 3) : 3));
+                      }}
+                      className="px-4 py-2 text-xs font-bold rounded-[var(--r-control)] bg-[var(--cobalto)] text-[var(--tinta)] hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm"
+                    >
+                      <span>Siguiente Paso →</span>
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={(e) => handleCreateSubmit(e, 'bracket')}
+                        className="px-3.5 py-1.5 text-xs font-semibold rounded-[var(--r-control)] border border-[var(--costura)] hover:bg-[var(--grafito)] text-[var(--hueso)] transition-colors"
+                      >
+                        Guardar Borrador
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 text-xs font-bold rounded-[var(--r-control)] bg-[var(--hueso)] text-[var(--tinta)] hover:bg-white transition-all shadow-sm flex items-center gap-1.5"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Crear y Registrar Bladers →</span>
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             </form>
           </div>
