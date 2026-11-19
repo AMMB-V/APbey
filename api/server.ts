@@ -61,6 +61,7 @@ export default async function handler(req: Request, res: Response): Promise<void
       (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY)
     );
     let persistenceStatus: 'ready' | 'unconfigured' | 'unreachable' = 'unconfigured';
+    let persistenceError: string | null = null;
     if (hasConfiguration) {
       try {
         const supabase = createClient(
@@ -73,8 +74,14 @@ export default async function handler(req: Request, res: Response): Promise<void
           .from('tournaments')
           .select('id', { head: true, count: 'exact' })
           .limit(1);
+        if (error) {
+          persistenceError = error.message;
+          console.error('[Health] persistence check error:', error);
+        }
         persistenceStatus = error ? 'unreachable' : 'ready';
-      } catch {
+      } catch (err) {
+        persistenceError = err instanceof Error ? err.message : String(err);
+        console.error('[Health] persistence check exception:', err);
         persistenceStatus = 'unreachable';
       }
     }
@@ -83,6 +90,7 @@ export default async function handler(req: Request, res: Response): Promise<void
       status: isReady ? 'ok' : 'degraded',
       service: 'apbey-backend',
       persistence: persistenceStatus,
+      ...(persistenceError ? { details: persistenceError } : {}),
       requestId,
       timestamp: new Date().toISOString(),
     });
