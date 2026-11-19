@@ -69,4 +69,16 @@ describe('Vercel serverless api handler', () => {
     await handler(req as any, res as any);
     expect(res.statusCode).toBe(404);
   });
+
+  it('sets Access-Control-Allow-Origin header matching ALLOWED_ORIGINS', async () => {
+    process.env.ALLOWED_ORIGINS = 'https://arena.example.com,https://apbey.vercel.app';
+    const { req, res } = createMockReqRes({
+      url: '/api/health',
+      method: 'GET',
+      headers: { origin: 'https://arena.example.com' },
+    });
+    await handler(req as any, res as any);
+    expect(res.headers['access-control-allow-origin']).toBe('https://arena.example.com');
+    delete process.env.ALLOWED_ORIGINS;
+  });
 });

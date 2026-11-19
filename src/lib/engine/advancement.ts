@@ -200,3 +200,29 @@ export function advanceGroupStageToPlayoffs(
     qualifiers: finalPlayoffParticipants,
   };
 }
+
+export function getAdvancementSlot(
+  sourceMatch: Match,
+  targetMatch: Match,
+  sourceType: 'winner' | 'loser',
+  rounds: Round[] = []
+): 0 | 1 {
+  const sourceRound = rounds.find((round) => round.id === sourceMatch.roundId);
+  const targetRound = rounds.find((round) => round.id === targetMatch.roundId);
+  if (targetRound?.bracket === 'grand_final') {
+    return sourceRound?.bracket === 'winners' ? 0 : 1;
+  }
+  const lastLosersRoundNumber = rounds
+    .filter((round) => round.bracket === 'losers')
+    .reduce((max, round) => Math.max(max, round.number), 0);
+  if (
+    sourceType === 'loser' &&
+    sourceRound?.bracket === 'winners' &&
+    targetRound?.bracket === 'losers' &&
+    targetRound.number === lastLosersRoundNumber
+  ) {
+    return 1;
+  }
+  return ((sourceMatch.position - 1) % 2) === 0 ? 0 : 1;
+}
+

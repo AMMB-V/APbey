@@ -49,6 +49,7 @@ import {
 import {
   advanceSwissStageToPlayoffs,
   advanceGroupStageToPlayoffs,
+  getAdvancementSlot as computeAdvancementSlot,
 } from '../../lib/engine/advancement';
 import {
   generateSingleElimination,
@@ -2228,25 +2229,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     sourceMatch: Match,
     targetMatch: Match,
     sourceType: 'winner' | 'loser'
-  ): 0 | 1 => {
-    const sourceRound = rounds.find((round) => round.id === sourceMatch.roundId);
-    const targetRound = rounds.find((round) => round.id === targetMatch.roundId);
-    if (targetRound?.bracket === 'grand_final') {
-      return sourceRound?.bracket === 'winners' ? 0 : 1;
-    }
-    const lastLosersRoundNumber = rounds
-      .filter((round) => round.bracket === 'losers')
-      .reduce((max, round) => Math.max(max, round.number), 0);
-    if (
-      sourceType === 'loser' &&
-      sourceRound?.bracket === 'winners' &&
-      targetRound?.bracket === 'losers' &&
-      targetRound.number === lastLosersRoundNumber
-    ) {
-      return 1;
-    }
-    return ((sourceMatch.position - 1) % 2) === 0 ? 0 : 1;
-  };
+  ): 0 | 1 => computeAdvancementSlot(sourceMatch, targetMatch, sourceType, rounds);
 
   const placeAdvancingParticipant = (
     sourceMatch: Match,

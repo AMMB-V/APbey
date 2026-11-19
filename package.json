@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "start": "tsx server.ts",
     "clean": "node scripts/clean.mjs",
+    "bundle:migrations": "node scripts/bundle-migrations.mjs",
     "check:migrations": "node scripts/check-migration-versions.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
     "staging:preflight": "node scripts/staging-preflight.mjs",

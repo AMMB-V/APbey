@@ -14,12 +14,30 @@ function sendJson(res: Response, status: number, payload: unknown): void {
 }
 
 export default async function handler(req: Request, res: Response): Promise<void> {
+  const isProduction = process.env.NODE_ENV === 'production';
   const requestId = /^[A-Za-z0-9._:-]{8,100}$/.test(String(req.headers['x-request-id'] || ''))
     ? String(req.headers['x-request-id'])
     : randomUUID();
   res.setHeader('X-Request-Id', requestId);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  const origin = req.headers.origin ? String(req.headers.origin) : '';
+  const rawAllowed = process.env.ALLOWED_ORIGINS || '';
+  const allowedOrigins = new Set(
+    rawAllowed
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean)
+  );
+
+  if (origin && (allowedOrigins.has(origin) || allowedOrigins.has('*'))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  } else if (!rawAllowed) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -60,8 +78,9 @@ export default async function handler(req: Request, res: Response): Promise<void
         persistenceStatus = 'unreachable';
       }
     }
-    sendJson(res, persistenceStatus === 'ready' || persistenceStatus === 'unconfigured' ? 200 : 503, {
-      status: persistenceStatus === 'unreachable' ? 'degraded' : 'ok',
+    const isReady = !isProduction || persistenceStatus === 'ready';
+    sendJson(res, isReady ? 200 : 503, {
+      status: isReady ? 'ok' : 'degraded',
       service: 'apbey-backend',
       persistence: persistenceStatus,
       requestId,
