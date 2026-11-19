@@ -63,13 +63,14 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
   const [filterMode, setFilterMode] = useState<'all' | 'mine' | 'group'>('all');
   const [filterGroupId, setFilterGroupId] = useState<string>('');
 
-  // Active matches for this tournament
+  // Active matches for this tournament (all, for counter displays)
   const allTournamentMatches = matches.filter(
     (m) => m.tournamentId === activeTournament?.id && m.participant1Id && m.participant2Id && !m.isBye
   );
 
-  // Filtered matches based on referee selection
+  // Filtered matches based on referee selection — hide completed ones from the selector
   const filteredMatches = allTournamentMatches.filter((m) => {
+    if (m.status === 'completed') return false;
     if (filterMode === 'mine') {
       return Boolean(currentUser?.id) && m.refereeId === currentUser.id;
     }

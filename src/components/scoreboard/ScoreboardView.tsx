@@ -21,7 +21,7 @@ import { useTournament } from '../../context/TournamentContext';
 import { SyncBadge } from '../common/SyncBadge';
 import { Snackbar } from '../common/Snackbar';
 import { ConfirmDialog } from '../common/ConfirmDialog';
-import { CardType, FinishType } from '../../types/tournament';
+import { FinishType } from '../../types/tournament';
 import { getMatchPointsToWin } from '../../lib/engine/arbitration';
 
 interface ScoreboardViewProps {
@@ -64,11 +64,10 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
   // Foul / Penalty Modal State
   const [showFoulModal, setShowFoulModal] = useState(false);
   const [foulTarget, setFoulTarget] = useState<'p1' | 'p2'>('p1');
-  const [foulCard, setFoulCard] = useState<CardType | 'none'>('none');
   const [foulReason, setFoulReason] = useState('Lanzamiento anticipado (False Start)');
   const [foulPointsToRival, setFoulPointsToRival] = useState(false);
 
-  // Filter valid tournament matches
+  // Filter valid tournament matches — only pending/in_progress shown in grid
   const tournamentMatches = matches.filter(
     (match) =>
       match.tournamentId === activeTournament?.id &&
@@ -77,16 +76,21 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
       !match.isBye
   );
 
+  // Matches visible in the selector grid (hide already completed ones)
+  const selectableMatches = tournamentMatches.filter(
+    (match) => match.status !== 'completed'
+  );
+
   useEffect(() => {
     if (!tournamentMatches.some((match) => match.id === selectedOfficialMatchId)) {
       setSelectedOfficialMatchId(
         initialMatchId ||
-          tournamentMatches.find((match) => match.status === 'in_progress')?.id ||
-          tournamentMatches[0]?.id ||
+          selectableMatches.find((match) => match.status === 'in_progress')?.id ||
+          selectableMatches[0]?.id ||
           ''
       );
     }
-  }, [initialMatchId, selectedOfficialMatchId, tournamentMatches]);
+  }, [initialMatchId, selectedOfficialMatchId, tournamentMatches, selectableMatches]);
 
   const officialMatch = matches.find((match) => match.id === selectedOfficialMatchId);
   const officialP1 = participants.find((participant) => participant.id === officialMatch?.participant1Id);
@@ -175,8 +179,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
       return;
     }
     const offender = foulTarget === 'p1' ? officialP1 : officialP2;
-    const cardParam = foulCard === 'none' ? undefined : foulCard;
-    recordPenalty(officialMatch.id, offender.id, cardParam, true, foulReason);
+    recordPenalty(officialMatch.id, offender.id, undefined, true, foulReason);
     setShowFoulModal(false);
     setSnackbarMessage(`Falta registrada a ${offender.displayName}: ${foulReason}`);
     setSnackbarOpen(true);
@@ -274,13 +277,13 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
           </div>
         </div>
 
-        {tournamentMatches.length === 0 ? (
+        {selectableMatches.length === 0 ? (
           <div className="text-center py-6 text-xs text-[var(--acero)]">
-            No hay combates oficiales disponibles para el torneo activo.
+            No hay combates pendientes para el torneo activo.
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
-            {tournamentMatches.map((match) => {
+            {selectableMatches.map((match) => {
               const blader1 = participants.find((p) => p.id === match.participant1Id)?.displayName || 'P1';
               const blader2 = participants.find((p) => p.id === match.participant2Id)?.displayName || 'P2';
               const selected = match.id === selectedOfficialMatchId;
@@ -327,7 +330,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
           <div className="space-y-1">
             <h3 className="text-base font-bold text-[var(--hueso)]">Ningún combate oficial seleccionado</h3>
             <p className="text-xs text-[var(--acero)] leading-relaxed">
-              {tournamentMatches.length > 0
+              {selectableMatches.length > 0
                 ? 'Elige una de las mesas listadas arriba para abrir el marcador y registrar puntos reglamentarios WBO.'
                 : 'No hay combates disponibles en el torneo actual. Puedes revisar las llaves o seleccionar otro torneo.'}
             </p>
@@ -712,40 +715,6 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                   }`}
                 >
                   {officialP2.displayName} (P2)
-                </button>
-              </div>
-            </div>
-
-            {/* Card Selection */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-[var(--acero)]">Tipo de Tarjeta:</label>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFoulCard('none')}
-                  className={`p-2 rounded-xl border text-xs font-bold min-h-[40px] ${
-                    foulCard === 'none' ? 'border-[var(--hueso)] bg-[var(--grafito)]' : 'border-[var(--costura)] text-[var(--acero)]'
-                  }`}
-                >
-                  Falta Leve
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFoulCard('yellow')}
-                  className={`p-2 rounded-xl border text-xs font-bold min-h-[40px] flex items-center justify-center gap-1 ${
-                    foulCard === 'yellow' ? 'border-amber-400 bg-amber-950/60 text-amber-300' : 'border-[var(--costura)] text-[var(--acero)]'
-                  }`}
-                >
-                  <span>🟨 Amarilla</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFoulCard('red')}
-                  className={`p-2 rounded-xl border text-xs font-bold min-h-[40px] flex items-center justify-center gap-1 ${
-                    foulCard === 'red' ? 'border-rose-500 bg-rose-950/60 text-rose-300' : 'border-[var(--costura)] text-[var(--acero)]'
-                  }`}
-                >
-                  <span>🟥 Roja</span>
                 </button>
               </div>
             </div>
