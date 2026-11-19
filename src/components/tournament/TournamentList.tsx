@@ -305,7 +305,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto">
+        <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
             onClick={() => setStatusFilter('all')}
             className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--r-chip)] transition-colors whitespace-nowrap ${
@@ -494,12 +494,34 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
       </div>
 
       {filteredTournaments.length === 0 && (
-        <div className="text-center py-12 bg-[var(--chasis)] rounded-[var(--r-card)] border border-[var(--costura)] space-y-3">
+        <div className="text-center py-12 bg-[var(--chasis)] rounded-[var(--r-card)] border border-[var(--costura)] space-y-4 px-4">
           <Trophy className="w-10 h-10 mx-auto text-[var(--acero)] opacity-40" />
-          <h3 className="text-sm font-bold text-[var(--hueso)]">No se encontraron torneos</h3>
-          <p className="text-xs text-[var(--acero)]">
-            Prueba ajustando los filtros de búsqueda o crea un nuevo torneo.
-          </p>
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-[var(--hueso)]">No se encontraron torneos</h3>
+            <p className="text-xs text-[var(--acero)] max-w-sm mx-auto">
+              Prueba ajustando los filtros de búsqueda o crea un nuevo torneo para comenzar la competencia.
+            </p>
+          </div>
+          <div>
+            {canManage ? (
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-[var(--r-control)] bg-[var(--hueso)] text-[var(--tinta)] hover:bg-white transition-all shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Crear Nuevo Torneo</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => openAuthModal('login')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-[var(--r-control)] border border-[var(--costura)] text-[var(--hueso)] hover:border-[var(--acero)] transition-colors"
+              >
+                <span>Acceder como Organizador</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
 

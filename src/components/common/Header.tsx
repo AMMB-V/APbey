@@ -86,9 +86,10 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="min-w-0 max-w-screen-2xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-1 sm:gap-4">
         
         {/* Zone 1: Wordmark & Brand */}
-        <div
+        <button
+          type="button"
           onClick={() => setActiveTab('torneos')}
-          className="flex items-center gap-2.5 shrink-0 cursor-pointer group"
+          className="flex items-center gap-2.5 shrink-0 cursor-pointer group text-left bg-transparent border-0 p-0"
           title="Ir al inicio de torneos"
         >
           <div className="flex items-center gap-2.5 shrink-0">
@@ -102,10 +103,10 @@ export const Header: React.FC<HeaderProps> = ({
               APBEY
             </span>
           </div>
-        </div>
+        </button>
 
-        {/* Zone 2: Desktop 7-Group Navigation (Hick's Law: grouped cleanly) */}
-        <nav aria-label="Navegación principal" className="hidden lg:flex flex-1 min-w-0 items-center justify-start xl:justify-center gap-1 overflow-x-auto tablet-scroll-nav xl:overflow-visible">
+        {/* Zone 2: Navigation (Responsive: visible on tablet md: and desktop) */}
+        <nav aria-label="Navegación principal" className="hidden md:flex flex-1 min-w-0 items-center justify-start xl:justify-center gap-1 overflow-x-auto tablet-scroll-nav xl:overflow-visible">
           {/* 1. Torneos */}
           <button
             type="button"

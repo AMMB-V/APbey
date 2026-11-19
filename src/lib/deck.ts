@@ -65,21 +65,56 @@ export function createEmptyDeck(): Deck {
   ];
 }
 
+export function createDefaultStarterDeck(): Deck {
+  return [
+    { blade: 'Dran Sword', ratchet: '3-60', bit: 'Flat (F)' },
+    { blade: 'Hells Scythe', ratchet: '4-60', bit: 'Ball (B)' },
+    { blade: 'Wizard Arrow', ratchet: '5-80', bit: 'Taper (T)' },
+  ];
+}
+
 export function loadDeck(): Deck {
-  if (typeof window === 'undefined') return createEmptyDeck();
+  if (typeof window === 'undefined') return createDefaultStarterDeck();
 
   const saved = window.localStorage.getItem(DECK_STORAGE_KEY);
-  if (!saved) return createEmptyDeck();
+  if (!saved) return createDefaultStarterDeck();
 
   try {
-    return JSON.parse(saved) as Deck;
+    const parsed = JSON.parse(saved) as Deck;
+    if (
+      Array.isArray(parsed) &&
+      parsed.length === 3 &&
+      parsed.some((slot) => slot && slot.blade)
+    ) {
+      return parsed;
+    }
+    return createDefaultStarterDeck();
   } catch {
-    return createEmptyDeck();
+    return createDefaultStarterDeck();
   }
 }
 
 export function getDeckValidationErrors(deck: Deck): string[] {
   const validationErrors: string[] = [];
+
+  // Check if any slot is missing components
+  const emptySlots: number[] = [];
+  deck.forEach((slot, index) => {
+    if (!slot.blade.trim() || !slot.ratchet.trim() || !slot.bit.trim()) {
+      emptySlots.push(index + 1);
+    }
+  });
+
+  if (emptySlots.length > 0) {
+    validationErrors.push(
+      `El Deck está incompleto: configura Blade, Ratchet y Bit en ${
+        emptySlots.length === 3
+          ? 'los 3 Beyblades'
+          : `el Beyblade #${emptySlots.join(', #')}`
+      }.`
+    );
+  }
+
   const pieces = [
     {
       label: 'Blade',

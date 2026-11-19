@@ -27,9 +27,10 @@ import { getMatchPointsToWin } from '../../lib/engine/arbitration';
 interface ScoreboardViewProps {
   initialMatchId?: string;
   onOpenMatchInReferee?: (matchId: string) => void;
+  onNavigateTab?: (tab: 'torneos' | 'bracket') => void;
 }
 
-export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }) => {
+export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, onNavigateTab }) => {
   const {
     matches,
     activeTournament,
@@ -319,8 +320,36 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId }
       </div>
 
       {!officialMatch || !officialP1 || !officialP2 ? (
-        <div className="bg-[var(--chasis)] border border-[var(--costura)] rounded-3xl p-8 text-center text-sm text-[var(--acero)]">
-          Selecciona un combate oficial para habilitar el marcador.
+        <div className="bg-[var(--chasis)] border border-[var(--costura)] rounded-3xl p-8 sm:p-12 text-center max-w-lg mx-auto space-y-4">
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] flex items-center justify-center text-[var(--cobalto)]">
+            <Radio className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-[var(--hueso)]">Ningún combate oficial seleccionado</h3>
+            <p className="text-xs text-[var(--acero)] leading-relaxed">
+              {tournamentMatches.length > 0
+                ? 'Elige una de las mesas listadas arriba para abrir el marcador y registrar puntos reglamentarios WBO.'
+                : 'No hay combates disponibles en el torneo actual. Puedes revisar las llaves o seleccionar otro torneo.'}
+            </p>
+          </div>
+          {onNavigateTab && (
+            <div className="pt-2 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => onNavigateTab('bracket')}
+                className="px-4 py-2 rounded-xl bg-[var(--grafito)] border border-[var(--costura)] hover:border-[var(--cobalto)] text-xs font-semibold text-[var(--hueso)] transition-colors"
+              >
+                Ver Brackets
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigateTab('torneos')}
+                className="px-4 py-2 rounded-xl bg-[var(--cobalto)] text-[var(--tinta)] font-bold text-xs hover:opacity-90 transition-opacity"
+              >
+                Explorar Torneos
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <>

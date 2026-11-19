@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Layers, Shield, AlertTriangle, CheckCircle, Save, Sparkles, Copy, Check } from 'lucide-react';
+import React, { useState } from 'react';
+import { Layers, AlertTriangle, CheckCircle, Save, Copy, Check, RotateCcw } from 'lucide-react';
 import {
   Deck,
   DECK_STORAGE_KEY,
@@ -8,6 +8,7 @@ import {
   OFFICIAL_RATCHETS,
   getDeckValidationErrors,
   loadDeck,
+  createDefaultStarterDeck,
 } from '../../lib/deck';
 import { copyTextToClipboard } from '../../lib/clipboard';
 
@@ -16,6 +17,7 @@ export const DeckBuilder: React.FC = () => {
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [copiedSuccess, setCopiedSuccess] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
 
   const validationErrors = getDeckValidationErrors(deck);
   const isDeckValid = validationErrors.length === 0;
@@ -28,6 +30,16 @@ export const DeckBuilder: React.FC = () => {
     });
   };
 
+  const handleResetDeck = () => {
+    const starter = createDefaultStarterDeck();
+    setDeck(starter);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(DECK_STORAGE_KEY, JSON.stringify(starter));
+    }
+    setResetSuccess(true);
+    setTimeout(() => setResetSuccess(false), 2000);
+  };
+
   const handleSaveDeck = () => {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(DECK_STORAGE_KEY, JSON.stringify(deck));
@@ -38,7 +50,7 @@ export const DeckBuilder: React.FC = () => {
 
   const handleCopyDeck = () => {
     const text = deck
-      .map((b, i) => `Bey ${i + 1}: ${b.blade} ${b.ratchet} ${b.bit}`)
+      .map((b, i) => `Bey ${i + 1}: ${b.blade || 'Sin Blade'} ${b.ratchet || 'Sin Ratchet'} ${b.bit || 'Sin Bit'}`)
       .join('\n');
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       void copyTextToClipboard(text);
@@ -48,7 +60,7 @@ export const DeckBuilder: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 w-full flex flex-col gap-5">
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 w-full flex flex-col gap-5 pb-28 md:pb-12">
       {/* View Header with accessible h1 */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
@@ -61,7 +73,17 @@ export const DeckBuilder: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={handleResetDeck}
+            title="Restablecer tercia a configuración oficial recomendada"
+            className="px-3 py-2 rounded-xl bg-[var(--chasis)] border border-[var(--costura)] hover:border-[var(--acero)] text-xs font-semibold text-[var(--acero)] hover:text-[var(--hueso)] min-h-[44px] flex items-center gap-1.5 transition-colors"
+          >
+            <RotateCcw className={`w-3.5 h-3.5 ${resetSuccess ? 'animate-spin text-emerald-400' : ''}`} />
+            <span>{resetSuccess ? 'Restablecido' : 'Restablecer'}</span>
+          </button>
+
           <button
             type="button"
             onClick={handleCopyDeck}
@@ -128,6 +150,7 @@ export const DeckBuilder: React.FC = () => {
           const bey = deck[slotIndex];
           const slotColor = idx === 0 ? 'text-[var(--cobalto)]' : idx === 1 ? 'text-[var(--cobre)]' : 'text-purple-400';
           const slotBorder = idx === 0 ? 'border-[var(--cobalto)]/50' : idx === 1 ? 'border-[var(--cobre)]/50' : 'border-purple-500/50';
+          const isComplete = Boolean(bey.blade && bey.ratchet && bey.bit);
 
           return (
             <div
@@ -145,9 +168,15 @@ export const DeckBuilder: React.FC = () => {
               </div>
 
               {/* Combo Summary Tag */}
-              <div className="p-2.5 rounded-xl bg-[var(--grafito)] border border-[var(--costura)] text-center">
+              <div className="p-2.5 rounded-xl bg-[var(--grafito)] border border-[var(--costura)] text-center min-h-[38px] flex items-center justify-center">
                 <div className="text-xs font-black text-[var(--hueso)] truncate">
-                  {bey.blade} {bey.ratchet} {bey.bit}
+                  {isComplete ? (
+                    `${bey.blade} ${bey.ratchet} ${bey.bit}`
+                  ) : (
+                    <span className="text-[var(--acero)] text-[11px] font-normal italic">
+                      {bey.blade || '(Sin combo configurado)'}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -166,6 +195,7 @@ export const DeckBuilder: React.FC = () => {
                   onChange={(e) => updateSlot(slotIndex, 'blade', e.target.value)}
                   className="w-full bg-[var(--grafito)] border border-[var(--costura)] rounded-xl px-3 py-2.5 text-xs text-[var(--hueso)] focus:border-[var(--cobalto)] outline-hidden min-h-[44px]"
                 >
+                  <option value="">-- Seleccionar Blade --</option>
                   {OFFICIAL_BLADES.map((b) => (
                     <option key={b} value={b}>
                       {b}
@@ -189,6 +219,7 @@ export const DeckBuilder: React.FC = () => {
                   onChange={(e) => updateSlot(slotIndex, 'ratchet', e.target.value)}
                   className="w-full bg-[var(--grafito)] border border-[var(--costura)] rounded-xl px-3 py-2.5 text-xs text-[var(--hueso)] focus:border-[var(--cobalto)] outline-hidden min-h-[44px]"
                 >
+                  <option value="">-- Seleccionar Ratchet --</option>
                   {OFFICIAL_RATCHETS.map((r) => (
                     <option key={r} value={r}>
                       {r}
@@ -212,6 +243,7 @@ export const DeckBuilder: React.FC = () => {
                   onChange={(e) => updateSlot(slotIndex, 'bit', e.target.value)}
                   className="w-full bg-[var(--grafito)] border border-[var(--costura)] rounded-xl px-3 py-2.5 text-xs text-[var(--hueso)] focus:border-[var(--cobalto)] outline-hidden min-h-[44px]"
                 >
+                  <option value="">-- Seleccionar Bit --</option>
                   {OFFICIAL_BITS.map((bt) => (
                     <option key={bt} value={bt}>
                       {bt}

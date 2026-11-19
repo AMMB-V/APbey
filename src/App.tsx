@@ -81,7 +81,7 @@ function TournamentApp() {
     const saved = window.localStorage.getItem('apbey_active_tab');
     return saved && VALID_TABS.includes(saved as MainTabType)
       ? (saved as MainTabType)
-      : 'bracket';
+      : 'torneos';
   });
 
   const [selectedRefereeMatchId, setSelectedRefereeMatchId] = useState<string | undefined>(undefined);
@@ -172,6 +172,13 @@ function TournamentApp() {
     } else {
       url.searchParams.delete('stage');
     }
+    // Clean up tab-specific query parameters when moving away
+    if (activeTab !== 'rankings') {
+      url.searchParams.delete('ranking');
+    }
+    if (activeTab !== 'marcador' && activeTab !== 'referee') {
+      url.searchParams.delete('match');
+    }
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
 
     // Update document.title per HCI orientation requirement
@@ -220,7 +227,7 @@ function TournamentApp() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[var(--grafito)] text-[var(--hueso)] flex flex-col font-sans antialiased selection:bg-[var(--cobalto)] selection:text-[var(--tinta)] pb-20 lg:pb-0">
+    <div className="min-h-screen overflow-x-hidden bg-[var(--grafito)] text-[var(--hueso)] flex flex-col font-sans antialiased selection:bg-[var(--cobalto)] selection:text-[var(--tinta)] pb-24 md:pb-6">
       {/* WCAG 2.2 AA Skip to Content Link */}
       <a
         href="#main-content"
@@ -285,12 +292,19 @@ function TournamentApp() {
                 </span>
               </>
             ) : (
-              <>
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <span className="font-semibold text-[var(--hueso)]">Torneo:</span>
                 <span className="font-bold text-[var(--acero)]">Sin torneo seleccionado</span>
                 <span className="hidden sm:inline">·</span>
-                <span className="hidden sm:inline text-[var(--acero)]">Selecciona o crea un torneo para comenzar</span>
-              </>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('torneos')}
+                  className="text-[var(--cobalto)] hover:underline font-semibold transition-colors inline-flex items-center gap-1"
+                >
+                  <span>Selecciona o crea un torneo para comenzar</span>
+                  <span aria-hidden="true">→</span>
+                </button>
+              </div>
             )}
           </div>
 
@@ -500,7 +514,7 @@ function TournamentApp() {
               </div>
             )}
 
-            {currentStage && (
+            {currentStage ? (
               <div className="bg-[var(--chasis)] rounded-3xl border border-[var(--costura)] p-4 sm:p-6 shadow-md">
                 {currentStage.type === 'group_stage' ? (
                   <GroupStageViewer
@@ -514,6 +528,32 @@ function TournamentApp() {
                   />
                 )}
               </div>
+            ) : (
+              <div className="bg-[var(--chasis)] rounded-3xl border border-[var(--costura)] p-8 sm:p-12 text-center max-w-xl mx-auto space-y-4">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] flex items-center justify-center text-amber-400">
+                  <Trophy className="w-7 h-7" />
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-lg font-bold text-[var(--hueso)]">
+                    {activeTournament ? 'Etapa no configurada' : 'Ningún torneo seleccionado'}
+                  </h3>
+                  <p className="text-sm text-[var(--acero)] leading-relaxed">
+                    {activeTournament
+                      ? 'Este torneo aún no tiene etapas o brackets generados.'
+                      : 'Selecciona un torneo en curso o explora los torneos oficiales para ver sus grupos y llaves eliminatorias.'}
+                  </p>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('torneos')}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--cobalto)] text-[var(--tinta)] font-bold text-sm hover:opacity-90 transition-opacity"
+                  >
+                    <Trophy className="w-4 h-4" />
+                    <span>Explorar Torneos Oficiales</span>
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -522,6 +562,7 @@ function TournamentApp() {
         {(activeTab === 'marcador' || activeTab === 'referee') && (
           <ScoreboardView
             initialMatchId={selectedRefereeMatchId}
+            onNavigateTab={(tab) => setActiveTab(tab)}
           />
         )}
 

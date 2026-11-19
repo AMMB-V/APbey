@@ -10,6 +10,8 @@ import {
   Wrench,
   Tv,
   X,
+  Users,
+  GitBranch,
 } from 'lucide-react';
 import { useTournament } from '../../context/TournamentContext';
 
@@ -39,7 +41,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       {/* Fixed bottom navigation for phones and portrait tablets */}
       <nav
         aria-label="Navegación móvil inferior"
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--chasis)]/95 backdrop-blur-md border-t border-[var(--costura)] shadow-2xl px-2 py-1 flex items-center justify-around safe-bottom"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--chasis)]/95 backdrop-blur-md border-t border-[var(--costura)] shadow-2xl px-2 py-1 flex items-center justify-around safe-bottom"
       >
         {/* 1. Torneos */}
         <button
@@ -148,6 +150,32 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-3 py-4">
+              {/* Brackets & Grupos */}
+              <button
+                type="button"
+                onClick={() => handleSelect('bracket')}
+                className="p-3.5 rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] text-left flex items-start gap-3 hover:border-[var(--acero)] min-h-[56px]"
+              >
+                <GitBranch className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-xs font-bold">Brackets & Grupos</div>
+                  <div className="text-[10px] text-[var(--acero)]">Cuadros y cruces</div>
+                </div>
+              </button>
+
+              {/* Participantes */}
+              <button
+                type="button"
+                onClick={() => handleSelect('participants')}
+                className="p-3.5 rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] text-left flex items-start gap-3 hover:border-[var(--acero)] min-h-[56px]"
+              >
+                <Users className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-xs font-bold">Participantes</div>
+                  <div className="text-[10px] text-[var(--acero)]">Lista oficial del torneo</div>
+                </div>
+              </button>
+
               {/* Tier List */}
               <button
                 type="button"
@@ -167,7 +195,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 onClick={() => handleSelect('rankings')}
                 className="p-3.5 rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] text-left flex items-start gap-3 hover:border-[var(--acero)] min-h-[56px]"
               >
-                <Award className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <Award className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
                 <div>
                   <div className="text-xs font-bold">Salón de la Fama</div>
                   <div className="text-[10px] text-[var(--acero)]">Campeones y récords</div>
@@ -181,13 +209,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   setShowMoreSheet(false);
                   if (onOpenStadium) onOpenStadium();
                 }}
-                className="p-3.5 rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] text-left flex items-start gap-3 hover:border-[var(--acero)] min-h-[56px]"
+                className="col-span-2 p-3.5 rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] text-left flex items-center justify-between hover:border-[var(--acero)] min-h-[56px]"
               >
-                <Tv className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs font-bold">En Vivo (Estadio)</div>
-                  <div className="text-[10px] text-[var(--acero)]">Modo proyector</div>
+                <div className="flex items-center gap-3">
+                  <Tv className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <div>
+                    <div className="text-xs font-bold">En Vivo (Estadio)</div>
+                    <div className="text-[10px] text-[var(--acero)]">Modo proyector y marcador en vivo</div>
+                  </div>
                 </div>
+                <span className="text-[11px] font-mono text-emerald-400 font-bold">Pantalla →</span>
               </button>
 
               {/* Gestionar (solo para staff) */}

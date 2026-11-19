@@ -1,15 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, Trophy, Award, Layers, Edit2, Check, Sparkles, LogOut } from 'lucide-react';
+import { User, Shield, Trophy, Award, Layers, Edit2, Check, Sparkles, LogOut, KeyRound } from 'lucide-react';
 import { useTournament } from '../../context/TournamentContext';
 import { loadDeck } from '../../lib/deck';
+import { ProfileModal } from '../auth/ProfileModal';
 
 export const UserProfileView: React.FC = () => {
-  const { currentUser, currentRole, logout, updateProfile, updateProfilePhoto, matches, participants } = useTournament();
+  const {
+    currentUser,
+    currentRole,
+    logout,
+    updateProfile,
+    updateProfilePhoto,
+    matches,
+    participants,
+    openAuthModal,
+  } = useTournament();
   const [isEditingName, setIsEditingName] = useState(false);
   const [displayName, setDisplayName] = useState(currentUser?.displayName || 'Blader Competidor');
   const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+  const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
 
   useEffect(() => {
     if (currentUser?.displayName) {
@@ -108,81 +119,122 @@ export const UserProfileView: React.FC = () => {
         </p>
       </div>
 
-      {/* Main Profile Card */}
-      <div className="bg-[var(--chasis)] border-2 border-[var(--costura)] rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col gap-5">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-4">
-            <label className="relative w-16 h-16 rounded-2xl bg-[var(--cobalto)] text-[var(--tinta)] flex items-center justify-center font-black text-2xl shadow-lg shrink-0 overflow-hidden cursor-pointer group" title="Cambiar foto de perfil">
-              {currentUser?.avatarUrl ? (
-                <img src={currentUser.avatarUrl} alt={`Foto de ${displayName}`} className="w-full h-full object-cover" />
-              ) : (
-                displayName.charAt(0).toUpperCase()
-              )}
-              <span className="absolute inset-0 bg-black/65 text-white text-[9px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-center px-1">
-                {isSavingPhoto ? 'Guardando...' : 'Cambiar foto'}
-              </span>
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                onChange={handlePhotoChange}
-                disabled={isSavingPhoto}
-                className="sr-only"
-                aria-label="Seleccionar foto de perfil"
-              />
-            </label>
-            <div>
-              {isEditingName ? (
-                <div className="flex items-center gap-2">
+      {/* Main Content: Guest State or Full Profile */}
+      {!currentUser ? (
+        <div className="bg-[var(--chasis)] border-2 border-[var(--costura)] rounded-3xl p-6 sm:p-10 shadow-2xl text-center max-w-xl mx-auto space-y-5">
+          <div className="w-16 h-16 mx-auto rounded-3xl bg-[var(--grafito)] border border-[var(--costura)] flex items-center justify-center text-[var(--cobalto)]">
+            <User className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-black text-[var(--hueso)]">Perfil de Blader</h2>
+            <p className="text-sm text-[var(--acero)] leading-relaxed">
+              Inicia sesión o regístrate con tu código de invitación para sincronizar tus Decks 3on3 en la nube, registrarte en torneos oficiales y acumular puntos en el Ranking ELO WBO.
+            </p>
+          </div>
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => openAuthModal('login')}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[var(--cobalto)] text-[var(--tinta)] font-bold text-sm hover:opacity-90 transition-opacity"
+            >
+              Iniciar Sesión
+            </button>
+            <button
+              type="button"
+              onClick={() => openAuthModal('invite')}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[var(--grafito)] border border-[var(--costura)] text-[var(--hueso)] font-semibold text-sm hover:border-[var(--cobalto)] transition-colors"
+            >
+              Canjear Invitación
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Main Profile Card */}
+          <div className="bg-[var(--chasis)] border-2 border-[var(--costura)] rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col gap-5">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-4">
+                <label className="relative w-16 h-16 rounded-2xl bg-[var(--cobalto)] text-[var(--tinta)] flex items-center justify-center font-black text-2xl shadow-lg shrink-0 overflow-hidden cursor-pointer group" title="Cambiar foto de perfil">
+                  {currentUser.avatarUrl ? (
+                    <img src={currentUser.avatarUrl} alt={`Foto de ${displayName}`} className="w-full h-full object-cover" />
+                  ) : (
+                    displayName.charAt(0).toUpperCase()
+                  )}
+                  <span className="absolute inset-0 bg-black/65 text-white text-[9px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-center px-1">
+                    {isSavingPhoto ? 'Guardando...' : 'Cambiar foto'}
+                  </span>
                   <input
-                    type="text"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    className="bg-[var(--grafito)] border border-[var(--cobalto)] rounded-xl px-3 py-1.5 text-sm font-bold text-[var(--hueso)] outline-hidden min-h-[38px]"
-                    placeholder="Tu nombre público"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={handlePhotoChange}
+                    disabled={isSavingPhoto}
+                    className="sr-only"
+                    aria-label="Seleccionar foto de perfil"
                   />
-                  <button
-                    type="button"
-                    onClick={handleSaveName}
-                    disabled={isSaving}
-                    className="p-2 rounded-xl bg-[var(--cobalto)] text-[var(--tinta)] font-bold text-xs min-h-[38px] flex items-center gap-1 disabled:opacity-50"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>{isSaving ? 'Guardando...' : 'Guardar'}</span>
-                  </button>
+                </label>
+                <div>
+                  {isEditingName ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        className="bg-[var(--grafito)] border border-[var(--cobalto)] rounded-xl px-3 py-1.5 text-sm font-bold text-[var(--hueso)] outline-hidden min-h-[38px]"
+                        placeholder="Tu nombre público"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveName}
+                        disabled={isSaving}
+                        className="p-2 rounded-xl bg-[var(--cobalto)] text-[var(--tinta)] font-bold text-xs min-h-[38px] flex items-center gap-1 disabled:opacity-50"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>{isSaving ? 'Guardando...' : 'Guardar'}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg sm:text-xl font-black text-[var(--hueso)]">{displayName}</h2>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingName(true)}
+                        aria-label="Editar nombre"
+                        className="p-1 text-[var(--acero)] hover:text-[var(--hueso)] rounded-lg min-w-[32px] min-h-[32px] flex items-center justify-center"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${roleMeta.color}`}>
+                      {roleMeta.label}
+                    </span>
+                    <span className="text-xs text-[var(--acero)] font-mono">
+                      {currentUser.email || 'blader@appbey.arena'}
+                    </span>
+                  </div>
                 </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg sm:text-xl font-black text-[var(--hueso)]">{displayName}</h2>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingName(true)}
-                    aria-label="Editar nombre"
-                    className="p-1 text-[var(--acero)] hover:text-[var(--hueso)] rounded-lg min-w-[32px] min-h-[32px] flex items-center justify-center"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${roleMeta.color}`}>
-                  {roleMeta.label}
-                </span>
-                <span className="text-xs text-[var(--acero)] font-mono">
-                  {currentUser?.email || 'blader@appbey.arena'}
-                </span>
+              </div>
+
+              <div className="flex items-center gap-2 ml-auto sm:ml-0 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setIsSecurityModalOpen(true)}
+                  className="px-3.5 py-2 rounded-xl bg-[var(--grafito)] border border-[var(--costura)] hover:border-[var(--cobalto)] text-xs font-semibold text-[var(--hueso)] min-h-[40px] flex items-center gap-1.5 transition-colors"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-[var(--cobalto)]" />
+                  <span>Seguridad</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="px-3.5 py-2 rounded-xl bg-[var(--grafito)] border border-[var(--costura)] hover:border-rose-500 hover:text-rose-400 text-xs font-semibold text-[var(--acero)] min-h-[40px] flex items-center gap-2 transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Cerrar Sesión</span>
+                </button>
               </div>
             </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={logout}
-            className="px-3.5 py-2 rounded-xl bg-[var(--grafito)] border border-[var(--costura)] hover:border-rose-500 hover:text-rose-400 text-xs font-semibold text-[var(--acero)] min-h-[40px] flex items-center gap-2 transition-colors ml-auto sm:ml-0"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Cerrar Sesión</span>
-          </button>
-        </div>
 
         {saveFeedback && (
           <div
@@ -270,6 +322,15 @@ export const UserProfileView: React.FC = () => {
           ))}
         </div>
       </div>
+        </>
+      )}
+
+      {currentUser && (
+        <ProfileModal
+          isOpen={isSecurityModalOpen}
+          onClose={() => setIsSecurityModalOpen(false)}
+        />
+      )}
     </div>
   );
 };
