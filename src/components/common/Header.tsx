@@ -12,6 +12,7 @@ import {
   Wrench,
   Tv,
   ChevronDown,
+  GitBranch,
 } from 'lucide-react';
 import { useTournament } from '../../context/TournamentContext';
 import { AceroIcon } from './AceroIcon';
@@ -112,7 +113,7 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={() => setActiveTab('torneos')}
             aria-current={activeTab === 'torneos' ? 'page' : undefined}
-            className={`px-3 py-1.5 text-[10px] font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
               activeTab === 'torneos'
                 ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
                 : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
@@ -127,9 +128,9 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={() => setActiveTab('bracket')}
             aria-current={activeTab === 'bracket' ? 'page' : undefined}
-            className={`px-3 py-1.5 text-[10px] font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
               activeTab === 'bracket'
-                ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
+                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-xs'
                 : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
             }`}
           >
@@ -142,7 +143,7 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={() => setActiveTab('marcador')}
             aria-current={activeTab === 'marcador' || activeTab === 'referee' ? 'page' : undefined}
-            className={`px-3 py-1.5 text-[10px] font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
               activeTab === 'marcador' || activeTab === 'referee'
                 ? 'bg-[var(--cobalto)] text-[var(--tinta)] shadow-xs'
                 : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
@@ -157,9 +158,9 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={() => setActiveTab('rankings')}
             aria-current={activeTab === 'rankings' ? 'page' : undefined}
-            className={`px-3 py-1.5 text-[10px] font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
               activeTab === 'rankings'
-                ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
+                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-xs'
                 : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
             }`}
           >
@@ -172,9 +173,9 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => setToolsOpen(!toolsOpen)}
-              className={`px-3 py-1.5 text-[10px] font-bold rounded-xl transition-colors flex items-center gap-1 whitespace-nowrap min-h-[36px] ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1 whitespace-nowrap min-h-[36px] ${
                 activeTab === 'deck' || activeTab === 'tierlist'
-                  ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-xs'
                   : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
               }`}
             >
@@ -220,7 +221,7 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               onClick={() => setActiveTab('admin')}
               aria-current={activeTab === 'admin' || activeTab === 'wizard' ? 'page' : undefined}
-              className={`px-3 py-1.5 text-[10px] font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
                 activeTab === 'admin' || activeTab === 'wizard'
                   ? 'bg-amber-400 text-black shadow-xs'
                   : 'text-amber-300 hover:text-amber-200 hover:bg-amber-950/40'

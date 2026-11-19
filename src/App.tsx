@@ -311,15 +311,15 @@ function TournamentApp() {
           {activeTournament && (
             <nav
               aria-label="Navegación del torneo"
-              className="mb-5 flex w-full flex-wrap items-center gap-1 rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-1.5"
+              className="mb-5 flex w-full items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-1.5"
             >
               {[
-                { id: 'overview' as const, label: 'Resumen', icon: LayoutDashboard },
-                { id: 'participants' as const, label: 'Participantes', icon: Users },
-                { id: 'stages' as const, label: 'Etapas', icon: ListOrdered, wizardTab: 'stages' as const },
-                { id: 'bracket' as const, label: 'Brackets', icon: Trophy },
-                { id: 'referee' as const, label: 'Árbitros', icon: Scale },
-                { id: 'config' as const, label: 'Configuración', icon: Settings, wizardTab: 'general' as const },
+                { id: 'overview' as const, label: 'Resumen', shortLabel: 'Resumen', icon: LayoutDashboard, color: 'amber', num: '1' },
+                { id: 'participants' as const, label: 'Participantes', shortLabel: 'Bladers', icon: Users, color: 'cyan', num: '2' },
+                { id: 'stages' as const, label: 'Etapas', shortLabel: 'Etapas', icon: ListOrdered, color: 'purple', wizardTab: 'stages' as const, num: '3' },
+                { id: 'bracket' as const, label: 'Brackets', shortLabel: 'Brackets', icon: Trophy, color: 'indigo', num: '4' },
+                { id: 'referee' as const, label: 'Árbitros', shortLabel: 'Árbitros', icon: Scale, color: 'emerald', num: '5' },
+                { id: 'config' as const, label: 'Configuración', shortLabel: 'Config', icon: Settings, color: 'neutral', wizardTab: 'general' as const, num: '6' },
               ].map((item) => {
                 const isSelected =
                   item.id === 'config'
@@ -328,6 +328,15 @@ function TournamentApp() {
                       ? activeTab === 'wizard' && wizardInitialTab === 'stages'
                       : activeTab === item.id;
                 const Icon = item.icon;
+                const colorMap: Record<string, { badge: string; text: string; bg: string; border: string }> = {
+                  amber:   { badge: 'bg-amber-500 text-black',   text: 'text-amber-300',   bg: 'bg-amber-500/15',   border: 'border-amber-500/40' },
+                  cyan:    { badge: 'bg-cyan-500 text-black',    text: 'text-cyan-300',    bg: 'bg-cyan-500/15',    border: 'border-cyan-500/40' },
+                  purple:  { badge: 'bg-purple-500 text-white',  text: 'text-purple-300',  bg: 'bg-purple-500/15',  border: 'border-purple-500/40' },
+                  indigo:  { badge: 'bg-indigo-500 text-white',  text: 'text-indigo-300',  bg: 'bg-indigo-500/15',  border: 'border-indigo-500/40' },
+                  emerald: { badge: 'bg-emerald-500 text-black', text: 'text-emerald-300', bg: 'bg-emerald-500/15', border: 'border-emerald-500/40' },
+                  neutral: { badge: 'bg-neutral-500 text-white', text: 'text-neutral-300', bg: 'bg-neutral-500/15', border: 'border-neutral-500/40' },
+                };
+                const c = colorMap[item.color];
                 return (
                   <button
                     key={item.id}
@@ -341,14 +350,18 @@ function TournamentApp() {
                         setActiveTab(item.id);
                       }
                     }}
-                    className={`shrink-0 rounded-xl px-3 py-2 text-[11px] font-bold transition-colors flex items-center gap-1.5 ${
+                    className={`shrink-0 rounded-xl px-3 py-1.5 text-[11px] font-bold transition-all flex items-center gap-1.5 min-h-[36px] border ${
                       isSelected
-                        ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
-                        : 'text-[var(--acero)] hover:bg-[var(--grafito)] hover:text-[var(--hueso)]'
+                        ? `${c.bg} ${c.text} ${c.border} shadow-sm`
+                        : 'text-[var(--acero)] hover:bg-[var(--grafito)] hover:text-[var(--hueso)] border-transparent'
                     }`}
                   >
-                    <Icon className="h-3.5 w-3.5" />
-                    {item.label}
+                    <span className={`w-4 h-4 rounded-full text-[9px] font-black flex items-center justify-center shrink-0 ${isSelected ? c.badge : 'bg-[var(--grafito)] text-[var(--acero)]'}`}>
+                      {item.num}
+                    </span>
+                    <Icon className="h-3 w-3 shrink-0" />
+                    <span className="hidden sm:inline">{item.label}</span>
+                    <span className="sm:hidden">{item.shortLabel}</span>
                   </button>
                 );
               })}
@@ -458,6 +471,7 @@ function TournamentApp() {
           </div>
         </div>
 
+        <div key={activeTab} className="animate-in fade-in duration-150">
         {/* View 0: Hub de Torneos */}
         {activeTab === 'torneos' && (
           <TournamentList
@@ -586,6 +600,8 @@ function TournamentApp() {
 
         {/* View 9: Admin Panel (Personal & Accesos) */}
         {activeTab === 'admin' && <AdminPanel />}
+
+        </div>
 
       </main>
 

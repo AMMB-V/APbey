@@ -47,10 +47,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <button
           type="button"
           onClick={() => handleSelect('torneos')}
-          aria-current={activeTab === 'torneos' || activeTab === 'bracket' ? 'page' : undefined}
+          aria-current={activeTab === 'torneos' ? 'page' : undefined}
           className={`flex flex-col items-center justify-center min-w-[56px] min-h-[50px] py-1 rounded-xl transition-colors ${
-            activeTab === 'torneos' || activeTab === 'bracket'
-              ? 'text-[var(--cobalto)] font-bold'
+            activeTab === 'torneos'
+              ? 'text-amber-400 font-bold'
               : 'text-[var(--acero)] hover:text-[var(--hueso)]'
           }`}
         >
@@ -65,7 +65,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           aria-current={activeTab === 'rankings' ? 'page' : undefined}
           className={`flex flex-col items-center justify-center min-w-[56px] min-h-[50px] py-1 rounded-xl transition-colors ${
             activeTab === 'rankings'
-              ? 'text-[var(--cobalto)] font-bold'
+              ? 'text-purple-400 font-bold'
               : 'text-[var(--acero)] hover:text-[var(--hueso)]'
           }`}
         >
@@ -84,7 +84,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           <div
             className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 border-2 ${
               activeTab === 'marcador' || activeTab === 'referee'
-                ? 'bg-[var(--cobalto)] text-[var(--tinta)] border-white shadow-blue-500/30'
+                ? 'bg-rose-600 text-[var(--tinta)] border-white shadow-rose-500/30'
                 : 'bg-[var(--grafito)] text-[var(--hueso)] border-[var(--cobalto)] shadow-black/50'
             }`}
           >
@@ -93,19 +93,19 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           <span className="text-[10px] font-bold text-[var(--hueso)] mt-0.5">Marcador</span>
         </button>
 
-        {/* 4. Deck 3on3 */}
+        {/* 4. Brackets */}
         <button
           type="button"
-          onClick={() => handleSelect('deck')}
-          aria-current={activeTab === 'deck' ? 'page' : undefined}
+          onClick={() => handleSelect('bracket')}
+          aria-current={activeTab === 'bracket' ? 'page' : undefined}
           className={`flex flex-col items-center justify-center min-w-[56px] min-h-[50px] py-1 rounded-xl transition-colors ${
-            activeTab === 'deck'
-              ? 'text-[var(--cobalto)] font-bold'
+            activeTab === 'bracket'
+              ? 'text-indigo-400 font-bold'
               : 'text-[var(--acero)] hover:text-[var(--hueso)]'
           }`}
         >
-          <Layers className="w-5 h-5 mb-0.5" aria-hidden="true" />
-          <span className="text-[10px] tracking-tight">Deck</span>
+          <GitBranch className="w-5 h-5 mb-0.5" aria-hidden="true" />
+          <span className="text-[10px] tracking-tight">Brackets</span>
         </button>
 
         {/* 5. Más (Hoja de opciones) */}
@@ -173,6 +173,19 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 <div>
                   <div className="text-xs font-bold">Participantes</div>
                   <div className="text-[10px] text-[var(--acero)]">Lista oficial del torneo</div>
+                </div>
+              </button>
+
+              {/* Deck 3on3 */}
+              <button
+                type="button"
+                onClick={() => handleSelect('deck')}
+                className="p-3.5 rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] text-left flex items-start gap-3 hover:border-[var(--acero)] min-h-[56px]"
+              >
+                <Layers className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-xs font-bold">Deck 3on3</div>
+                  <div className="text-[10px] text-[var(--acero)]">Constructor de equipos</div>
                 </div>
               </button>
 
