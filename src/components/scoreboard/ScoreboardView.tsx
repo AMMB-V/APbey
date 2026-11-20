@@ -2,20 +2,20 @@ import React, { useEffect, useState } from 'react';
 import {
   CheckCircle,
   Radio,
-  Trophy,
   Volume2,
   VolumeX,
   RotateCcw,
   Shield,
   Flame,
   Zap,
-  Sparkles,
   AlertTriangle,
   History,
   ArrowRight,
   X,
   Scale,
   MinusCircle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useTournament } from '../../context/TournamentContext';
 import { SyncBadge } from '../common/SyncBadge';
@@ -62,6 +62,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
   const [lastAction, setLastAction] = useState<(() => void) | null>(null);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
   const [closeSummary, setCloseSummary] = useState('');
+  const [showSetCorrection, setShowSetCorrection] = useState(false);
 
   // Foul / Penalty Modal State
   const [showFoulModal, setShowFoulModal] = useState(false);
@@ -259,7 +260,12 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
             )}
             {activeStage && (
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[var(--grafito)] border border-[var(--costura)] text-[var(--hueso)]">
-                Best of {activeStage.bestOf || 1}
+                Al mejor de {activeStage.bestOf || 1}
+              </span>
+            )}
+            {officialMatch && activeStage && (
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[var(--cobalto)]/20 border border-[var(--cobalto)]/40 text-[var(--cobalto)]">
+                Set {officialMatch.sets1 + officialMatch.sets2 + 1} de {activeStage.bestOf || 1}
               </span>
             )}
           </div>
@@ -383,35 +389,19 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                 {activeP1Score}
               </div>
 
-              {/* Controles de Sets para Blader 1 */}
-              <div className="mt-1 flex items-center justify-center gap-1.5 sm:gap-2 text-xs">
-                <button
-                  type="button"
-                  disabled={!canArbitrate || officialMatch.sets1 === 0 || officialMatch.status === 'completed'}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeSetFromMatch(officialMatch.id, officialP1.id);
-                  }}
-                  className="px-2.5 py-1 border border-[var(--costura)] rounded-lg text-[var(--acero)] hover:text-white bg-[var(--chasis)] disabled:opacity-30 font-bold transition-colors min-h-[30px]"
-                  title="Eliminar set"
-                >
-                  - Set
-                </button>
-                <span className="font-mono font-bold text-xs sm:text-sm text-[var(--hueso)] px-1">
-                  Sets: {officialMatch.sets1}
-                </span>
-                <button
-                  type="button"
-                  disabled={!canArbitrate || officialMatch.status === 'completed'}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    addSetToMatch(officialMatch.id, officialP1.id);
-                  }}
-                  className="px-2.5 py-1 bg-[var(--cobalto)] text-white rounded-lg font-bold disabled:opacity-30 hover:brightness-110 transition-all shadow-xs min-h-[30px]"
-                  title="Añadir set"
-                >
-                  + Set
-                </button>
+              {/* Sets ganados como puntos visuales */}
+              <div className="flex items-center gap-1 mt-1">
+                {Array.from({ length: activeStage?.bestOf || 1 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-3 h-3 rounded-full border-2 transition-all ${
+                      i < officialMatch.sets1
+                        ? 'bg-[var(--cobalto)] border-[var(--cobalto)]'
+                        : 'bg-transparent border-[var(--costura)]'
+                    }`}
+                    aria-label={i < officialMatch.sets1 ? 'Set ganado' : 'Set pendiente'}
+                  />
+                ))}
               </div>
 
               {p1Winner && (
@@ -439,35 +429,19 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                 {activeP2Score}
               </div>
 
-              {/* Controles de Sets para Blader 2 */}
-              <div className="mt-1 flex items-center justify-center gap-1.5 sm:gap-2 text-xs">
-                <button
-                  type="button"
-                  disabled={!canArbitrate || officialMatch.sets2 === 0 || officialMatch.status === 'completed'}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeSetFromMatch(officialMatch.id, officialP2.id);
-                  }}
-                  className="px-2.5 py-1 border border-[var(--costura)] rounded-lg text-[var(--acero)] hover:text-white bg-[var(--chasis)] disabled:opacity-30 font-bold transition-colors min-h-[30px]"
-                  title="Eliminar set"
-                >
-                  - Set
-                </button>
-                <span className="font-mono font-bold text-xs sm:text-sm text-[var(--hueso)] px-1">
-                  Sets: {officialMatch.sets2}
-                </span>
-                <button
-                  type="button"
-                  disabled={!canArbitrate || officialMatch.status === 'completed'}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    addSetToMatch(officialMatch.id, officialP2.id);
-                  }}
-                  className="px-2.5 py-1 bg-[var(--cobre)] text-white rounded-lg font-bold disabled:opacity-30 hover:brightness-110 transition-all shadow-xs min-h-[30px]"
-                  title="Añadir set"
-                >
-                  + Set
-                </button>
+              {/* Sets ganados como puntos visuales */}
+              <div className="flex items-center gap-1 mt-1">
+                {Array.from({ length: activeStage?.bestOf || 1 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-3 h-3 rounded-full border-2 transition-all ${
+                      i < officialMatch.sets2
+                        ? 'bg-[var(--cobre)] border-[var(--cobre)]'
+                        : 'bg-transparent border-[var(--costura)]'
+                    }`}
+                    aria-label={i < officialMatch.sets2 ? 'Set ganado' : 'Set pendiente'}
+                  />
+                ))}
               </div>
 
               {p2Winner && (
@@ -477,6 +451,91 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               )}
             </div>
           </div>
+
+          {/* Corrección manual de sets (solo árbitros, colapsable) */}
+          {canArbitrate && (
+            <div className="bg-[var(--chasis)] border border-[var(--costura)] rounded-2xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowSetCorrection((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 text-xs font-bold text-[var(--acero)] hover:text-[var(--hueso)] transition-colors"
+              >
+                <span>Corrección manual de sets</span>
+                {showSetCorrection ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </button>
+              {showSetCorrection && (
+                <div className="px-4 pb-4 flex flex-col gap-3">
+                  <p className="text-[11px] text-[var(--acero)] leading-relaxed">
+                    Usa estos controles solo para corregir errores de registro. Los sets normalmente se otorgan automáticamente cuando un jugador alcanza los puntos objetivo.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* P1 correction */}
+                    <div className="flex flex-col items-center gap-1.5">
+                      <span className="text-[11px] font-bold text-[var(--cobalto)] truncate max-w-full">
+                        {officialP1.displayName}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={officialMatch.sets1 === 0}
+                          onClick={() => removeSetFromMatch(officialMatch.id, officialP1.id)}
+                          className="w-9 h-9 rounded-xl border border-[var(--costura)] text-[var(--acero)] hover:text-white bg-[var(--grafito)] disabled:opacity-30 font-bold transition-colors flex items-center justify-center text-base"
+                          aria-label="Quitar set a jugador azul"
+                        >
+                          −
+                        </button>
+                        <span className="font-mono font-black text-sm text-[var(--hueso)] w-6 text-center">
+                          {officialMatch.sets1}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={officialMatch.status === 'completed'}
+                          onClick={() => addSetToMatch(officialMatch.id, officialP1.id)}
+                          className="w-9 h-9 rounded-xl bg-[var(--cobalto)]/20 border border-[var(--cobalto)]/50 text-[var(--cobalto)] disabled:opacity-30 font-bold hover:brightness-125 transition-all flex items-center justify-center text-base"
+                          aria-label="Añadir set a jugador azul"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    {/* P2 correction */}
+                    <div className="flex flex-col items-center gap-1.5">
+                      <span className="text-[11px] font-bold text-[var(--cobre)] truncate max-w-full">
+                        {officialP2.displayName}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={officialMatch.sets2 === 0}
+                          onClick={() => removeSetFromMatch(officialMatch.id, officialP2.id)}
+                          className="w-9 h-9 rounded-xl border border-[var(--costura)] text-[var(--acero)] hover:text-white bg-[var(--grafito)] disabled:opacity-30 font-bold transition-colors flex items-center justify-center text-base"
+                          aria-label="Quitar set a jugador naranja"
+                        >
+                          −
+                        </button>
+                        <span className="font-mono font-black text-sm text-[var(--hueso)] w-6 text-center">
+                          {officialMatch.sets2}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={officialMatch.status === 'completed'}
+                          onClick={() => addSetToMatch(officialMatch.id, officialP2.id)}
+                          className="w-9 h-9 rounded-xl bg-[var(--cobre)]/20 border border-[var(--cobre)]/50 text-[var(--cobre)] disabled:opacity-30 font-bold hover:brightness-125 transition-all flex items-center justify-center text-base"
+                          aria-label="Añadir set a jugador naranja"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Quick Foul / Penalty Button Bar */}
           <div className="flex items-center justify-between bg-[var(--chasis)] p-3 rounded-2xl border border-[var(--costura)] flex-wrap gap-2">

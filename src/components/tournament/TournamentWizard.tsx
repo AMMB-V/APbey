@@ -859,7 +859,7 @@ export const TournamentWizard: React.FC<{
             <div className="p-4 bg-[var(--grafito)] rounded-lg border border-[var(--costura)] space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-[var(--hueso)]">
-                  Mejor de N sets (Best of sets):
+                  Número de sets (mejor de N):
                 </label>
                 <div className="flex items-center gap-1">
                   <button

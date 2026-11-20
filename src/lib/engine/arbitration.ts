@@ -20,6 +20,14 @@ export interface ApplyPenaltyResult {
   newPenalty: Penalty;
 }
 
+export function getMatchBestOf(match: Match, stage: Stage): number {
+  return match.bestOf || stage.bestOf || 1;
+}
+
+export function getSetsNeeded(match: Match, stage: Stage): number {
+  return Math.floor(getMatchBestOf(match, stage) / 2) + 1;
+}
+
 export function adjustManualSet(
   match: Match,
   stage: Stage,
@@ -34,7 +42,7 @@ export function adjustManualSet(
   const key = participantId === match.participant1Id ? 'sets1' : 'sets2';
   const current = next[key];
   next[key] = Math.max(0, current + delta);
-  const setsNeeded = Math.floor(stage.bestOf / 2) + 1;
+  const setsNeeded = getSetsNeeded(match, stage);
   const maxSets = Math.max(0, setsNeeded - 1);
   if (delta < 0 && current >= setsNeeded) {
     next[key] = Math.min(maxSets, next[key]);
@@ -161,7 +169,7 @@ export function applyBattle(
         updatedMatch.sets2 += 1;
       }
 
-      const setsNeeded = Math.floor(stage.bestOf / 2) + 1;
+      const setsNeeded = getSetsNeeded(match, stage);
       if (updatedMatch.sets1 >= setsNeeded || updatedMatch.sets2 >= setsNeeded) {
         updatedMatch.status = 'completed';
         updatedMatch.winnerId = updatedMatch.sets1 >= setsNeeded ? p1Id : p2Id;
@@ -257,7 +265,7 @@ export function applyPenalty(
         updatedMatch.sets2 += 1;
       }
 
-      const setsNeeded = Math.floor(stage.bestOf / 2) + 1;
+      const setsNeeded = getSetsNeeded(match, stage);
       if (updatedMatch.sets1 >= setsNeeded || updatedMatch.sets2 >= setsNeeded) {
         updatedMatch.status = 'completed';
         updatedMatch.winnerId = updatedMatch.sets1 >= setsNeeded ? p1Id : p2Id;
@@ -300,7 +308,7 @@ export function undoLastBattle(
   let winnerId: string | null = null;
   let status: Match['status'] = remainingBattles.length > 0 || matchPenalties.length > 0 ? 'in_progress' : 'pending';
 
-  const setsNeeded = Math.floor(stage.bestOf / 2) + 1;
+  const setsNeeded = getSetsNeeded(match, stage);
   const matchTargetPoints = tournament ? getMatchPointsToWin(match, stage, tournament, round) : (stage.pointsToWin || 4);
 
   const remainingEvents = [
