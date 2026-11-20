@@ -42,6 +42,8 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
     recordBattle,
     recordPenalty,
     undoBattle,
+    addSetToMatch,
+    removeSetFromMatch,
     assignReferee,
     currentRole,
     currentUser,
@@ -248,11 +250,16 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
       {/* Match Selector & Next Match Bar */}
       <div className="bg-[var(--chasis)] border border-[var(--costura)] rounded-2xl p-4 flex flex-col gap-3 shadow-md">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-bold text-[var(--hueso)]">Combate en mesa:</span>
             {officialMatch && (
               <span className="text-xs font-mono font-bold text-[var(--cobalto)]">
                 Mesa {officialMatch.station || 'A'}
+              </span>
+            )}
+            {activeStage && (
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[var(--grafito)] border border-[var(--costura)] text-[var(--hueso)]">
+                Best of {activeStage.bestOf || 1}
               </span>
             )}
           </div>
@@ -375,8 +382,40 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               <div className="my-1.5 sm:my-2 font-mono font-black text-5xl sm:text-7xl tracking-tighter text-[var(--hueso)] select-none drop-shadow-md">
                 {activeP1Score}
               </div>
+
+              {/* Controles de Sets para Blader 1 */}
+              <div className="mt-1 flex items-center justify-center gap-1.5 sm:gap-2 text-xs">
+                <button
+                  type="button"
+                  disabled={!canArbitrate || officialMatch.sets1 === 0 || officialMatch.status === 'completed'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeSetFromMatch(officialMatch.id, officialP1.id);
+                  }}
+                  className="px-2.5 py-1 border border-[var(--costura)] rounded-lg text-[var(--acero)] hover:text-white bg-[var(--chasis)] disabled:opacity-30 font-bold transition-colors min-h-[30px]"
+                  title="Eliminar set"
+                >
+                  - Set
+                </button>
+                <span className="font-mono font-bold text-xs sm:text-sm text-[var(--hueso)] px-1">
+                  Sets: {officialMatch.sets1}
+                </span>
+                <button
+                  type="button"
+                  disabled={!canArbitrate || officialMatch.status === 'completed'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addSetToMatch(officialMatch.id, officialP1.id);
+                  }}
+                  className="px-2.5 py-1 bg-[var(--cobalto)] text-white rounded-lg font-bold disabled:opacity-30 hover:brightness-110 transition-all shadow-xs min-h-[30px]"
+                  title="Añadir set"
+                >
+                  + Set
+                </button>
+              </div>
+
               {p1Winner && (
-                <div className="px-3 py-1 rounded-full bg-emerald-500 text-black text-xs font-black uppercase tracking-wider animate-bounce">
+                <div className="mt-2 px-3 py-1 rounded-full bg-emerald-500 text-black text-xs font-black uppercase tracking-wider animate-bounce">
                   ¡Ganador!
                 </div>
               )}
@@ -399,8 +438,40 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               <div className="my-1.5 sm:my-2 font-mono font-black text-5xl sm:text-7xl tracking-tighter text-[var(--hueso)] select-none drop-shadow-md">
                 {activeP2Score}
               </div>
+
+              {/* Controles de Sets para Blader 2 */}
+              <div className="mt-1 flex items-center justify-center gap-1.5 sm:gap-2 text-xs">
+                <button
+                  type="button"
+                  disabled={!canArbitrate || officialMatch.sets2 === 0 || officialMatch.status === 'completed'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeSetFromMatch(officialMatch.id, officialP2.id);
+                  }}
+                  className="px-2.5 py-1 border border-[var(--costura)] rounded-lg text-[var(--acero)] hover:text-white bg-[var(--chasis)] disabled:opacity-30 font-bold transition-colors min-h-[30px]"
+                  title="Eliminar set"
+                >
+                  - Set
+                </button>
+                <span className="font-mono font-bold text-xs sm:text-sm text-[var(--hueso)] px-1">
+                  Sets: {officialMatch.sets2}
+                </span>
+                <button
+                  type="button"
+                  disabled={!canArbitrate || officialMatch.status === 'completed'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addSetToMatch(officialMatch.id, officialP2.id);
+                  }}
+                  className="px-2.5 py-1 bg-[var(--cobre)] text-white rounded-lg font-bold disabled:opacity-30 hover:brightness-110 transition-all shadow-xs min-h-[30px]"
+                  title="Añadir set"
+                >
+                  + Set
+                </button>
+              </div>
+
               {p2Winner && (
-                <div className="px-3 py-1 rounded-full bg-emerald-500 text-black text-xs font-black uppercase tracking-wider animate-bounce">
+                <div className="mt-2 px-3 py-1 rounded-full bg-emerald-500 text-black text-xs font-black uppercase tracking-wider animate-bounce">
                   ¡Ganador!
                 </div>
               )}
