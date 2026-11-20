@@ -11,7 +11,13 @@ export function generateDoubleElimination(
   tournamentId: string,
   stageId: string,
   participants: Participant[],
-  { grandFinalReset = true }: { grandFinalReset?: boolean } = {}
+  {
+    grandFinalReset = true,
+    grandFinalType,
+  }: {
+    grandFinalReset?: boolean;
+    grandFinalType?: 'one_or_two_matches' | 'one_match' | 'none';
+  } = {}
 ): DoubleEliminationResult {
   // Use single elimination as the base for the Winners Bracket
   const winnersResult = generateSingleElimination(tournamentId, stageId, participants, { thirdPlaceMatch: false });
@@ -110,6 +116,12 @@ export function generateDoubleElimination(
     }
   }
 
+  if (grandFinalType === 'none') {
+    return { rounds, matches };
+  }
+
+  const shouldReset = grandFinalType ? grandFinalType === 'one_or_two_matches' : grandFinalReset;
+
   // Grand Finals
   const gfRoundId = newId();
   rounds.push({
@@ -149,7 +161,7 @@ export function generateDoubleElimination(
   if (losersFinal) losersFinal.nextMatchWinnerId = gfMatch.id;
 
   // Optional Grand Finals Reset
-  if (grandFinalReset) {
+  if (shouldReset) {
     const gfResetMatch: Match = {
       id: newId(),
       tournamentId,

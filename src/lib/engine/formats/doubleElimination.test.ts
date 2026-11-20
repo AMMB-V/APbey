@@ -58,6 +58,25 @@ describe('generateDoubleElimination', () => {
     const withResetFinalRoundId = withReset.rounds[withReset.rounds.length - 1]?.id;
     expect(withoutReset.matches.filter((match) => match.roundId === withoutResetFinalRoundId)).toHaveLength(1);
     expect(withReset.matches.filter((match) => match.roundId === withResetFinalRoundId)).toHaveLength(2);
+
+    const noGrandFinal = generateDoubleElimination('tournament-1', 'stage-1', participants, {
+      grandFinalType: 'none',
+    });
+    expect(noGrandFinal.rounds.some((r) => r.bracket === 'grand_final')).toBe(false);
+
+    const oneMatchGF = generateDoubleElimination('tournament-1', 'stage-1', participants, {
+      grandFinalType: 'one_match',
+    });
+    const oneMatchGFRound = oneMatchGF.rounds.find((r) => r.bracket === 'grand_final');
+    expect(oneMatchGFRound).toBeDefined();
+    expect(oneMatchGF.matches.filter((m) => m.roundId === oneMatchGFRound?.id)).toHaveLength(1);
+
+    const twoMatchGF = generateDoubleElimination('tournament-1', 'stage-1', participants, {
+      grandFinalType: 'one_or_two_matches',
+    });
+    const twoMatchGFRound = twoMatchGF.rounds.find((r) => r.bracket === 'grand_final');
+    expect(twoMatchGFRound).toBeDefined();
+    expect(twoMatchGF.matches.filter((m) => m.roundId === twoMatchGFRound?.id)).toHaveLength(2);
   });
 
   it.each([2, 3, 5, 6, 8, 12])('keeps every non-final loss connected for %i players', (size) => {

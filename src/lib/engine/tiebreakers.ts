@@ -9,14 +9,15 @@ import {
 export function computeStandings(
   matches: Match[],
   participants: Participant[],
-  tiebreakerOrder: TiebreakerCriteria[] = ['points', 'point_diff', 'points_for', 'head_to_head', 'seed'],
+  tiebreakerOrder: TiebreakerCriteria[] = ['points', 'median_buchholz', 'head_to_head', 'point_diff', 'seed'],
   advanceCount: number = 2,
   scoring: StandingsScoringConfig = {}
 ): GroupStandingRow[] {
   const pointsPerMatchWin = scoring.pointsPerMatchWin ?? 3;
   const pointsPerMatchDraw = scoring.pointsPerMatchDraw ?? 1;
   const pointsPerSetWin = scoring.pointsPerSetWin ?? 0;
-  const pointsPerBye = scoring.pointsPerBye ?? 0;
+  const pointsPerSetDraw = scoring.pointsPerSetDraw ?? 0;
+  const pointsPerBye = scoring.pointsPerBye ?? (scoring.pointsPerMatchWin !== undefined ? scoring.pointsPerMatchWin : 1);
   const participantMap = new Map<string, Participant>();
   for (const p of participants) {
     participantMap.set(p.id, p);
@@ -58,6 +59,8 @@ export function computeStandings(
     const s2 = match.participant2Id ? statsMap.get(match.participant2Id) : undefined;
 
     if (match.isBye && s1) {
+      s1.played += 1;
+      s1.won += 1;
       s1.points += pointsPerBye;
       continue;
     }
@@ -78,8 +81,8 @@ export function computeStandings(
       if (match.isDraw) {
         s1.drawn += 1;
         s2.drawn += 1;
-        s1.points += pointsPerMatchDraw + match.sets1 * pointsPerSetWin;
-        s2.points += pointsPerMatchDraw + match.sets2 * pointsPerSetWin;
+        s1.points += pointsPerMatchDraw + match.sets1 * pointsPerSetWin + pointsPerSetDraw;
+        s2.points += pointsPerMatchDraw + match.sets2 * pointsPerSetWin + pointsPerSetDraw;
       } else if (match.winnerId === match.participant1Id) {
         s1.won += 1;
         s2.lost += 1;

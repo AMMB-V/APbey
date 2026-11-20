@@ -16,6 +16,7 @@ export function generateSwissRound(
   options: {
     tiebreakers?: TiebreakerCriteria[];
     scoring?: StandingsScoringConfig;
+    randomFn?: () => number;
   } = {}
 ): SwissRoundResult {
   const roundId = createEntityId();
@@ -26,6 +27,71 @@ export function generateSwissRound(
     bracket: 'swiss',
     name: `Ronda Suiza ${roundNumber}`,
   };
+
+  // Ronda 1: Sorteo aleatorio inicial de emparejamientos
+  if (roundNumber === 1 || previousMatches.length === 0) {
+    const rng = options.randomFn || Math.random;
+    const pool = [...participants];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+
+    const matches: Match[] = [];
+    let position = 1;
+
+    // Si el número de participantes es impar, un blader recibe BYE
+    if (pool.length % 2 !== 0) {
+      const byeBlader = pool.pop()!;
+      matches.push({
+        id: createEntityId(),
+        tournamentId,
+        stageId,
+        roundId,
+        position: position++,
+        participant1Id: byeBlader.id,
+        participant2Id: null,
+        winnerId: byeBlader.id,
+        isDraw: false,
+        isBye: true,
+        score1: 0,
+        score2: 0,
+        sets1: 0,
+        sets2: 0,
+        status: 'completed',
+        refereeId: null,
+        nextMatchWinnerId: null,
+        nextMatchLoserId: null,
+        version: 1,
+      });
+    }
+
+    for (let i = 0; i < pool.length; i += 2) {
+      matches.push({
+        id: createEntityId(),
+        tournamentId,
+        stageId,
+        roundId,
+        position: position++,
+        participant1Id: pool[i].id,
+        participant2Id: pool[i + 1].id,
+        winnerId: null,
+        isDraw: false,
+        isBye: false,
+        score1: 0,
+        score2: 0,
+        sets1: 0,
+        sets2: 0,
+        status: 'pending',
+        refereeId: null,
+        nextMatchWinnerId: null,
+        nextMatchLoserId: null,
+        version: 1,
+      });
+    }
+
+    return { round, matches };
+  }
 
   // Find pairings that have already occurred
   const playedPairs = new Set<string>();
@@ -43,11 +109,11 @@ export function generateSwissRound(
     }
   }
 
-  // Get current standings to pair by record
+  // Get current standings to pair by record (Wins / Points descending, tiebroken by Buchholz -> H2H -> PointDiff)
   const standings = computeStandings(
     previousMatches,
     participants,
-    options.tiebreakers || ['points', 'median_buchholz', 'point_diff', 'seed'],
+    options.tiebreakers || ['points', 'median_buchholz', 'head_to_head', 'point_diff', 'seed'],
     2,
     options.scoring
   );
@@ -95,6 +161,7 @@ export function generateSwissRound(
     .map((standing) => standing.participant)
     .filter((participant) => participant.id !== byeId);
   const standingPoints = new Map(standings.map((standing) => [standing.participant.id, standing.points]));
+  const standingRanks = new Map(standings.map((standing, idx) => [standing.participant.id, idx + 1]));
 
   const findPairing = (unpaired: Participant[], avoidRematches: boolean): [Participant, Participant][] | null => {
     if (unpaired.length === 0) return [];
@@ -105,7 +172,10 @@ export function generateSwissRound(
       .sort((left, right) => {
         const leftDelta = Math.abs((standingPoints.get(first.id) || 0) - (standingPoints.get(left.id) || 0));
         const rightDelta = Math.abs((standingPoints.get(first.id) || 0) - (standingPoints.get(right.id) || 0));
-        return leftDelta - rightDelta || (left.seed - right.seed);
+        if (leftDelta !== rightDelta) return leftDelta - rightDelta;
+        const rankDeltaLeft = Math.abs((standingRanks.get(first.id) || 0) - (standingRanks.get(left.id) || 0));
+        const rankDeltaRight = Math.abs((standingRanks.get(first.id) || 0) - (standingRanks.get(right.id) || 0));
+        return rankDeltaLeft - rankDeltaRight || (left.seed - right.seed);
       });
 
     for (const opponent of candidates) {
@@ -151,6 +221,7 @@ export function generateSwiss(
   options?: {
     tiebreakers?: TiebreakerCriteria[];
     scoring?: StandingsScoringConfig;
+    randomFn?: () => number;
   }
 ): { rounds: Round[]; matches: Match[] } {
   const round1 = generateSwissRound(tournamentId, stageId, 1, participants, [], options);
@@ -169,6 +240,7 @@ export function generateNextSwissRound(
   options?: {
     tiebreakers?: TiebreakerCriteria[];
     scoring?: StandingsScoringConfig;
+    randomFn?: () => number;
   }
 ): SwissRoundResult {
   const nextRoundNumber = previousRounds

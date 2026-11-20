@@ -71,6 +71,7 @@ export interface StageConfig {
   pointsPerMatchWin?: number;
   pointsPerMatchDraw?: number;
   pointsPerSetWin?: number;
+  pointsPerSetDraw?: number;
   pointsPerBye?: number;
   grandFinalType?: 'one_or_two_matches' | 'one_match' | 'none';
   advanceCount?: number;          // primeros N de cada grupo que pasan (default 2)
@@ -89,6 +90,7 @@ export interface StandingsScoringConfig {
   pointsPerMatchWin?: number;
   pointsPerMatchDraw?: number;
   pointsPerSetWin?: number;
+  pointsPerSetDraw?: number;
   pointsPerBye?: number;
 }
 

@@ -60,4 +60,67 @@ describe('Swiss round generation', () => {
     expect(next.round.number).toBe(2);
     expect(next.matches).toHaveLength(2);
   });
+
+  it('performs random draw in round 1 and pairs winners with winners in round 2', () => {
+    // 4 participants: reverse order shuffle
+    const reverseRng = () => 0; // always picks 0, effectively shuffling/reversing
+    const round1 = generateSwiss('t1', 's1', participants, { randomFn: reverseRng });
+    expect(round1.matches).toHaveLength(2);
+
+    // Round 1 matches: let participant1 in match 1 win, and participant2 in match 2 win
+    const m1 = round1.matches[0];
+    const m2 = round1.matches[1];
+    const completedR1: Match[] = [
+      {
+        ...m1,
+        status: 'completed',
+        winnerId: m1.participant1Id,
+        score1: 4,
+        score2: 1,
+      },
+      {
+        ...m2,
+        status: 'completed',
+        winnerId: m2.participant2Id,
+        score1: 1,
+        score2: 4,
+      },
+    ];
+
+    const round2 = generateNextSwissRound('t1', 's1', round1.rounds, participants, completedR1);
+    expect(round2.matches).toHaveLength(2);
+
+    // The winners (m1.participant1Id and m2.participant2Id) must be paired together!
+    const winnersMatch = round2.matches.find(
+      (m) =>
+        (m.participant1Id === m1.participant1Id && m.participant2Id === m2.participant2Id) ||
+        (m.participant1Id === m2.participant2Id && m.participant2Id === m1.participant1Id)
+    );
+    expect(winnersMatch).toBeDefined();
+
+    // And the losers (m1.participant2Id and m2.participant1Id) must be paired together!
+    const losersMatch = round2.matches.find(
+      (m) =>
+        (m.participant1Id === m1.participant2Id && m.participant2Id === m2.participant1Id) ||
+        (m.participant1Id === m2.participant1Id && m.participant2Id === m1.participant2Id)
+    );
+    expect(losersMatch).toBeDefined();
+  });
+
+  it('handles odd participant counts with BYE in round 1', () => {
+    const fiveParticipants = [...participants, {
+      id: 'p5',
+      tournamentId: 't1',
+      displayName: 'Player 5',
+      seed: 5,
+      checkedIn: true,
+      inspected: true,
+      status: 'active' as const,
+    }];
+    const round1 = generateSwiss('t1', 's1', fiveParticipants);
+    const byeMatch = round1.matches.find((m) => m.isBye);
+    expect(byeMatch).toBeDefined();
+    expect(byeMatch?.status).toBe('completed');
+    expect(round1.matches.filter((m) => !m.isBye)).toHaveLength(2);
+  });
 });

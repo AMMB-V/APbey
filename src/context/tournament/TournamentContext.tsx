@@ -1772,6 +1772,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
     } else if (stage.type === 'double_elimination') {
       const de = generateDoubleElimination(stage.tournamentId, stage.id, tParts, {
+        grandFinalType: stage.config.grandFinalType,
         grandFinalReset: stage.config.grandFinalReset ?? true,
       });
 
@@ -2094,6 +2095,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       configUpdates.pointsPerMatchWin,
       configUpdates.pointsPerMatchDraw,
       configUpdates.pointsPerSetWin,
+      configUpdates.pointsPerSetDraw,
       configUpdates.pointsPerBye,
     ];
     if (numericConfig.some((value) => value !== undefined && (!Number.isFinite(value) || value < 0))) {

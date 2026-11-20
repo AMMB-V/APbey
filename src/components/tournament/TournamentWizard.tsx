@@ -217,6 +217,7 @@ export const TournamentWizard: React.FC<{
   const [pointsPerMatchWin, setPointsPerMatchWin] = useState<number>(activeStage?.config.pointsPerMatchWin ?? 1);
   const [pointsPerMatchDraw, setPointsPerMatchDraw] = useState<number>(activeStage?.config.pointsPerMatchDraw ?? 0);
   const [pointsPerSetWin, setPointsPerSetWin] = useState<number>(activeStage?.config.pointsPerSetWin ?? 0);
+  const [pointsPerSetDraw, setPointsPerSetDraw] = useState<number>(activeStage?.config.pointsPerSetDraw ?? 0);
   const [pointsPerBye, setPointsPerBye] = useState<number>(activeStage?.config.pointsPerBye ?? 1);
   const [grandFinalType, setGrandFinalType] = useState<NonNullable<typeof activeStage>['config']['grandFinalType']>(
     activeStage?.config.grandFinalType ?? 'one_or_two_matches'
@@ -240,6 +241,7 @@ export const TournamentWizard: React.FC<{
     setPointsPerMatchWin(activeStage?.config.pointsPerMatchWin ?? 1);
     setPointsPerMatchDraw(activeStage?.config.pointsPerMatchDraw ?? 0);
     setPointsPerSetWin(activeStage?.config.pointsPerSetWin ?? 0);
+    setPointsPerSetDraw(activeStage?.config.pointsPerSetDraw ?? 0);
     setPointsPerBye(activeStage?.config.pointsPerBye ?? 1);
     setGrandFinalType(activeStage?.config.grandFinalType ?? 'one_or_two_matches');
     setBestOf(activeStage?.bestOf ?? (
@@ -703,11 +705,12 @@ export const TournamentWizard: React.FC<{
                   Define los valores usados en la clasificación de grupos y en los BYEs.
                 </p>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 {[
                   ['Victoria de partido', pointsPerMatchWin, setPointsPerMatchWin],
                   ['Empate de partido', pointsPerMatchDraw, setPointsPerMatchDraw],
                   ['Victoria de set', pointsPerSetWin, setPointsPerSetWin],
+                  ['Empate de set', pointsPerSetDraw, setPointsPerSetDraw],
                   ['BYE', pointsPerBye, setPointsPerBye],
                 ].map(([label, value, setter]) => (
                   <label key={label as string} className="p-3 bg-[var(--grafito)] rounded-lg border border-[var(--costura)] space-y-1">
@@ -724,14 +727,14 @@ export const TournamentWizard: React.FC<{
                 ))}
               </div>
               <label className="block max-w-sm">
-                <span className="text-[10px] font-bold text-[var(--hueso)] block mb-1">Gran Final</span>
+                <span className="text-[10px] font-bold text-[var(--hueso)] block mb-1">Gran Final (Doble Eliminación)</span>
                 <select
                   value={grandFinalType}
                   onChange={(event) => setGrandFinalType(event.target.value as typeof grandFinalType)}
                   className="w-full text-xs border border-[var(--costura)] rounded p-2 bg-[var(--grafito)] text-[var(--hueso)]"
                 >
-                  <option value="one_or_two_matches">1 o 2 combates con reset si es necesario</option>
-                  <option value="one_match">Un combate</option>
+                  <option value="one_or_two_matches">1-2 combates — el finalista de winners debe perder dos veces</option>
+                  <option value="one_match">1 combate</option>
                   <option value="none">Sin gran final</option>
                 </select>
               </label>
@@ -832,23 +835,51 @@ export const TournamentWizard: React.FC<{
               <label className="text-xs font-bold text-[var(--hueso)]">
                 Tamaño ideal de grupo (Group Size):
               </label>
-              <input
-                type="number"
-                min={3}
-                max={8}
-                value={groupSize}
-                onChange={(e) => setGroupSize(Number(e.target.value))}
-                className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded-lg p-2 bg-[var(--grafito)] text-[var(--hueso)]"
-              />
-              <p className="text-[11px] text-[var(--acero)]">
-                Distribución serpenteante por siembra (1, 8, 9, 16 en Grupo A, etc.).
-              </p>
+              {activeStage?.type === 'swiss' ? (
+                <div className="p-2.5 rounded bg-[var(--cobalto)]/10 border border-[var(--cobalto)]/40 text-xs text-[var(--hueso)] font-medium">
+                  Solo puede ser 1 grupo en formato Suizo. Todos los participantes compiten en una tabla unificada.
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="number"
+                    min={3}
+                    max={8}
+                    value={groupSize}
+                    onChange={(e) => setGroupSize(Number(e.target.value))}
+                    className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded-lg p-2 bg-[var(--grafito)] text-[var(--hueso)]"
+                  />
+                  <p className="text-[11px] text-[var(--acero)]">
+                    Distribución serpenteante por siembra (1, 8, 9, 16 en Grupo A, etc.).
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="p-4 bg-[var(--grafito)] rounded-lg border border-[var(--costura)] space-y-2">
-              <label className="text-xs font-bold text-[var(--hueso)]">
-                Mejor de N sets (Best of sets):
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-[var(--hueso)]">
+                  Mejor de N sets (Best of sets):
+                </label>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={bestOf <= 1}
+                    onClick={() => setBestOf(Math.max(1, bestOf - 2))}
+                    className="px-2 py-0.5 text-xs font-bold rounded border border-[var(--costura)] bg-[var(--chasis)] text-[var(--acero)] hover:text-white disabled:opacity-40"
+                  >
+                    - Eliminar set
+                  </button>
+                  <button
+                    type="button"
+                    disabled={bestOf >= 7}
+                    onClick={() => setBestOf(Math.min(7, bestOf + 2))}
+                    className="px-2 py-0.5 text-xs font-bold rounded border border-[var(--cobalto)] bg-[var(--cobalto)]/20 text-[var(--cobalto)] hover:brightness-110 disabled:opacity-40"
+                  >
+                    + Añadir set
+                  </button>
+                </div>
+              </div>
               <input
                 type="number"
                 min={1}
@@ -859,7 +890,7 @@ export const TournamentWizard: React.FC<{
                 className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded-lg p-2 bg-[var(--grafito)] text-[var(--hueso)]"
               />
               <p className="text-[11px] text-[var(--acero)]">
-                Grupos/Swiss usan best_of = 1; eliminación directa usa best_of = 3 por defecto.
+                Fase de grupos/Suizo usan 1 set; eliminación directa usa 3 o 5 sets.
               </p>
             </div>
           </div>
@@ -933,6 +964,7 @@ export const TournamentWizard: React.FC<{
                     pointsPerMatchWin,
                     pointsPerMatchDraw,
                     pointsPerSetWin,
+                    pointsPerSetDraw,
                     pointsPerBye,
                     grandFinalType,
                     advanceCount,

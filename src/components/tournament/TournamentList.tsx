@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTournament } from '../../context/TournamentContext';
-import { StageStructure, StageType, TournamentStatus } from '../../types/tournament';
+import { StageConfig, StageStructure, StageType, TiebreakerCriteria, TournamentStatus } from '../../types/tournament';
 import { AceroIcon } from '../common/AceroIcon';
 import {
   Trophy,
@@ -152,16 +152,26 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
     const templateSource = selectedTemplateId ? tournaments.find(t => t.id === selectedTemplateId) : undefined;
     const templateStage = selectedTemplateId ? stages.find(s => s.tournamentId === selectedTemplateId) : undefined;
 
-    const stageConfig = templateStage?.config || {
+    const isSwiss = newFormat === 'swiss';
+    const swissTiebreakers: TiebreakerCriteria[] = ['points', 'median_buchholz', 'head_to_head', 'point_diff', 'seed'];
+    const standardTiebreakers: TiebreakerCriteria[] = ['points', 'point_diff', 'head_to_head', 'seed'];
+    const stageConfig: StageConfig = templateStage?.config || {
       stageStructure: newStageStructure,
       advanceCount: 2,
-      groupSize: 4,
-      tiebreakers: ['points', 'median_buchholz', 'head_to_head', 'point_diff', 'seed'] as const,
+      groupSize: isSwiss ? 1 : 4,
+      tiebreakers: swissTiebreakers,
     };
-    const configuredStageConfig = {
+    const configuredStageConfig: StageConfig = {
       ...stageConfig,
       stageStructure: templateStage?.config.stageStructure ?? newStageStructure,
       swissRounds: templateStage?.config.swissRounds ?? newSwissRounds,
+      groupSize: isSwiss ? 1 : (stageConfig.groupSize || 4),
+      pointsPerMatchWin: isSwiss ? 1 : (stageConfig.pointsPerMatchWin ?? 3),
+      pointsPerMatchDraw: isSwiss ? 0 : (stageConfig.pointsPerMatchDraw ?? 1),
+      pointsPerSetWin: stageConfig.pointsPerSetWin ?? 0,
+      pointsPerSetDraw: stageConfig.pointsPerSetDraw ?? 0,
+      pointsPerBye: isSwiss ? 1 : (stageConfig.pointsPerBye ?? 1),
+      tiebreakers: isSwiss ? swissTiebreakers : (stageConfig.tiebreakers || standardTiebreakers),
     };
 
     const created = createTournament(
@@ -186,7 +196,9 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
             name: newSecondFormat === 'single_elimination' ? 'Playoffs' : undefined,
             config: {
               stageStructure: 'two_stage',
-              tiebreakers: ['points', 'point_diff', 'seed'] as const,
+              grandFinalType: 'one_or_two_matches',
+              grandFinalReset: true,
+              tiebreakers: newSecondFormat === 'swiss' ? swissTiebreakers : standardTiebreakers,
             },
           }
         : undefined
@@ -765,10 +777,11 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                   <p className="text-[10px] text-[var(--acero)]">
                     Define la fase posterior a la etapa inicial.
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {([
                       ['single_elimination', 'Playoffs directos'],
                       ['double_elimination', 'Doble eliminación'],
+                      ['round_robin', 'Todos contra todos'],
                       ['swiss', 'Suizo final'],
                     ] as const).map(([type, label]) => (
                       <button
@@ -790,9 +803,14 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
 
               {newFormat === 'swiss' && creationStep === 2 && (
                 <div className="p-3 bg-[var(--grafito)] rounded-[var(--r-control)] border border-[var(--costura)] space-y-2">
-                  <label htmlFor="new-swiss-rounds" className="text-xs font-semibold text-[var(--hueso)] block">
-                    Rondas del Sistema Suizo
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="new-swiss-rounds" className="text-xs font-semibold text-[var(--hueso)] block">
+                      Rondas del Sistema Suizo
+                    </label>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--cobalto)]/20 text-[var(--cobalto)] font-bold">
+                      1 solo grupo
+                    </span>
+                  </div>
                   <input
                     id="new-swiss-rounds"
                     type="number"
@@ -803,7 +821,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                     className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded p-2 bg-[var(--chasis)] text-[var(--hueso)]"
                   />
                   <p className="text-[10px] text-[var(--acero)]">
-                    La siguiente ronda se habilita cuando todos los matches de la ronda actual estén completados.
+                    Solo puede ser 1 grupo en formato Suizo. Emparejamientos por victorias y desempate por Buchholz Medio → Enfrentamiento Directo → Diferencia de Puntos.
                   </p>
                 </div>
               )}
