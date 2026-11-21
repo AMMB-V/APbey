@@ -45,11 +45,6 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
     openAuthModal,
     supabaseSyncInfo,
   } = useTournament();
-  const canArbitrate = Boolean(
-    currentUser &&
-    ['referee', 'organizer', 'admin'].includes(currentRole)
-  );
-
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [selectedOfficialMatchId, setSelectedOfficialMatchId] = useState(initialMatchId || '');
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -92,6 +87,11 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
   const activeP1Score = officialMatch?.score1 || 0;
   const activeP2Score = officialMatch?.score2 || 0;
   const activeStage = officialMatch ? stages.find((stage) => stage.id === officialMatch.stageId) : undefined;
+  const canArbitrate = Boolean(currentUser && activeTournament?.status === 'in_progress' && activeStage?.status === 'in_progress' && (
+    currentRole === 'admin' ||
+    (currentRole === 'organizer' && activeTournament.organizerId === currentUser.id) ||
+    (currentRole === 'referee' && officialMatch?.refereeId === currentUser.id)
+  ));
   const activeRound = officialMatch ? rounds.find((round) => round.id === officialMatch.roundId) : undefined;
   const target = officialMatch && activeStage && activeTournament
     ? getMatchPointsToWin(officialMatch, activeStage, activeTournament, activeRound)
@@ -278,6 +278,9 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               </button>
             )}
 
+            {currentRole === 'referee' && officialMatch && officialMatch.refereeId !== currentUser?.id && (
+              <span className="text-xs text-amber-400">Solo lectura. Este combate no está asignado a tu cuenta.</span>
+            )}
             {currentRole === 'public' && (
               <span className="text-[11px] text-amber-400 font-semibold">
                 Modo visor. Inicia sesión con un rol oficial para arbitrar.
@@ -455,11 +458,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               stage={activeStage}
               players={[officialP1, officialP2]}
               target={target}
-              canReport={Boolean(canArbitrate && currentUser && officialMatch.status !== 'completed' &&
-                activeStage.status === 'in_progress' && activeTournament.status === 'in_progress' &&
-                (currentRole === 'admin' ||
-                  (currentRole === 'organizer' && activeTournament.organizerId === currentUser.id) ||
-                  (currentRole === 'referee' && officialMatch.refereeId === currentUser.id)))}
+              canReport={canArbitrate && officialMatch.status !== 'completed'}
               currentScores={liveSetScores(officialMatch, matchBattles, matchPenalties, target)}
               onReport={reportMatchSets}
             />
