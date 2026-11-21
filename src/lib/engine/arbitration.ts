@@ -26,8 +26,8 @@ export function getSetsNeeded(stage: Stage): number {
 }
 
 export function validateSetReport(scores: SetScore[], stage: Stage, target: number) {
-  if (!scores.length || scores.length > (stage.bestOf || 1)) {
-    return { error: 'Añade al menos un set y respeta el máximo de la etapa.' } as const;
+  if (!scores.length) {
+    return { error: 'Añade al menos un set.' } as const;
   }
 
   const setsNeeded = getSetsNeeded(stage);
@@ -37,6 +37,7 @@ export function validateSetReport(scores: SetScore[], stage: Stage, target: numb
     const validPoints = [score1, score2].every((score) =>
       Number.isInteger(score) && score >= 0 && score <= 2147483647
     );
+    if (validPoints && score1 === score2) continue;
     if (!validPoints || (score1 >= target) === (score2 >= target)) {
       return { error: `Set ${index + 1}: registra dos puntajes válidos y un solo jugador con al menos ${target} puntos.` } as const;
     }

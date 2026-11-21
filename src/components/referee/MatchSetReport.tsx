@@ -81,7 +81,7 @@ export function MatchSetReport({ match, stage, players, target, canReport, onRep
             <div>
               <h2 id={titleId} className="text-lg font-bold">Reportar resultado por sets</h2>
               <p className="mt-1 text-xs text-[var(--acero)]">
-                Al mejor de {stage.bestOf} · {getSetsNeeded(stage)} para ganar · {target} puntos por set
+                Al mejor de {stage.bestOf} · {getSetsNeeded(stage)} para ganar · {target} puntos por set. Si empatan, añade otro set.
               </p>
             </div>
 
@@ -126,7 +126,7 @@ export function MatchSetReport({ match, stage, players, target, canReport, onRep
               ))}
               <button
                 type="button"
-                disabled={rows.length >= stage.bestOf}
+                disabled={Boolean(winner)}
                 onClick={() => {
                   const id = nextRowId.current++;
                   setRows((current) => [...current, { id, scores: ['', ''] }]);

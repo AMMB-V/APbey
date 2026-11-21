@@ -238,8 +238,14 @@ describe('manual set reports', () => {
   });
 
   it('requires finished sets with nonnegative whole points for both players', () => {
-    for (const scores of [[0, 0], [4, 2], [5, 5], [-1, 5], [1.5, 5], [NaN, 5]] as const) {
+    for (const scores of [[4, 2], [-1, 5], [1.5, 5], [NaN, 5]] as const) {
       expect(validateSetReport([[...scores]], bestOfThree, 5).error).toContain('puntajes válidos');
     }
   });
+});
+
+it('keeps tied sets in order until a player wins the deciding set', () => {
+  expect(validateSetReport([[2, 2], [4, 4]], stage, 4).error).toBeDefined();
+  expect(validateSetReport([[2, 2], [4, 4], [1, 4]], stage, 4)).toEqual({ sets1: 0, sets2: 1 });
+  expect(validateSetReport([[4, 1], [2, 2]], stage, 4).error).toBeDefined();
 });
