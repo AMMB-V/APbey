@@ -165,7 +165,7 @@ interface TournamentContextType {
 
   // Referee & Match actions
   recordBattle: (matchId: string, scorerId: string | null, finish: FinishType | null, note?: string) => void;
-  reportMatchSets: (matchId: string, expectedVersion: number, scores: SetScore[]) => Promise<void>;
+  reportMatchSets: (matchId: string, expectedVersion: number, scores: SetScore[], partial?: boolean) => Promise<void>;
   recordPenalty: (matchId: string, offenderId: string, card?: 'yellow' | 'red', isFoul?: boolean, reason?: string) => void;
   resolveMatch: (matchId: string, outcome: Exclude<MatchOutcome, 'normal'>, winnerId: string, note?: string) => void;
   undoBattle: (matchId: string) => void;
@@ -2280,7 +2280,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return nextMatches;
   };
 
-  const reportMatchSets = async (matchId: string, expectedVersion: number, scores: SetScore[]) => {
+  const reportMatchSets = async (matchId: string, expectedVersion: number, scores: SetScore[], partial = false) => {
     assertWritablePersistence();
     const match = matchesRef.current.find((item) => item.id === matchId);
     const stage = stages.find((item) => item.id === match?.stageId);
@@ -2297,19 +2297,14 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (match.version !== expectedVersion) {
       throw new Error('El combate cambió. Vuelve a abrir el formulario para revisar el marcador.');
     }
-    if (battles.some((battle) => battle.matchId === matchId && !battle.voided) ||
-        penalties.some((penalty) => penalty.matchId === matchId)) {
-      throw new Error('Este combate ya tiene arbitraje en vivo. Continúa desde el marcador.');
-    }
-
     const round = rounds.find((item) => item.id === match.roundId);
-    const result = validateSetReport(scores, stage, getMatchPointsToWin(match, stage, tournament, round));
+    const result = validateSetReport(scores, stage, getMatchPointsToWin(match, stage, tournament, round), partial);
     if (result.error !== undefined) throw new Error(result.error);
 
     if (supabaseSyncInfo.isConfigured) {
       const supabase = getSupabaseClient();
       if (!supabase) throw new Error('Supabase no está disponible.');
-      const { error } = await supabase.rpc('report_match_sets', {
+      const { error } = await supabase.rpc(partial ? 'save_match_set_progress' : 'report_match_sets', {
         p_match_id: matchId,
         p_expected_version: expectedVersion,
         p_scores: scores,
@@ -2329,6 +2324,19 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const now = new Date().toISOString();
     const [score1, score2] = scores[scores.length - 1];
+    if (partial) {
+      const setCheckpoint = {
+        scores,
+        battleNumber: Math.max(0, ...battles.filter(b => b.matchId === matchId).map(b => b.battleNumber)),
+        penaltyIds: penalties.filter(p => p.matchId === matchId).map(p => p.id),
+      };
+      const updated: Match = { ...match, setCheckpoint, score1, score2, sets1: result.sets1, sets2: result.sets2,
+        status: 'in_progress', startedAt: match.startedAt || now, version: match.version + 1 };
+      const next = matches.map(item => item.id === matchId ? updated : item);
+      setMatches(next);
+      saveState({ matches: next });
+      return;
+    }
     const nextMatches = applyMatchProgression({
       ...match,
       score1,
@@ -2610,7 +2618,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       rounds.find((round) => round.id === match.roundId)
     );
 
-    const nextMatches = matches.map(m => m.id === matchId ? updatedMatch : m);
+    const nextMatches = applyMatchProgression(updatedMatch);
     const completion = getTournamentCompletionState(match.tournamentId, stages, nextMatches);
     const nextStages = completion?.tournamentComplete
       ? stages.map((currentStage) => (
@@ -2946,18 +2954,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         tourney,
         rounds.find((round) => round.id === match.roundId)
       );
-      const downstreamIds = new Set<string>();
-      const pendingDownstreamIds = [
-        match.nextMatchWinnerId,
-        match.nextMatchLoserId,
-      ].filter((id): id is string => Boolean(id));
-      while (pendingDownstreamIds.length > 0) {
-        const downstreamId = pendingDownstreamIds.shift();
-        if (!downstreamId || downstreamIds.has(downstreamId)) continue;
-        downstreamIds.add(downstreamId);
-        const downstreamMatch = matches.find((item) => item.id === downstreamId);
-        if (downstreamMatch?.nextMatchWinnerId) pendingDownstreamIds.push(downstreamMatch.nextMatchWinnerId);
-        if (downstreamMatch?.nextMatchLoserId) pendingDownstreamIds.push(downstreamMatch.nextMatchLoserId);
+      const downstreamIds = new Set(match.winnerId && match.winnerId !== updatedMatch.winnerId
+        ? [match.nextMatchWinnerId, match.nextMatchLoserId] : []);
+      if (matches.some(item => downstreamIds.has(item.id) && item.status !== 'pending')) {
+        setSupabaseSyncInfo(previous => ({ ...previous, message: 'El siguiente combate ya empezó. Revisa el cuadro antes de anular.' }));
+        return;
       }
       const participantIds = new Set(
         [match.participant1Id, match.participant2Id].filter((id): id is string => Boolean(id))
@@ -2983,15 +2984,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           version: removesParticipant1 || removesParticipant2 ? item.version + 1 : item.version,
         };
       });
-      const nextBattles = battles.filter(
-        (battle) => battle.id !== removedBattleId && !downstreamIds.has(battle.matchId)
-      );
-      const nextPenalties = penalties.filter((penalty) => !downstreamIds.has(penalty.matchId));
-
+      const nextBattles = battles.map(battle => battle.id === removedBattleId ? { ...battle, voided: true } : battle);
       setMatches(nextMatches);
       setBattles(nextBattles);
-      setPenalties(nextPenalties);
-      saveState({ matches: nextMatches, battles: nextBattles, penalties: nextPenalties });
+      saveState({ matches: nextMatches, battles: nextBattles });
 
       if (supabaseSyncInfo.isConfigured) {
         void undoLastBattleInSupabase(match, match.version).then((result) => {
@@ -3049,6 +3045,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       score2: 0,
       sets1: 0,
       sets2: 0,
+      setCheckpoint: null,
       manualSetScores: null,
       status: 'pending',
       outcome: null,

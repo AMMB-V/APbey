@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyBattle, applyPenalty, getMatchPointsToWin, undoLastBattle, validateSetReport } from './arbitration';
+import { applyBattle, applyPenalty, getMatchPointsToWin, undoLastBattle, liveSetScores, validateSetReport } from './arbitration';
 import { Battle, Match, Penalty, Round, Stage, Tournament } from '../../types/tournament';
 
 const tournament: Tournament = {
@@ -248,4 +248,20 @@ it('keeps tied sets in order until a player wins the deciding set', () => {
   expect(validateSetReport([[2, 2], [4, 4]], stage, 4).error).toBeDefined();
   expect(validateSetReport([[2, 2], [4, 4], [1, 4]], stage, 4)).toEqual({ sets1: 0, sets2: 1 });
   expect(validateSetReport([[4, 1], [2, 2]], stage, 4).error).toBeDefined();
+});
+
+it('restores a tied set and scores only new battles after saving progress', () => {
+  const tied: Match = { ...match(), status: 'in_progress', setCheckpoint: {
+    scores: [[2, 2], [0, 0]], battleNumber: 2, penaltyIds: [],
+  } };
+  const previous = [1, 2].map(battleNumber => ({
+    battleNumber, id: String(battleNumber), matchId: tied.id, points: 2,
+    scorerId: tied.participant1Id, voided: false, createdAt: '2026-01-01',
+  } as Battle));
+  const next = applyBattle(tied, stage, tournament, tied.participant2Id, 'spin', 'referee', previous);
+  const battles = [...previous, next.newBattle];
+  expect(next.newBattle.setNumber).toBe(2);
+  expect(liveSetScores(next.updatedMatch, battles, [], 4)).toEqual([[2, 2], [0, 1]]);
+  expect(validateSetReport([[2, 2], [0, 1]], stage, 4, true)).toEqual({ sets1: 0, sets2: 0 });
+  expect(undoLastBattle(next.updatedMatch, stage, battles, [], tournament).updatedMatch.score2).toBe(0);
 });

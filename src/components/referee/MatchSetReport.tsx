@@ -7,11 +7,12 @@ interface MatchSetReportProps {
   stage: Stage;
   players: [Participant, Participant];
   target: number;
+  currentScores: SetScore[];
   canReport: boolean;
-  onReport: (matchId: string, version: number, scores: SetScore[]) => Promise<void>;
+  onReport: (matchId: string, version: number, scores: SetScore[], partial?: boolean) => Promise<void>;
 }
 
-export function MatchSetReport({ match, stage, players, target, canReport, onReport }: MatchSetReportProps) {
+export function MatchSetReport({ match, stage, players, target, currentScores, canReport, onReport }: MatchSetReportProps) {
   const titleId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
   const nextRowId = useRef(1);
@@ -31,22 +32,25 @@ export function MatchSetReport({ match, stage, players, target, canReport, onRep
     score2 === '' ? NaN : Number(score2),
   ]);
   const result = validateSetReport(scores, stage, target);
+  const partialResult = validateSetReport(scores, stage, target, true);
   const winner = result.error === undefined ? players[result.sets1 > result.sets2 ? 0 : 1] : null;
   const changed = version !== null && (version !== match.version || !canReport);
 
   function openReport() {
-    setRows([{ id: 0, scores: ['', ''] }]);
+    setRows(currentScores.map(([a, b]) => ({
+      id: nextRowId.current++, scores: [String(a), String(b)],
+    })));
     setError('');
     setVersion(match.version);
   }
 
-  async function submit() {
-    if (!winner || version === null || changed || saving) return;
+  async function submit(partial = false) {
+    if ((partial ? partialResult.error !== undefined : !winner) || version === null || changed || saving) return;
     setSaving(true);
     setError('');
     try {
-      await onReport(match.id, version, scores);
-      setSavedVersion(version);
+      await onReport(match.id, version, scores, partial);
+      if (!partial) setSavedVersion(version);
       dialog.current?.close();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No se pudo guardar el resultado.');
@@ -57,15 +61,15 @@ export function MatchSetReport({ match, stage, players, target, canReport, onRep
 
   return (
     <>
-      {match.status === 'completed' && match.manualSetScores?.length ? (
+      {match.status === 'completed' && currentScores.length > 0 ? (
         <div className="text-sm text-[var(--hueso)] flex flex-wrap items-center gap-3" aria-label="Resultado por sets">
-          {match.manualSetScores.map(([score1, score2], index) => (
+          {currentScores.map(([score1, score2], index) => (
             <span key={index} className="font-mono text-xs">Set {index + 1} · {score1}–{score2}</span>
           ))}
         </div>
       ) : canReport && !saved && (
         <button type="button" onClick={openReport} className="acero-btn acero-btn--secondary text-xs self-start">
-          Reportar resultado por sets
+          {match.status === 'in_progress' ? 'Continuar marcador por sets' : 'Reportar resultado por sets'}
         </button>
       )}
       {saved && <span role="status" className="text-xs text-emerald-300">Resultado guardado.</span>}
@@ -129,7 +133,7 @@ export function MatchSetReport({ match, stage, players, target, canReport, onRep
                 disabled={Boolean(winner)}
                 onClick={() => {
                   const id = nextRowId.current++;
-                  setRows((current) => [...current, { id, scores: ['', ''] }]);
+                  setRows((current) => [...current, { id, scores: ['0', '0'] }]);
                 }}
                 className="acero-btn acero-btn--secondary text-xs disabled:opacity-40"
               >
@@ -150,6 +154,9 @@ export function MatchSetReport({ match, stage, players, target, canReport, onRep
             <div className="flex flex-wrap justify-end gap-2 pt-3 border-t border-[var(--costura)]">
               <button type="button" disabled={saving} onClick={() => dialog.current?.close()} className="acero-btn acero-btn--secondary text-xs">
                 Cancelar
+              </button>
+              <button type="button" disabled={partialResult.error !== undefined || changed || saving} onClick={() => void submit(true)} className="acero-btn acero-btn--secondary text-xs disabled:opacity-40">
+                Guardar parcial
               </button>
               <button type="submit" disabled={!winner || changed || saving} className="acero-btn acero-btn--primary text-xs disabled:opacity-40">
                 {saving ? 'Guardando…' : 'Confirmar resultado'}
