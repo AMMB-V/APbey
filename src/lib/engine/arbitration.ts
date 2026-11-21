@@ -5,6 +5,7 @@ import {
   Match,
   Penalty,
   Round,
+  SetScore,
   Stage,
   Tournament,
 } from '../../types/tournament';
@@ -20,46 +21,37 @@ export interface ApplyPenaltyResult {
   newPenalty: Penalty;
 }
 
-export function getMatchBestOf(match: Match, stage: Stage): number {
-  return match.bestOf || stage.bestOf || 1;
+export function getSetsNeeded(stage: Stage): number {
+  return Math.floor((stage.bestOf || 1) / 2) + 1;
 }
 
-export function getSetsNeeded(match: Match, stage: Stage): number {
-  return Math.floor(getMatchBestOf(match, stage) / 2) + 1;
-}
-
-export function adjustManualSet(
-  match: Match,
-  stage: Stage,
-  participantId: string,
-  delta: 1 | -1
-): Match {
-  if (participantId !== match.participant1Id && participantId !== match.participant2Id) {
-    throw new Error('El participante no corresponde a este match.');
+export function validateSetReport(scores: SetScore[], stage: Stage, target: number) {
+  if (!scores.length || scores.length > (stage.bestOf || 1)) {
+    return { error: 'Añade al menos un set y respeta el máximo de la etapa.' } as const;
   }
 
-  const next = { ...match };
-  const key = participantId === match.participant1Id ? 'sets1' : 'sets2';
-  const current = next[key];
-  next[key] = Math.max(0, current + delta);
-  const setsNeeded = getSetsNeeded(match, stage);
-  const maxSets = Math.max(0, setsNeeded - 1);
-  if (delta < 0 && current >= setsNeeded) {
-    next[key] = Math.min(maxSets, next[key]);
+  const setsNeeded = getSetsNeeded(stage);
+  let sets1 = 0;
+  let sets2 = 0;
+  for (const [index, [score1, score2]] of scores.entries()) {
+    const validPoints = [score1, score2].every((score) =>
+      Number.isInteger(score) && score >= 0 && score <= 2147483647
+    );
+    if (!validPoints || (score1 >= target) === (score2 >= target)) {
+      return { error: `Set ${index + 1}: registra dos puntajes válidos y un solo jugador con al menos ${target} puntos.` } as const;
+    }
+    if (score1 > score2) sets1++;
+    else sets2++;
+
+    if ((sets1 === setsNeeded || sets2 === setsNeeded) && index !== scores.length - 1) {
+      return { error: 'Quita los sets posteriores al set decisivo.' } as const;
+    }
   }
 
-  if (next.sets1 >= setsNeeded || next.sets2 >= setsNeeded) {
-    next.status = 'completed';
-    next.winnerId = next.sets1 >= setsNeeded ? next.participant1Id : next.participant2Id;
-  } else {
-    next.status = next.sets1 > 0 || next.sets2 > 0 || next.score1 > 0 || next.score2 > 0
-      ? 'in_progress'
-      : 'pending';
-    next.winnerId = null;
-    next.finishedAt = null;
+  if (sets1 < setsNeeded && sets2 < setsNeeded) {
+    return { error: `Un jugador debe ganar ${setsNeeded} ${setsNeeded === 1 ? 'set' : 'sets'} para cerrar el combate.` } as const;
   }
-  next.version += 1;
-  return next;
+  return { sets1, sets2 } as const;
 }
 
 /**
@@ -169,7 +161,7 @@ export function applyBattle(
         updatedMatch.sets2 += 1;
       }
 
-      const setsNeeded = getSetsNeeded(match, stage);
+      const setsNeeded = getSetsNeeded(stage);
       if (updatedMatch.sets1 >= setsNeeded || updatedMatch.sets2 >= setsNeeded) {
         updatedMatch.status = 'completed';
         updatedMatch.winnerId = updatedMatch.sets1 >= setsNeeded ? p1Id : p2Id;
@@ -265,7 +257,7 @@ export function applyPenalty(
         updatedMatch.sets2 += 1;
       }
 
-      const setsNeeded = getSetsNeeded(match, stage);
+      const setsNeeded = getSetsNeeded(stage);
       if (updatedMatch.sets1 >= setsNeeded || updatedMatch.sets2 >= setsNeeded) {
         updatedMatch.status = 'completed';
         updatedMatch.winnerId = updatedMatch.sets1 >= setsNeeded ? p1Id : p2Id;
@@ -308,7 +300,7 @@ export function undoLastBattle(
   let winnerId: string | null = null;
   let status: Match['status'] = remainingBattles.length > 0 || matchPenalties.length > 0 ? 'in_progress' : 'pending';
 
-  const setsNeeded = getSetsNeeded(match, stage);
+  const setsNeeded = getSetsNeeded(stage);
   const matchTargetPoints = tournament ? getMatchPointsToWin(match, stage, tournament, round) : (stage.pointsToWin || 4);
 
   const remainingEvents = [

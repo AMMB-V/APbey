@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTournament } from '../../context/TournamentContext';
 import { FinishType, Match, Participant } from '../../types/tournament';
 import { getMatchPointsToWin } from '../../lib/engine/arbitration';
+import { MatchSetReport } from './MatchSetReport';
 import { Snackbar } from '../common/Snackbar';
 import { AceroIcon } from '../common/AceroIcon';
 import {
@@ -39,8 +40,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
     battles,
     penalties,
     recordBattle,
-    addSetToMatch,
-    removeSetFromMatch,
+    reportMatchSets,
     recordPenalty,
     resolveMatch,
     undoBattle,
@@ -358,6 +358,25 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
           </div>
         </div>
 
+        {p1 && p2 && activeTournament && (
+          <div className="mb-4">
+            <MatchSetReport
+              key={match.id}
+              match={match}
+              stage={stage}
+              players={[p1, p2]}
+              target={targetPointsToWin}
+              canReport={Boolean(canArbitrate && currentUser && !isCompleted &&
+                stage.status === 'in_progress' && activeTournament.status === 'in_progress' &&
+                !matchBattles.some((battle) => !battle.voided) && !matchPenalties.length &&
+                (currentRole === 'admin' ||
+                  (currentRole === 'organizer' && activeTournament.organizerId === currentUser.id) ||
+                  (currentRole === 'referee' && match.refereeId === currentUser.id)))}
+              onReport={reportMatchSets}
+            />
+          </div>
+        )}
+
         {/* Dual Scoreboard */}
         <div className="grid grid-cols-2 gap-3 sm:gap-6 items-stretch">
           {/* Player 1 Card (Cobalto / Azul) */}
@@ -398,17 +417,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
               <div className="text-5xl sm:text-6xl font-black font-display tracking-tight text-[var(--hueso)] tabular-nums">
                 {match.score1}
               </div>
-              <div className="mt-2 flex items-center justify-center gap-2 text-xs">
-                <button type="button" disabled={!canArbitrate || match.sets1 === 0} onClick={(event) => {
-                  event.stopPropagation();
-                  removeSetFromMatch(match.id, p1?.id || '');
-                }} className="px-2 py-1 border border-[var(--costura)] rounded text-[var(--acero)] disabled:opacity-40">- Set</button>
-                <span className="font-mono font-bold">Sets: {match.sets1}</span>
-                <button type="button" disabled={!canArbitrate || isCompleted} onClick={(event) => {
-                  event.stopPropagation();
-                  addSetToMatch(match.id, p1?.id || '');
-                }} className="px-2 py-1 bg-[var(--cobalto)] text-white rounded disabled:opacity-40">+ Set</button>
-              </div>
+              <div className="mt-2 text-xs font-mono font-bold">Sets: {match.sets1}</div>
               
               {/* Accumulated Fouls Tracker */}
               <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--grafito)] border border-[var(--costura)] text-[11px] font-mono">
@@ -494,17 +503,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
               <div className="text-5xl sm:text-6xl font-black font-display tracking-tight text-[var(--hueso)] tabular-nums">
                 {match.score2}
               </div>
-              <div className="mt-2 flex items-center justify-center gap-2 text-xs">
-                <button type="button" disabled={!canArbitrate || match.sets2 === 0} onClick={(event) => {
-                  event.stopPropagation();
-                  removeSetFromMatch(match.id, p2?.id || '');
-                }} className="px-2 py-1 border border-[var(--costura)] rounded text-[var(--acero)] disabled:opacity-40">- Set</button>
-                <span className="font-mono font-bold">Sets: {match.sets2}</span>
-                <button type="button" disabled={!canArbitrate || isCompleted} onClick={(event) => {
-                  event.stopPropagation();
-                  addSetToMatch(match.id, p2?.id || '');
-                }} className="px-2 py-1 bg-[var(--cobre)] text-white rounded disabled:opacity-40">+ Set</button>
-              </div>
+              <div className="mt-2 text-xs font-mono font-bold">Sets: {match.sets2}</div>
 
               {/* Accumulated Fouls Tracker */}
               <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--grafito)] border border-[var(--costura)] text-[11px] font-mono">

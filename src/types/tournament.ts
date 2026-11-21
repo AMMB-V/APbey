@@ -137,6 +137,8 @@ export interface Round {
   name: string;                   // e.g. 'Octavos de Final', 'Semifinales', 'Ronda 1'
 }
 
+export type SetScore = [player1: number, player2: number];
+
 export interface Match {
   id: string;
   tournamentId: string;
@@ -153,6 +155,7 @@ export interface Match {
   score2: number;
   sets1: number;
   sets2: number;
+  manualSetScores?: SetScore[] | null;
   status: MatchStatus;
   refereeId?: string | null;
   nextMatchWinnerId?: string | null;
