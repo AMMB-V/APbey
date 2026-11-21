@@ -65,9 +65,9 @@ select throws_ok(
 select is((select version from public.matches where id = fixture.match), 1, 'Invalid reports preserve match version')
 from set_report_fixture fixture;
 
-select is((public.report_match_sets(match, 1, '[[5,0],[6,3]]')).version, 2, 'The assigned referee confirms a sweep')
+select is((public.report_match_sets(match, 1, '[[2,2],[5,0],[5,5],[6,3]]')).version, 2, 'The assigned referee confirms a sweep')
 from set_report_fixture;
-select is((public.report_match_sets(match, 1, '[[5,0],[6,3]]')).version, 2, 'Retry returns the result without mutating again')
+select is((public.report_match_sets(match, 1, '[[2,2],[5,0],[5,5],[6,3]]')).version, 2, 'Retry returns the result without mutating again')
 from set_report_fixture;
 select throws_ok(
   format('select public.report_match_sets(%L, 1, %L)', match, '[[0,5],[0,5]]'),
@@ -76,7 +76,7 @@ select throws_ok(
 reset role;
 
 select is((select manual_set_scores from public.matches where id = fixture.match),
-          '[[5,0],[6,3]]'::jsonb, 'Both players’ scores are retained for each set')
+          '[[2,2],[5,0],[5,5],[6,3]]'::jsonb, 'Both players’ scores are retained for each set')
 from set_report_fixture fixture;
 select is((select participant2_id from public.matches where id = fixture.next_match), fixture.p1,
           'The confirmed winner advances to the correct slot')
@@ -92,7 +92,7 @@ where id = (select next_match from set_report_fixture);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', organizer::text, true) from set_report_fixture;
-select is((public.report_match_sets(next_match, 2, '[[4,0]]')).status::text, 'completed',
+select is((public.report_match_sets(next_match, 2, '[[4,4],[2,2],[4,0]]')).status::text, 'completed',
           'The report completes the last available Swiss match')
 from set_report_fixture;
 reset role;
