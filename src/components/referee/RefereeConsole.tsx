@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTournament } from '../../context/TournamentContext';
 import { FinishType, Match, Participant } from '../../types/tournament';
-import { getMatchPointsToWin } from '../../lib/engine/arbitration';
+import { getMatchPointsToWin, liveSetScores } from '../../lib/engine/arbitration';
 import { MatchSetReport } from './MatchSetReport';
 import { Snackbar } from '../common/Snackbar';
 import { AceroIcon } from '../common/AceroIcon';
@@ -368,10 +368,10 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
               target={targetPointsToWin}
               canReport={Boolean(canArbitrate && currentUser && !isCompleted &&
                 stage.status === 'in_progress' && activeTournament.status === 'in_progress' &&
-                !matchBattles.some((battle) => !battle.voided) && !matchPenalties.length &&
                 (currentRole === 'admin' ||
                   (currentRole === 'organizer' && activeTournament.organizerId === currentUser.id) ||
                   (currentRole === 'referee' && match.refereeId === currentUser.id)))}
+              currentScores={liveSetScores(match, matchBattles, matchPenalties, targetPointsToWin)}
               onReport={reportMatchSets}
             />
           </div>

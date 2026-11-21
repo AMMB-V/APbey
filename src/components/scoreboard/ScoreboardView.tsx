@@ -13,14 +13,13 @@ import {
   ArrowRight,
   X,
   Scale,
-  MinusCircle,
 } from 'lucide-react';
 import { useTournament } from '../../context/TournamentContext';
 import { SyncBadge } from '../common/SyncBadge';
 import { Snackbar } from '../common/Snackbar';
 import { MatchSetReport } from '../referee/MatchSetReport';
 import { FinishType } from '../../types/tournament';
-import { getMatchPointsToWin } from '../../lib/engine/arbitration';
+import { getMatchPointsToWin, getSetsNeeded, liveSetScores } from '../../lib/engine/arbitration';
 
 interface ScoreboardViewProps {
   initialMatchId?: string;
@@ -46,11 +45,6 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
     openAuthModal,
     supabaseSyncInfo,
   } = useTournament();
-  const canArbitrate = Boolean(
-    currentUser &&
-    ['referee', 'organizer', 'admin'].includes(currentRole)
-  );
-
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [selectedOfficialMatchId, setSelectedOfficialMatchId] = useState(initialMatchId || '');
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -93,6 +87,11 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
   const activeP1Score = officialMatch?.score1 || 0;
   const activeP2Score = officialMatch?.score2 || 0;
   const activeStage = officialMatch ? stages.find((stage) => stage.id === officialMatch.stageId) : undefined;
+  const canArbitrate = Boolean(currentUser && activeTournament?.status === 'in_progress' && activeStage?.status === 'in_progress' && (
+    currentRole === 'admin' ||
+    (currentRole === 'organizer' && activeTournament.organizerId === currentUser.id) ||
+    (currentRole === 'referee' && officialMatch?.refereeId === currentUser.id)
+  ));
   const activeRound = officialMatch ? rounds.find((round) => round.id === officialMatch.roundId) : undefined;
   const target = officialMatch && activeStage && activeTournament
     ? getMatchPointsToWin(officialMatch, activeStage, activeTournament, activeRound)
@@ -155,6 +154,10 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
       return;
     }
 
+    const currentPoints = scorer === 'p1' ? officialMatch.score1 : officialMatch.score2;
+    const currentSets = scorer === 'p1' ? officialMatch.sets1 : officialMatch.sets2;
+    if (activeStage && currentPoints + points >= target && currentSets + 1 >= getSetsNeeded(activeStage) &&
+        !window.confirm(`Este punto decide el combate a favor de ${scorer === 'p1' ? officialP1.displayName : officialP2.displayName}. ¿Confirmar resultado?`)) return;
     playSoundEffect(points);
     triggerVibration(points >= 3 ? 90 : 45);
 
@@ -176,6 +179,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
     const offender = foulTarget === 'p1' ? officialP1 : officialP2;
     recordPenalty(officialMatch.id, offender.id, undefined, true, foulReason);
     setShowFoulModal(false);
+    setLastAction(null);
     setSnackbarMessage(`Falta registrada a ${offender.displayName}: ${foulReason}`);
     setSnackbarOpen(true);
   };
@@ -257,7 +261,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
             )}
             {officialMatch && activeStage && officialMatch.status !== 'completed' && (
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[var(--cobalto)]/20 border border-[var(--cobalto)]/40 text-[var(--cobalto)]">
-                Set {officialMatch.sets1 + officialMatch.sets2 + 1} de {activeStage.bestOf || 1}
+                Set {liveSetScores(officialMatch, matchBattles, matchPenalties, target).length}
               </span>
             )}
           </div>
@@ -274,6 +278,9 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               </button>
             )}
 
+            {currentRole === 'referee' && officialMatch && officialMatch.refereeId !== currentUser?.id && (
+              <span className="text-xs text-amber-400">Solo lectura. Este combate no está asignado a tu cuenta.</span>
+            )}
             {currentRole === 'public' && (
               <span className="text-[11px] text-amber-400 font-semibold">
                 Modo visor. Inicia sesión con un rol oficial para arbitrar.
@@ -451,12 +458,8 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               stage={activeStage}
               players={[officialP1, officialP2]}
               target={target}
-              canReport={Boolean(canArbitrate && currentUser && officialMatch.status !== 'completed' &&
-                activeStage.status === 'in_progress' && activeTournament.status === 'in_progress' &&
-                !matchBattles.some((battle) => !battle.voided) && !matchPenalties.length &&
-                (currentRole === 'admin' ||
-                  (currentRole === 'organizer' && activeTournament.organizerId === currentUser.id) ||
-                  (currentRole === 'referee' && officialMatch.refereeId === currentUser.id)))}
+              canReport={canArbitrate && officialMatch.status !== 'completed'}
+              currentScores={liveSetScores(officialMatch, matchBattles, matchPenalties, target)}
               onReport={reportMatchSets}
             />
           )}
@@ -498,7 +501,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               {renderFinishButton(
                 'p1',
                 'spin',
-                1,
+                (activeTournament?.finishPoints?.spin ?? 1),
                 'Spin Finish',
                 'Detención por giro',
                 'border-[var(--costura)] hover:border-[var(--cobalto)]',
@@ -508,7 +511,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               {renderFinishButton(
                 'p1',
                 'over',
-                2,
+                (activeTournament?.finishPoints?.over ?? 2),
                 'Over Finish',
                 'Salida de arena / bolsillo',
                 'border-emerald-900/60 hover:border-emerald-500',
@@ -518,7 +521,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               {renderFinishButton(
                 'p1',
                 'burst',
-                2,
+                (activeTournament?.finishPoints?.burst ?? 2),
                 'Burst Finish',
                 'Desarme de piezas',
                 'border-pink-900/60 hover:border-pink-500',
@@ -528,7 +531,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               {renderFinishButton(
                 'p1',
                 'xtreme',
-                3,
+                (activeTournament?.finishPoints?.xtreme ?? 3),
                 'Xtreme Finish',
                 'Xtreme Dash Pocket',
                 'border-purple-900/60 hover:border-purple-400',
@@ -545,7 +548,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               {renderFinishButton(
                 'p2',
                 'spin',
-                1,
+                (activeTournament?.finishPoints?.spin ?? 1),
                 'Spin Finish',
                 'Detención por giro',
                 'border-[var(--costura)] hover:border-[var(--cobre)]',
@@ -555,7 +558,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               {renderFinishButton(
                 'p2',
                 'over',
-                2,
+                (activeTournament?.finishPoints?.over ?? 2),
                 'Over Finish',
                 'Salida de arena / bolsillo',
                 'border-emerald-900/60 hover:border-emerald-500',
@@ -565,7 +568,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               {renderFinishButton(
                 'p2',
                 'burst',
-                2,
+                (activeTournament?.finishPoints?.burst ?? 2),
                 'Burst Finish',
                 'Desarme de piezas',
                 'border-pink-900/60 hover:border-pink-500',
@@ -575,7 +578,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               {renderFinishButton(
                 'p2',
                 'xtreme',
-                3,
+                (activeTournament?.finishPoints?.xtreme ?? 3),
                 'Xtreme Finish',
                 'Xtreme Dash Pocket',
                 'border-purple-900/60 hover:border-purple-400',
@@ -624,7 +627,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                   Registro de Puntos & Historial del Combate ({matchBattles.length})
                 </h2>
               </div>
-              {matchBattles.length > 0 && (
+              {matchBattles.some(b => !b.voided && b.battleNumber > (officialMatch.setCheckpoint?.battleNumber ?? 0)) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -648,14 +651,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                 {matchBattles.map((b) => {
                   const winner = b.scorerId === officialP1.id ? officialP1 : officialP2;
                   const isP1 = b.scorerId === officialP1.id;
-                  const finishLabel =
-                    b.finish === 'spin'
-                      ? 'Spin Finish · +1'
-                      : b.finish === 'over'
-                      ? 'Over Finish · +2'
-                      : b.finish === 'burst'
-                      ? 'Burst Finish · +2'
-                      : 'Xtreme Finish · +3';
+                  const finishLabel = b.voided ? 'Anulada' : b.finish ? `${b.finish.toUpperCase()} · +${b.points}` : 'Sin puntos';
 
                   return (
                     <div
@@ -669,7 +665,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                         <div>
                           <div className="font-bold flex items-center gap-2">
                             <span className={isP1 ? 'text-[var(--cobalto)]' : 'text-[var(--cobre)]'}>
-                              {winner?.displayName || 'Empate'}
+                              {b.scorerId ? winner?.displayName : 'Empate'}
                             </span>
                             <span className="px-2 py-0.5 rounded-full bg-[var(--chasis)] text-[10px] font-mono font-bold text-[var(--hueso)]">
                               {finishLabel}
@@ -681,17 +677,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (canArbitrate) undoBattle(officialMatch.id);
-                        }}
-                        disabled={!canArbitrate}
-                        title="Anular esta batalla"
-                        className="p-1.5 text-[var(--acero)] hover:text-rose-400 rounded-lg min-w-[36px] min-h-[36px] flex items-center justify-center transition-colors"
-                      >
-                        <MinusCircle className="w-4 h-4" />
-                      </button>
+
                     </div>
                   );
                 })}

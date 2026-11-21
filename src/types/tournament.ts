@@ -155,6 +155,7 @@ export interface Match {
   score2: number;
   sets1: number;
   sets2: number;
+  setCheckpoint?: { scores: SetScore[]; battleNumber: number; penaltyIds: string[] } | null;
   manualSetScores?: SetScore[] | null;
   status: MatchStatus;
   refereeId?: string | null;

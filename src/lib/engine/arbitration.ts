@@ -25,7 +25,31 @@ export function getSetsNeeded(stage: Stage): number {
   return Math.floor((stage.bestOf || 1) / 2) + 1;
 }
 
-export function validateSetReport(scores: SetScore[], stage: Stage, target: number) {
+export function liveSetScores(match: Match, battles: Battle[], penalties: Penalty[], target: number): SetScore[] {
+  if (match.manualSetScores?.length) return match.manualSetScores;
+  const checkpoint = match.setCheckpoint;
+  const closed = checkpoint?.scores.slice(0, -1) ?? [];
+  const active: SetScore = [...(checkpoint?.scores.at(-1) ?? [0, 0])] as SetScore;
+  const events = [
+    ...battles.filter(b => b.matchId === match.id && !b.voided && b.battleNumber > (checkpoint?.battleNumber ?? 0))
+      .sort((a, b) => a.battleNumber - b.battleNumber)
+      .map(b => ({ time: b.createdAt, player: b.scorerId, points: b.points })),
+    ...penalties.filter(p => p.matchId === match.id && !checkpoint?.penaltyIds.includes(p.id))
+      .map(p => ({ time: p.createdAt, player: p.awardedTo, points: p.pointsAwarded })),
+  ].sort((a, b) => a.time.localeCompare(b.time));
+  for (const event of events) {
+    if (!event.player || !event.points) continue;
+    active[event.player === match.participant1Id ? 0 : 1] += event.points;
+    if (Math.max(...active) >= target) {
+      closed.push([...active]);
+      active.fill(0);
+    }
+  }
+  if (match.status !== 'completed' || !closed.length) closed.push([match.score1, match.score2]);
+  return closed;
+}
+
+export function validateSetReport(scores: SetScore[], stage: Stage, target: number, partial = false) {
   if (!scores.length) {
     return { error: 'Añade al menos un set.' } as const;
   }
@@ -37,6 +61,12 @@ export function validateSetReport(scores: SetScore[], stage: Stage, target: numb
     const validPoints = [score1, score2].every((score) =>
       Number.isInteger(score) && score >= 0 && score <= 2147483647
     );
+    if (partial && index === scores.length - 1) {
+      if (!validPoints || Math.max(score1, score2) >= target) {
+        return { error: 'Para guardar un parcial, añade el siguiente set o confirma el resultado.' } as const;
+      }
+      break;
+    }
     if (validPoints && score1 === score2) continue;
     if (!validPoints || (score1 >= target) === (score2 >= target)) {
       return { error: `Set ${index + 1}: registra dos puntajes válidos y un solo jugador con al menos ${target} puntos.` } as const;
@@ -49,7 +79,7 @@ export function validateSetReport(scores: SetScore[], stage: Stage, target: numb
     }
   }
 
-  if (sets1 < setsNeeded && sets2 < setsNeeded) {
+  if (!partial && sets1 < setsNeeded && sets2 < setsNeeded) {
     return { error: `Un jugador debe ganar ${setsNeeded} ${setsNeeded === 1 ? 'set' : 'sets'} para cerrar el combate.` } as const;
   }
   return { sets1, sets2 } as const;
@@ -129,7 +159,7 @@ export function applyBattle(
     id: createEntityId(),
     matchId: match.id,
     battleNumber: nextBattleNumber,
-    setNumber: match.sets1 + match.sets2 + 1,
+    setNumber: match.sets1 + match.sets2 + 1 + (match.setCheckpoint?.scores.slice(0, -1).filter(([a, b]) => a === b).length ?? 0),
     scorerId: isEmpate ? null : scorerId,
     finish: isEmpate ? null : finish,
     points: pts,
@@ -284,22 +314,22 @@ export function undoLastBattle(
   tournament?: Tournament,
   round?: Round
 ): { updatedMatch: Match; removedBattleId: string } {
-  const matchBattles = battles.filter(b => b.matchId === match.id && !b.voided);
+  const matchBattles = battles.filter(b => b.matchId === match.id && !b.voided && b.battleNumber > (match.setCheckpoint?.battleNumber ?? 0)).sort((a, b) => a.battleNumber - b.battleNumber);
   if (matchBattles.length === 0) {
     throw new Error('No hay batallas registradas para deshacer.');
   }
 
   const lastBattle = matchBattles[matchBattles.length - 1];
   const remainingBattles = matchBattles.slice(0, matchBattles.length - 1);
-  const matchPenalties = penalties.filter(p => p.matchId === match.id);
+  const matchPenalties = penalties.filter(p => p.matchId === match.id && !match.setCheckpoint?.penaltyIds.includes(p.id));
 
   // Recalculate match from scratch
-  let score1 = 0;
-  let score2 = 0;
-  let sets1 = 0;
-  let sets2 = 0;
+  let [score1, score2] = match.setCheckpoint?.scores.at(-1) ?? [0, 0];
+  const closed = match.setCheckpoint?.scores.slice(0, -1) ?? [];
+  let sets1 = closed.filter(([a, b]) => a > b).length;
+  let sets2 = closed.filter(([a, b]) => b > a).length;
   let winnerId: string | null = null;
-  let status: Match['status'] = remainingBattles.length > 0 || matchPenalties.length > 0 ? 'in_progress' : 'pending';
+  let status: Match['status'] = match.setCheckpoint || remainingBattles.length > 0 || matchPenalties.length > 0 ? 'in_progress' : 'pending';
 
   const setsNeeded = getSetsNeeded(stage);
   const matchTargetPoints = tournament ? getMatchPointsToWin(match, stage, tournament, round) : (stage.pointsToWin || 4);
