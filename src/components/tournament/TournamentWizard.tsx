@@ -857,38 +857,18 @@ export const TournamentWizard: React.FC<{
             </div>
 
             <div className="p-4 bg-[var(--grafito)] rounded-lg border border-[var(--costura)] space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-[var(--hueso)]">
-                  Número de sets (mejor de N):
-                </label>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    disabled={bestOf <= 1}
-                    onClick={() => setBestOf(Math.max(1, bestOf - 2))}
-                    className="px-2 py-0.5 text-xs font-bold rounded border border-[var(--costura)] bg-[var(--chasis)] text-[var(--acero)] hover:text-white disabled:opacity-40"
-                  >
-                    - Eliminar set
-                  </button>
-                  <button
-                    type="button"
-                    disabled={bestOf >= 7}
-                    onClick={() => setBestOf(Math.min(7, bestOf + 2))}
-                    className="px-2 py-0.5 text-xs font-bold rounded border border-[var(--cobalto)] bg-[var(--cobalto)]/20 text-[var(--cobalto)] hover:brightness-110 disabled:opacity-40"
-                  >
-                    + Añadir set
-                  </button>
-                </div>
-              </div>
-              <input
-                type="number"
-                min={1}
-                max={7}
-                step={2}
-                value={bestOf}
-                onChange={(e) => setBestOf(Number(e.target.value))}
-                className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded-lg p-2 bg-[var(--grafito)] text-[var(--hueso)]"
-              />
+              <label className="block text-xs font-bold text-[var(--hueso)]">
+                Al mejor de
+                <select
+                  value={bestOf}
+                  onChange={(e) => setBestOf(Number(e.target.value))}
+                  className="mt-2 w-full text-xs font-mono font-bold border border-[var(--costura)] rounded-lg p-2 bg-[var(--grafito)] text-[var(--hueso)]"
+                >
+                  {[1, 3, 5, 7].map((value) => (
+                    <option key={value} value={value}>{value} {value === 1 ? 'set' : 'sets'}</option>
+                  ))}
+                </select>
+              </label>
               <p className="text-[11px] text-[var(--acero)]">
                 Fase de grupos/Suizo usan 1 set; eliminación directa usa 3 o 5 sets.
               </p>

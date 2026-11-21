@@ -14,13 +14,11 @@ import {
   X,
   Scale,
   MinusCircle,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react';
 import { useTournament } from '../../context/TournamentContext';
 import { SyncBadge } from '../common/SyncBadge';
 import { Snackbar } from '../common/Snackbar';
-import { ConfirmDialog } from '../common/ConfirmDialog';
+import { MatchSetReport } from '../referee/MatchSetReport';
 import { FinishType } from '../../types/tournament';
 import { getMatchPointsToWin } from '../../lib/engine/arbitration';
 
@@ -42,9 +40,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
     recordBattle,
     recordPenalty,
     undoBattle,
-    addSetToMatch,
-    removeSetFromMatch,
-    assignReferee,
+    reportMatchSets,
     currentRole,
     currentUser,
     openAuthModal,
@@ -60,10 +56,6 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [lastAction, setLastAction] = useState<(() => void) | null>(null);
-  const [showConfirmClose, setShowConfirmClose] = useState(false);
-  const [closeSummary, setCloseSummary] = useState('');
-  const [showSetCorrection, setShowSetCorrection] = useState(false);
-
   // Foul / Penalty Modal State
   const [showFoulModal, setShowFoulModal] = useState(false);
   const [foulTarget, setFoulTarget] = useState<'p1' | 'p2'>('p1');
@@ -87,7 +79,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
   useEffect(() => {
     if (!tournamentMatches.some((match) => match.id === selectedOfficialMatchId)) {
       setSelectedOfficialMatchId(
-        initialMatchId ||
+        tournamentMatches.find((match) => match.id === initialMatchId)?.id ||
           selectableMatches.find((match) => match.status === 'in_progress')?.id ||
           selectableMatches[0]?.id ||
           ''
@@ -95,7 +87,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
     }
   }, [initialMatchId, selectedOfficialMatchId, tournamentMatches, selectableMatches]);
 
-  const officialMatch = matches.find((match) => match.id === selectedOfficialMatchId);
+  const officialMatch = tournamentMatches.find((match) => match.id === selectedOfficialMatchId);
   const officialP1 = participants.find((participant) => participant.id === officialMatch?.participant1Id);
   const officialP2 = participants.find((participant) => participant.id === officialMatch?.participant2Id);
   const activeP1Score = officialMatch?.score1 || 0;
@@ -105,8 +97,8 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
   const target = officialMatch && activeStage && activeTournament
     ? getMatchPointsToWin(officialMatch, activeStage, activeTournament, activeRound)
     : 4;
-  const p1Winner = activeP1Score >= target;
-  const p2Winner = activeP2Score >= target;
+  const p1Winner = officialMatch?.status === 'completed' && officialMatch.winnerId === officialP1?.id;
+  const p2Winner = officialMatch?.status === 'completed' && officialMatch.winnerId === officialP2?.id;
 
   // Battles and penalties for current match
   const matchBattles = officialMatch
@@ -263,7 +255,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                 Al mejor de {activeStage.bestOf || 1}
               </span>
             )}
-            {officialMatch && activeStage && (
+            {officialMatch && activeStage && officialMatch.status !== 'completed' && (
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[var(--cobalto)]/20 border border-[var(--cobalto)]/40 text-[var(--cobalto)]">
                 Set {officialMatch.sets1 + officialMatch.sets2 + 1} de {activeStage.bestOf || 1}
               </span>
@@ -452,89 +444,21 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
             </div>
           </div>
 
-          {/* Corrección manual de sets (solo árbitros, colapsable) */}
-          {canArbitrate && (
-            <div className="bg-[var(--chasis)] border border-[var(--costura)] rounded-2xl overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setShowSetCorrection((v) => !v)}
-                className="w-full flex items-center justify-between px-4 py-3 text-xs font-bold text-[var(--acero)] hover:text-[var(--hueso)] transition-colors"
-              >
-                <span>Corrección manual de sets</span>
-                {showSetCorrection ? (
-                  <ChevronUp className="w-4 h-4" />
-                ) : (
-                  <ChevronDown className="w-4 h-4" />
-                )}
-              </button>
-              {showSetCorrection && (
-                <div className="px-4 pb-4 flex flex-col gap-3">
-                  <p className="text-[11px] text-[var(--acero)] leading-relaxed">
-                    Usa estos controles solo para corregir errores de registro. Los sets normalmente se otorgan automáticamente cuando un jugador alcanza los puntos objetivo.
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* P1 correction */}
-                    <div className="flex flex-col items-center gap-1.5">
-                      <span className="text-[11px] font-bold text-[var(--cobalto)] truncate max-w-full">
-                        {officialP1.displayName}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          disabled={officialMatch.sets1 === 0}
-                          onClick={() => removeSetFromMatch(officialMatch.id, officialP1.id)}
-                          className="w-9 h-9 rounded-xl border border-[var(--costura)] text-[var(--acero)] hover:text-white bg-[var(--grafito)] disabled:opacity-30 font-bold transition-colors flex items-center justify-center text-base"
-                          aria-label="Quitar set a jugador azul"
-                        >
-                          −
-                        </button>
-                        <span className="font-mono font-black text-sm text-[var(--hueso)] w-6 text-center">
-                          {officialMatch.sets1}
-                        </span>
-                        <button
-                          type="button"
-                          disabled={officialMatch.status === 'completed'}
-                          onClick={() => addSetToMatch(officialMatch.id, officialP1.id)}
-                          className="w-9 h-9 rounded-xl bg-[var(--cobalto)]/20 border border-[var(--cobalto)]/50 text-[var(--cobalto)] disabled:opacity-30 font-bold hover:brightness-125 transition-all flex items-center justify-center text-base"
-                          aria-label="Añadir set a jugador azul"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                    {/* P2 correction */}
-                    <div className="flex flex-col items-center gap-1.5">
-                      <span className="text-[11px] font-bold text-[var(--cobre)] truncate max-w-full">
-                        {officialP2.displayName}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          disabled={officialMatch.sets2 === 0}
-                          onClick={() => removeSetFromMatch(officialMatch.id, officialP2.id)}
-                          className="w-9 h-9 rounded-xl border border-[var(--costura)] text-[var(--acero)] hover:text-white bg-[var(--grafito)] disabled:opacity-30 font-bold transition-colors flex items-center justify-center text-base"
-                          aria-label="Quitar set a jugador naranja"
-                        >
-                          −
-                        </button>
-                        <span className="font-mono font-black text-sm text-[var(--hueso)] w-6 text-center">
-                          {officialMatch.sets2}
-                        </span>
-                        <button
-                          type="button"
-                          disabled={officialMatch.status === 'completed'}
-                          onClick={() => addSetToMatch(officialMatch.id, officialP2.id)}
-                          className="w-9 h-9 rounded-xl bg-[var(--cobre)]/20 border border-[var(--cobre)]/50 text-[var(--cobre)] disabled:opacity-30 font-bold hover:brightness-125 transition-all flex items-center justify-center text-base"
-                          aria-label="Añadir set a jugador naranja"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+          {activeStage && activeTournament && (
+            <MatchSetReport
+              key={officialMatch.id}
+              match={officialMatch}
+              stage={activeStage}
+              players={[officialP1, officialP2]}
+              target={target}
+              canReport={Boolean(canArbitrate && currentUser && officialMatch.status !== 'completed' &&
+                activeStage.status === 'in_progress' && activeTournament.status === 'in_progress' &&
+                !matchBattles.some((battle) => !battle.voided) && !matchPenalties.length &&
+                (currentRole === 'admin' ||
+                  (currentRole === 'organizer' && activeTournament.organizerId === currentUser.id) ||
+                  (currentRole === 'referee' && officialMatch.refereeId === currentUser.id)))}
+              onReport={reportMatchSets}
+            />
           )}
 
           {/* Quick Foul / Penalty Button Bar */}
@@ -668,33 +592,15 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                 <CheckCircle className="w-6 h-6 text-emerald-400 shrink-0" />
                 <div>
                   <div className="text-sm font-black text-emerald-200">
-                    ¡Meta alcanzada! Gana {p1Winner ? officialP1.displayName : officialP2.displayName}
+                    Gana {p1Winner ? officialP1.displayName : officialP2.displayName}
                   </div>
                   <div className="text-xs text-emerald-300/80">
-                    Marcador final: {activeP1Score} a {activeP2Score}
+                    Sets: {officialMatch.sets1}–{officialMatch.sets2}
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!canArbitrate) {
-                      openAuthModal('login');
-                      return;
-                    }
-                    setCloseSummary(
-                      `Resultado final: Gana ${p1Winner ? officialP1.displayName : officialP2.displayName} con marcador de ${activeP1Score} a ${activeP2Score}.\n¿Confirmas cerrar el combate y sellar el acta?`
-                    );
-                    setShowConfirmClose(true);
-                  }}
-                  disabled={!canArbitrate || officialMatch.status === 'completed'}
-                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-xl min-h-[44px] transition-all"
-                >
-                  Cerrar Partido
-                </button>
-
                 {nextMatch && (
                   <button
                     type="button"
@@ -896,28 +802,6 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
         duration={5000}
       />
 
-      {/* Confirm Dialog for Closing Match */}
-      <ConfirmDialog
-        isOpen={showConfirmClose}
-        title="¿Finalizar y cerrar combate?"
-        description={closeSummary}
-        confirmLabel="Cerrar partido"
-        cancelLabel="Continuar anotando"
-        variant="primary"
-        onConfirm={() => {
-          setShowConfirmClose(false);
-          if (officialMatch) {
-            assignReferee(officialMatch.id, null);
-            const nextSelectableMatch = tournamentMatches.find(
-              (candidate) => candidate.id !== officialMatch.id && candidate.status !== 'completed'
-            );
-            setSelectedOfficialMatchId(nextSelectableMatch?.id || '');
-          }
-          setSnackbarMessage('Combate registrado y cerrado con éxito.');
-          setSnackbarOpen(true);
-        }}
-        onCancel={() => setShowConfirmClose(false)}
-      />
     </div>
   );
 };

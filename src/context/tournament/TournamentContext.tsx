@@ -10,6 +10,7 @@ import {
   Participant,
   Penalty,
   Round,
+  SetScore,
   Stage,
   StageConfig,
   StageType,
@@ -43,7 +44,8 @@ import {
 import {
   applyBattle,
   applyPenalty,
-  adjustManualSet,
+  getMatchPointsToWin,
+  validateSetReport,
   undoLastBattle,
 } from '../../lib/engine/arbitration';
 import {
@@ -163,8 +165,7 @@ interface TournamentContextType {
 
   // Referee & Match actions
   recordBattle: (matchId: string, scorerId: string | null, finish: FinishType | null, note?: string) => void;
-  addSetToMatch: (matchId: string, participantId: string) => void;
-  removeSetFromMatch: (matchId: string, participantId: string) => void;
+  reportMatchSets: (matchId: string, expectedVersion: number, scores: SetScore[]) => Promise<void>;
   recordPenalty: (matchId: string, offenderId: string, card?: 'yellow' | 'red', isFoul?: boolean, reason?: string) => void;
   resolveMatch: (matchId: string, outcome: Exclude<MatchOutcome, 'normal'>, winnerId: string, note?: string) => void;
   undoBattle: (matchId: string) => void;
@@ -1598,7 +1599,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!finalStage) return null;
 
     const finalMatches = matchList.filter((match) => match.stageId === finalStage.id);
-    if (finalMatches.length === 0 || !finalMatches.every((match) => match.status === 'completed')) {
+    const swissRoundsRemaining = finalStage.type === 'swiss' && rounds.filter(
+      (round) => round.stageId === finalStage.id && round.bracket === 'swiss'
+    ).length < (finalStage.config.swissRounds || 3);
+    if (swissRoundsRemaining || finalMatches.length === 0 || !finalMatches.every((match) => match.status === 'completed')) {
       return { stageId: finalStage.id, tournamentComplete: false };
     }
 
@@ -1908,6 +1912,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return;
     }
 
+    if (stage.type === 'swiss' && rounds.filter(
+      (round) => round.stageId === stage.id && round.bracket === 'swiss'
+    ).length < (stage.config.swissRounds || 3)) {
+      throw new Error('Completa las rondas suizas configuradas antes de avanzar a playoffs.');
+    }
+
     const tournament = tournaments.find(t => t.id === stage.tournamentId);
     const result = stage.type === 'swiss'
       ? advanceSwissStageToPlayoffs(
@@ -2166,67 +2176,6 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     return result;
   };
-  const adjustSet = async (matchId: string, participantId: string, delta: 1 | -1) => {
-    assertWritablePersistence();
-    if (!currentUser || !['referee', 'organizer', 'admin'].includes(currentRole)) {
-   throw new Error('No tienes permisos para ajustar sets.');
-    }
-    const match = matches.find((item) => item.id === matchId);
-    const stage = match ? stages.find((item) => item.id === match.stageId) : undefined;
-    if (!match || !stage || match.status === 'completed' && delta > 0) {
-   throw new Error('El match no permite este ajuste de sets.');
-    }
-    const updatedMatch = adjustManualSet(match, stage, participantId, delta);
-    const oldWinner = match.winnerId;
-    const oldLoser = match.winnerId === match.participant1Id ? match.participant2Id : match.participant1Id;
-    const shouldClearAdvancement = match.status === 'completed' && updatedMatch.status !== 'completed';
-    const updated = matches.map((item) => {
-      if (item.id === matchId) return updatedMatch;
-      if (!shouldClearAdvancement || ![match.nextMatchWinnerId, match.nextMatchLoserId].includes(item.id)) return item;
-      const removeIds = new Set([oldWinner, oldLoser].filter(Boolean));
-      return {
-        ...item,
-        participant1Id: removeIds.has(item.participant1Id) ? null : item.participant1Id,
-        participant2Id: removeIds.has(item.participant2Id) ? null : item.participant2Id,
-        version: removeIds.has(item.participant1Id) || removeIds.has(item.participant2Id)
-          ? item.version + 1
-          : item.version,
-      };
-    });
-    setMatches(updated);
-    saveState({ matches: updated });
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      const { error } = await supabase.rpc('adjust_manual_set', {
-        p_match_id: matchId,
-        p_participant_id: participantId,
-        p_delta: delta,
-        p_expected_version: match.version,
-      });
-      if (error) {
-        setMatches(matches);
-        saveState({ matches });
-        throw new Error(error.message || 'No se pudo persistir el ajuste de sets.');
-      }
-    }
-    logAudit('matches', matchId, 'update', `${delta > 0 ? 'Set añadido' : 'Set retirado'} manualmente.`);
-  };
-
-  const reportSetAdjustmentError = (error: unknown) => {
-    console.error('[TournamentContext] No se pudo persistir el ajuste de sets:', error);
-    setSupabaseSyncInfo((previous) => ({
-      ...previous,
-      isConnected: false,
-      message: error instanceof Error ? error.message : 'No se pudo persistir el ajuste de sets.',
-    }));
-  };
-  const addSetToMatch = (matchId: string, participantId: string) => {
-    void adjustSet(matchId, participantId, 1).catch(reportSetAdjustmentError);
-  };
-  const removeSetFromMatch = (matchId: string, participantId: string) => {
-    void adjustSet(matchId, participantId, -1).catch(reportSetAdjustmentError);
-  };
-
   const getAdvancementSlot = (
     sourceMatch: Match,
     targetMatch: Match,
@@ -2259,40 +2208,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return targetMatch;
   };
 
-  const recordBattle = (
-    matchId: string,
-    scorerId: string | null,
-    finish: FinishType | null,
-    note?: string
-  ) => {
-    assertWritablePersistence();
-    if (!currentUser || !['referee', 'organizer', 'admin'].includes(currentRole)) {
-      throw new Error('No tienes permisos para registrar batallas.');
-    }
-    const match = matches.find(m => m.id === matchId);
-    if (!match) return;
-    const stage = stages.find(s => s.id === match.stageId);
-    const tournament = tournaments.find(t => t.id === match.tournamentId);
-    if (!stage || !tournament) return;
-
-    const previousMatches = matches;
-    const previousBattles = battles;
-    const hadRemoteConfig = supabaseSyncInfo.isConfigured;
-    const { updatedMatch, newBattle } = applyBattle(
-      match,
-      stage,
-      tournament,
-      scorerId,
-      finish,
-      currentUser.id,
-      battles,
-      rounds.find((round) => round.id === match.roundId)
-    );
-
-    if (note) newBattle.note = note;
-
+  const applyMatchProgression = (updatedMatch: Match) => {
     // If match completed, advance winner in bracket!
-    let nextMatches = matches.map(m => m.id === matchId ? updatedMatch : m);
+    let nextMatches = matches.map(m => m.id === updatedMatch.id ? updatedMatch : m);
 
     if (updatedMatch.status === 'completed' && updatedMatch.winnerId) {
       if (updatedMatch.nextMatchWinnerId) {
@@ -2358,6 +2276,112 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         );
       }
     }
+
+    return nextMatches;
+  };
+
+  const reportMatchSets = async (matchId: string, expectedVersion: number, scores: SetScore[]) => {
+    assertWritablePersistence();
+    const match = matchesRef.current.find((item) => item.id === matchId);
+    const stage = stages.find((item) => item.id === match?.stageId);
+    const tournament = tournaments.find((item) => item.id === match?.tournamentId);
+    if (!match || !match.participant1Id || !match.participant2Id || match.isBye ||
+        match.status === 'completed' || stage?.status !== 'in_progress' || tournament?.status !== 'in_progress') {
+      throw new Error('Este combate no está disponible para reportar resultados.');
+    }
+    if (!currentUser || !['admin', 'organizer', 'referee'].includes(currentRole) ||
+        (currentRole === 'referee' && match.refereeId !== currentUser.id) ||
+        (currentRole === 'organizer' && tournament.organizerId !== currentUser.id)) {
+      throw new Error('No tienes permiso para reportar este combate.');
+    }
+    if (match.version !== expectedVersion) {
+      throw new Error('El combate cambió. Vuelve a abrir el formulario para revisar el marcador.');
+    }
+    if (battles.some((battle) => battle.matchId === matchId && !battle.voided) ||
+        penalties.some((penalty) => penalty.matchId === matchId)) {
+      throw new Error('Este combate ya tiene arbitraje en vivo. Continúa desde el marcador.');
+    }
+
+    const round = rounds.find((item) => item.id === match.roundId);
+    const result = validateSetReport(scores, stage, getMatchPointsToWin(match, stage, tournament, round));
+    if (result.error !== undefined) throw new Error(result.error);
+
+    if (supabaseSyncInfo.isConfigured) {
+      const supabase = getSupabaseClient();
+      if (!supabase) throw new Error('Supabase no está disponible.');
+      const { error } = await supabase.rpc('report_match_sets', {
+        p_match_id: matchId,
+        p_expected_version: expectedVersion,
+        p_scores: scores,
+      });
+      setRemoteRefreshVersion((version) => version + 1);
+      if (error) {
+        const messages: Record<string, string> = {
+          version_conflict: 'El combate cambió. Vuelve a abrir el formulario para revisar el marcador.',
+          match_has_live_events: 'Este combate ya tiene arbitraje en vivo. Continúa desde el marcador.',
+          forbidden: 'No tienes permiso para reportar este combate.',
+          match_closed: 'Este combate ya está finalizado.',
+        };
+        throw new Error(messages[error.message] || 'No se pudo guardar el resultado. Revisa el estado del combate e inténtalo de nuevo.');
+      }
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const [score1, score2] = scores[scores.length - 1];
+    const nextMatches = applyMatchProgression({
+      ...match,
+      score1,
+      score2,
+      sets1: result.sets1,
+      sets2: result.sets2,
+      manualSetScores: scores,
+      winnerId: result.sets1 > result.sets2 ? match.participant1Id : match.participant2Id,
+      isDraw: false,
+      status: 'completed',
+      outcome: 'normal',
+      startedAt: match.startedAt || now,
+      finishedAt: now,
+      version: match.version + 1,
+    });
+    setMatches(nextMatches);
+    saveState({ matches: nextMatches });
+    logAudit('matches', matchId, 'update', 'Resultado por sets confirmado.');
+  };
+
+  const recordBattle = (
+    matchId: string,
+    scorerId: string | null,
+    finish: FinishType | null,
+    note?: string
+  ) => {
+    assertWritablePersistence();
+    if (!currentUser || !['referee', 'organizer', 'admin'].includes(currentRole)) {
+      throw new Error('No tienes permisos para registrar batallas.');
+    }
+    const match = matches.find(m => m.id === matchId);
+    if (!match) return;
+    const stage = stages.find(s => s.id === match.stageId);
+    const tournament = tournaments.find(t => t.id === match.tournamentId);
+    if (!stage || !tournament) return;
+
+    const previousMatches = matches;
+    const previousBattles = battles;
+    const hadRemoteConfig = supabaseSyncInfo.isConfigured;
+    const { updatedMatch, newBattle } = applyBattle(
+      match,
+      stage,
+      tournament,
+      scorerId,
+      finish,
+      currentUser.id,
+      battles,
+      rounds.find((round) => round.id === match.roundId)
+    );
+
+    if (note) newBattle.note = note;
+
+    const nextMatches = applyMatchProgression(updatedMatch);
 
     const completion = getTournamentCompletionState(match.tournamentId, stages, nextMatches);
     const nextStages = completion?.tournamentComplete
@@ -3025,6 +3049,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       score2: 0,
       sets1: 0,
       sets2: 0,
+      manualSetScores: null,
       status: 'pending',
       outcome: null,
       outcomeNote: null,
@@ -3938,8 +3963,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         updateStageConfig,
         updateStageTiebreakers,
         recordBattle,
-        addSetToMatch,
-        removeSetFromMatch,
+        reportMatchSets,
         recordPenalty,
         resolveMatch,
         undoBattle,

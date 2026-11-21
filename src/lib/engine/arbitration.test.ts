@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyBattle, applyPenalty, getMatchPointsToWin, undoLastBattle } from './arbitration';
+import { applyBattle, applyPenalty, getMatchPointsToWin, undoLastBattle, validateSetReport } from './arbitration';
 import { Battle, Match, Penalty, Round, Stage, Tournament } from '../../types/tournament';
 
 const tournament: Tournament = {
@@ -221,5 +221,25 @@ describe('arbitration engine', () => {
 
     expect(undo.updatedMatch.score1).toBe(1);
     expect(undo.updatedMatch.score2).toBe(1);
+  });
+});
+
+describe('manual set reports', () => {
+  const bestOfThree = { ...stage, bestOf: 3 };
+
+  it('accepts a sweep with two rows in a best-of-three series', () => {
+    expect(validateSetReport([[5, 2], [6, 3]], bestOfThree, 5)).toEqual({ sets1: 2, sets2: 0 });
+    expect(validateSetReport([[5, 2], [3, 6], [1, 5]], bestOfThree, 5)).toEqual({ sets1: 1, sets2: 2 });
+  });
+
+  it('rejects a single win in a best-of-three and any set after the series is decided', () => {
+    expect(validateSetReport([[5, 1]], bestOfThree, 5).error).toContain('ganar 2 sets');
+    expect(validateSetReport([[5, 1], [5, 0], [0, 5]], bestOfThree, 5).error).toContain('set decisivo');
+  });
+
+  it('requires finished sets with nonnegative whole points for both players', () => {
+    for (const scores of [[0, 0], [4, 2], [5, 5], [-1, 5], [1.5, 5], [NaN, 5]] as const) {
+      expect(validateSetReport([[...scores]], bestOfThree, 5).error).toContain('puntajes válidos');
+    }
   });
 });

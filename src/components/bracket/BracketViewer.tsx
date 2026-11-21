@@ -318,7 +318,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                         {onOpenMatchInReferee && !match.isBye && p1 && p2 && (
                           <div className="mt-2.5 pt-2 border-t border-[var(--costura)] flex items-center justify-between text-[11px]">
                             <span className="text-[10px] text-[var(--acero)]">
-                              {match.sets1 > 0 || match.sets2 > 0 ? `Sets: ${match.sets1}-${match.sets2}` : 'Best of 1'}
+                              {match.sets1 > 0 || match.sets2 > 0 ? `Sets: ${match.sets1}-${match.sets2}` : `Al mejor de ${stage.bestOf || 1}`}
                             </span>
                             <button
                               onClick={(e) => {
@@ -327,7 +327,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                               }}
                               className="text-[var(--cobalto)] hover:underline font-bold flex items-center gap-0.5"
                             >
-                              Arbitrar <ChevronRight className="w-3 h-3" />
+                              {isCompleted ? 'Ver resultado' : 'Arbitrar'} <ChevronRight className="w-3 h-3" />
                             </button>
                           </div>
                         )}
