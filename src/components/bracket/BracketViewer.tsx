@@ -3,6 +3,7 @@ import { Match, Participant, Round, Stage } from '../../types/tournament';
 import { useTournament } from '../../context/TournamentContext';
 import { MatchQueue, type QueueFilter } from './MatchQueue';
 import { BracketConnections } from './BracketConnections';
+import { swissScoringDefaults } from '../../lib/engine/formats/swiss';
 import { computeStandings, matchPointTotals } from '../../lib/engine/tiebreakers';
 import { AceroIcon } from '../common/AceroIcon';
 import {
@@ -89,7 +90,9 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
   const roster = new Set(stageMatches.flatMap(m => [m.participant1Id, m.participant2Id]));
   const ranked = stage.type === 'swiss' || stage.type === 'round_robin';
   const standings = ranked ? computeStandings(stageMatches, participants.filter(p => roster.has(p.id)),
-    stage.config.tiebreakers, stage.config.advanceCount, stage.config, matchPointTotals(stageMatches, battles, penalties)) : [];
+    stage.config.tiebreakers, stage.config.advanceCount,
+    stage.type === 'swiss' ? { ...swissScoringDefaults, ...stage.config } : stage.config,
+    matchPointTotals(stageMatches, battles, penalties)) : [];
   const roundsRemaining = stage.type === 'swiss' && allStageRounds.length < (stage.config.swissRounds || 3);
   const hasNextStage = stages.some(s => s.tournamentId === stage.tournamentId && s.position > stage.position) ||
     (stage.position === 1 && stage.config.stageStructure === 'two_stage');

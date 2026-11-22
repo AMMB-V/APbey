@@ -2,6 +2,12 @@ import { Match, Participant, Round, StandingsScoringConfig, TiebreakerCriteria }
 import { computeStandings, type MatchPointTotals } from '../tiebreakers';
 import { createEntityId } from '../../storage/entityIds';
 
+export const swissScoringDefaults: StandingsScoringConfig = {
+  pointsPerMatchWin: 1,
+  pointsPerBye: 1,
+  pointsPerMatchDraw: 0,
+};
+
 export interface SwissRoundResult {
   round: Round;
   matches: Match[];
@@ -116,7 +122,7 @@ export function generateSwissRound(
     participants,
     options.tiebreakers || ['points', 'median_buchholz', 'head_to_head', 'point_diff', 'seed'],
     2,
-    options.scoring,
+    { ...swissScoringDefaults, ...options.scoring },
     options.getMatchPoints
   );
   const availableParticipants = standings.map((s) => s.participant);

@@ -8,7 +8,7 @@ import {
 } from '../../types/tournament';
 import { generateSingleElimination } from './formats/singleElimination';
 import { generateDoubleElimination } from './formats/doubleElimination';
-import { generateSwiss } from './formats/swiss';
+import { generateSwiss, swissScoringDefaults } from './formats/swiss';
 import { generateRoundRobin } from './formats/roundRobin';
 import { computeStandings, type MatchPointTotals } from './tiebreakers';
 import { createEntityId } from '../storage/entityIds';
@@ -44,11 +44,17 @@ function createQualifiedStage(current: Stage, qualifiers: Participant[], options
   const args = [current.tournamentId, nextStage.id, qualifiers] as const;
   let schedule;
   switch (nextStage.type) {
-    case 'single_elimination': schedule = generateSingleElimination(...args, nextStage.config); break;
-    case 'double_elimination': schedule = generateDoubleElimination(...args, nextStage.config); break;
-    case 'round_robin': schedule = generateRoundRobin(...args); break;
+    case 'single_elimination':
+      schedule = generateSingleElimination(...args, nextStage.config);
+      break;
+    case 'double_elimination':
+      schedule = generateDoubleElimination(...args, nextStage.config);
+      break;
+    case 'round_robin':
+      schedule = generateRoundRobin(...args);
+      break;
     case 'swiss':
-      nextStage.config = { pointsPerMatchWin: 1, pointsPerBye: 1, pointsPerMatchDraw: 0, ...nextStage.config };
+      nextStage.config = { ...swissScoringDefaults, ...nextStage.config };
       schedule = generateSwiss(...args, { scoring: nextStage.config });
       break;
     default: throw new Error('Selecciona un formato final compatible antes de avanzar.');
@@ -64,7 +70,7 @@ export function advanceSwissStageToPlayoffs(
   nextStageConfig: TransitionOptions = {}
 ): AdvanceStageResult {
   const stageMatches = allMatches.filter((match) => match.stageId === currentStage.id);
-  if (stageMatches.some((match) => match.status !== 'completed')) {
+  if (!stageMatches.length || stageMatches.some((match) => match.status !== 'completed')) {
     throw new Error('No se puede avanzar desde Swiss mientras existan matches pendientes.');
   }
 
@@ -74,7 +80,7 @@ export function advanceSwissStageToPlayoffs(
     allParticipants,
     currentStage.config.tiebreakers,
     advanceCount,
-    currentStage.config,
+    currentStage.type === 'swiss' ? { ...swissScoringDefaults, ...currentStage.config } : currentStage.config,
     nextStageConfig.getMatchPoints
   );
   const qualified = standings
