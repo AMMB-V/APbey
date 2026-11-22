@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   CheckCircle,
   Radio,
@@ -48,6 +48,30 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [selectedOfficialMatchId, setSelectedOfficialMatchId] = useState(initialMatchId || '');
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const savingRef = useRef(false);
+  const [savingScore, setSavingScore] = useState(false);
+
+  const saveScore = async (save: () => Promise<boolean>, message: string, undo?: () => void) => {
+    if (savingRef.current) return false;
+    savingRef.current = true;
+    setSavingScore(true);
+    setSnackbarOpen(false);
+    setLastAction(null);
+    let saved = false;
+    try {
+      saved = await save();
+    } catch {
+      saved = false;
+    } finally {
+      savingRef.current = false;
+      setSavingScore(false);
+    }
+    setSnackbarMessage(saved ? message : 'No se pudo guardar. Revisa el marcador e inténtalo de nuevo.');
+    if (saved && undo) setLastAction(() => undo);
+    setSnackbarOpen(true);
+    return saved;
+  };
+
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [lastAction, setLastAction] = useState<(() => void) | null>(null);
   // Foul / Penalty Modal State
@@ -147,7 +171,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
     }
   };
 
-  const handleRecordBattle = (scorer: 'p1' | 'p2', finish: FinishType, points: number) => {
+  const handleRecordBattle = async (scorer: 'p1' | 'p2', finish: FinishType, points: number) => {
     if (!officialMatch || !officialP1 || !officialP2) return;
     if (!canArbitrate) {
       openAuthModal('login');
@@ -158,30 +182,30 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
     const currentSets = scorer === 'p1' ? officialMatch.sets1 : officialMatch.sets2;
     if (activeStage && currentPoints + points >= target && currentSets + 1 >= getSetsNeeded(activeStage) &&
         !window.confirm(`Este punto decide el combate a favor de ${scorer === 'p1' ? officialP1.displayName : officialP2.displayName}. ¿Confirmar resultado?`)) return;
-    playSoundEffect(points);
-    triggerVibration(points >= 3 ? 90 : 45);
-
-    const winnerId = scorer === 'p1' ? officialP1.id : officialP2.id;
-    const winnerName = scorer === 'p1' ? officialP1.displayName : officialP2.displayName;
-    recordBattle(officialMatch.id, winnerId, finish, `Finish ${finish} (${points} pts)`);
-    const finishName = finish === 'spin' ? 'Spin' : finish === 'burst' ? 'Burst' : finish === 'over' ? 'Over' : 'Xtreme';
-    setSnackbarMessage(`¡${finishName} Finish (+${points}) para ${winnerName}!`);
-    setLastAction(() => () => undoBattle(officialMatch.id));
-    setSnackbarOpen(true);
+    const winner = scorer === 'p1' ? officialP1 : officialP2;
+    const saved = await saveScore(
+      () => recordBattle(officialMatch.id, winner.id, finish, `Finish ${finish} (${points} pts)`),
+      `Guardado: +${points} para ${winner.displayName}.`,
+      () => undoBattle(officialMatch.id)
+    );
+    if (saved) {
+      playSoundEffect(points);
+      triggerVibration(points >= 3 ? 90 : 45);
+    }
   };
 
-  const handleApplyPenalty = () => {
+  const handleApplyPenalty = async () => {
     if (!officialMatch || !officialP1 || !officialP2) return;
     if (!canArbitrate) {
       openAuthModal('login');
       return;
     }
     const offender = foulTarget === 'p1' ? officialP1 : officialP2;
-    recordPenalty(officialMatch.id, offender.id, undefined, true, foulReason);
     setShowFoulModal(false);
-    setLastAction(null);
-    setSnackbarMessage(`Falta registrada a ${offender.displayName}: ${foulReason}`);
-    setSnackbarOpen(true);
+    await saveScore(
+      () => recordPenalty(officialMatch.id, offender.id, undefined, true, foulReason),
+      `Falta guardada para ${offender.displayName}.`
+    );
   };
 
   const renderFinishButton = (
@@ -197,7 +221,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
     <button
       type="button"
       onClick={() => handleRecordBattle(scorer, finish, points)}
-      disabled={!canArbitrate || !officialMatch || officialMatch.status === 'completed'}
+      disabled={savingScore || !canArbitrate || !officialMatch || officialMatch.status === 'completed'}
       className={`w-full min-h-[56px] py-3 px-4 rounded-2xl bg-[var(--chasis)] border-2 ${borderColor} hover:opacity-90 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-between shadow-md group`}
     >
       <div className="flex items-center gap-3 text-left">
@@ -458,7 +482,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               stage={activeStage}
               players={[officialP1, officialP2]}
               target={target}
-              canReport={canArbitrate && officialMatch.status !== 'completed'}
+              canReport={!savingScore && canArbitrate && officialMatch.status !== 'completed'}
               currentScores={liveSetScores(officialMatch, matchBattles, matchPenalties, target)}
               onReport={reportMatchSets}
             />
@@ -483,7 +507,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                 }
                 setShowFoulModal(true);
               }}
-              disabled={!canArbitrate || officialMatch.status === 'completed'}
+              disabled={savingScore || !canArbitrate || officialMatch.status === 'completed'}
               className="px-3 py-1.5 rounded-xl bg-amber-950/50 border border-amber-800 text-xs font-bold text-amber-300 hover:bg-amber-950 flex items-center gap-1.5 transition-colors min-h-[36px]"
             >
               <AlertTriangle className="w-3.5 h-3.5" />
@@ -633,7 +657,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                   onClick={() => {
                     if (canArbitrate) undoBattle(officialMatch.id);
                   }}
-                  disabled={!canArbitrate}
+                  disabled={savingScore || !canArbitrate}
                   className="text-xs text-[var(--acero)] hover:text-rose-400 flex items-center gap-1 min-h-[32px] px-2"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -779,6 +803,9 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
       )}
 
       {/* Snackbar for Undo */}
+      <div role="status" className={savingScore ? "fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-[var(--chasis)] px-4 py-3 shadow-xl" : "sr-only"}>
+        {savingScore ? "Guardando marcador…" : ""}
+      </div>
       <Snackbar
         message={snackbarMessage}
         isOpen={snackbarOpen}

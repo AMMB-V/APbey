@@ -165,9 +165,9 @@ interface TournamentContextType {
   updateStageTiebreakers: (stageId: string, tiebreakers: TiebreakerCriteria[]) => Promise<{ success: boolean; persistedIn: 'supabase' | 'none'; timestamp: string; message: string }>;
 
   // Referee & Match actions
-  recordBattle: (matchId: string, scorerId: string | null, finish: FinishType | null, note?: string) => void;
+  recordBattle: (matchId: string, scorerId: string | null, finish: FinishType | null, note?: string) => Promise<boolean>;
   reportMatchSets: (matchId: string, expectedVersion: number, scores: SetScore[], partial?: boolean) => Promise<void>;
-  recordPenalty: (matchId: string, offenderId: string, card?: 'yellow' | 'red', isFoul?: boolean, reason?: string) => void;
+  recordPenalty: (matchId: string, offenderId: string, card?: 'yellow' | 'red', isFoul?: boolean, reason?: string) => Promise<boolean>;
   resolveMatch: (matchId: string, outcome: Exclude<MatchOutcome, 'normal'>, winnerId: string, note?: string) => void;
   undoBattle: (matchId: string) => void;
   reopenMatch: (matchId: string, reason: string) => void;
@@ -2362,7 +2362,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     logAudit('matches', matchId, 'update', 'Resultado por sets confirmado.');
   };
 
-  const recordBattle = (
+  const recordBattle = async (
     matchId: string,
     scorerId: string | null,
     finish: FinishType | null,
@@ -2373,10 +2373,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       throw new Error('No tienes permisos para registrar batallas.');
     }
     const match = matches.find(m => m.id === matchId);
-    if (!match) return;
+    if (!match) return false;
     const stage = stages.find(s => s.id === match.stageId);
     const tournament = tournaments.find(t => t.id === match.tournamentId);
-    if (!stage || !tournament) return;
+    if (!stage || !tournament) return false;
 
     const previousMatches = matches;
     const previousBattles = battles;
@@ -2429,7 +2429,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return updated;
     });
 
-    void (async () => {
+    const saved = await (async () => {
       if (hadRemoteConfig) {
         const supabase = getSupabaseClient();
         if (supabase) {
@@ -2452,9 +2452,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             if (!syncResult.success) {
               setMatches(previousMatches);
               setBattles(previousBattles);
-              saveState({ matches: previousMatches, battles: previousBattles });
+              setStages(stages);
+              setTournaments(tournaments);
+              saveState({ matches: previousMatches, battles: previousBattles, stages, tournaments });
               setSupabaseSyncInfo((previous) => ({ ...previous, isConnected: false, message: syncResult.message }));
-              return;
+              return false;
             }
 
             setSupabaseSyncInfo((previous) => ({
@@ -2463,7 +2465,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               lastSync: new Date().toLocaleTimeString(),
               message: syncResult.message,
             }));
-            return;
+            return true;
           }
         }
       }
@@ -2478,7 +2480,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (hadRemoteConfig && !result.success) {
         setMatches(previousMatches);
         setBattles(previousBattles);
-        saveState({ matches: previousMatches, battles: previousBattles });
+        setStages(stages);
+        setTournaments(tournaments);
+        saveState({ matches: previousMatches, battles: previousBattles, stages, tournaments });
       }
       if (completion?.tournamentComplete && result.success) {
         await syncTournamentToSupabase(
@@ -2492,7 +2496,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           penalties
         );
       }
+      return !hadRemoteConfig || result.success;
     })();
+    if (!saved) return false;
 
     logAudit(
       'battles',
@@ -2500,6 +2506,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       'insert',
       `Batalla #${newBattle.battleNumber}: ${finish ? `${finish.toUpperCase()} Finish (+${newBattle.points} pts)` : 'Empate'} registrada por ${currentUser.displayName}.`
     );
+    return true;
   };
 
   const resolveMatch = (
@@ -2590,7 +2597,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // Record a penalty / foul / card
-  const recordPenalty = (
+  const recordPenalty = async (
     matchId: string,
     offenderId: string,
     card?: 'yellow' | 'red',
@@ -2602,10 +2609,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       throw new Error('No tienes permisos para registrar penalizaciones.');
     }
     const match = matches.find(m => m.id === matchId);
-    if (!match) return;
+    if (!match) return false;
     const stage = stages.find(s => s.id === match.stageId);
     const tournament = tournaments.find(t => t.id === match.tournamentId);
-    if (!stage || !tournament) return;
+    if (!stage || !tournament) return false;
     const previousMatches = matches;
     const previousPenalties = penalties;
     const hadRemoteConfig = supabaseSyncInfo.isConfigured;
@@ -2656,7 +2663,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setTournaments(nextTournaments);
     }
 
-    void persistPenaltyToSupabase(newPenalty, updatedMatch, match.version).then((result) => {
+    const saved = await persistPenaltyToSupabase(newPenalty, updatedMatch, match.version).then((result) => {
       setSupabaseSyncInfo((previous) => ({
         ...previous,
         isConnected: result.success,
@@ -2666,7 +2673,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (hadRemoteConfig && !result.success) {
         setMatches(previousMatches);
         setPenalties(previousPenalties);
-        saveState({ matches: previousMatches, penalties: previousPenalties });
+        setStages(stages);
+        setTournaments(tournaments);
+        saveState({ matches: previousMatches, penalties: previousPenalties, stages, tournaments });
       }
       if (completion?.tournamentComplete && result.success) {
         void syncTournamentToSupabase(
@@ -2680,7 +2689,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           nextPenalties
         );
       }
+      return !hadRemoteConfig || result.success;
     });
+    if (!saved) return false;
 
     logAudit(
       'penalties',
@@ -2688,6 +2699,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       'insert',
       `Falta registrada a ${offenderId === match.participant1Id ? match.participant1Id : match.participant2Id}. ${newPenalty.pointsAwarded > 0 ? `+${newPenalty.pointsAwarded} punto otorgado al rival tras 3 faltas acumuladas.` : ''} Motivo: ${reason || 'Falta'}`
     );
+    return true;
   };
 
   // Assign referee to a group
