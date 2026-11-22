@@ -131,6 +131,7 @@ function TournamentApp() {
 
   const [queueFilter, setQueueFilter] = useState<QueueFilter>();
   const [activeStageId, setActiveStageId] = useState<string>(tournamentStages[0]?.id || '');
+  const [initialRoute] = useState(() => new URLSearchParams(window.location.search));
   const initializedStageForTournament = useRef<string | null>(null);
 
   // Restore a deep-linked stage once per tournament. Afterwards, stage clicks
@@ -145,21 +146,21 @@ function TournamentApp() {
       return;
     }
 
-    const requestedStageId = new URLSearchParams(window.location.search).get('stage');
-    if (requestedStageId && tournamentStages.some((stage) => stage.id === requestedStageId)) {
-      setActiveStageId(requestedStageId);
-    } else {
-      setActiveStageId(tournamentStages[0].id);
-    }
+    const requestedTournament = initialRoute.get('tournament');
+    const requestedStage = !requestedTournament || requestedTournament === tournamentId
+      ? initialRoute.get('stage') : null;
+    const firstView = tournamentStages.find(stage => stage.id === requestedStage) ??
+      tournamentStages.find(stage => stage.status === 'in_progress') ?? tournamentStages[0];
+    setActiveStageId(firstView.id);
     initializedStageForTournament.current = tournamentId;
-  }, [activeStageId, activeTournament?.id, tournamentStages]);
+  }, [activeStageId, activeTournament?.id, tournamentStages, initialRoute]);
 
   const currentStage = tournamentStages.find((s) => s.id === activeStageId) || tournamentStages[0];
 
   // Restore a tournament deep link once the remote snapshot is available.
   useEffect(() => {
     if (hasAppliedTournamentDeepLink.current) return;
-    const requestedTournamentId = new URLSearchParams(window.location.search).get('tournament');
+    const requestedTournamentId = initialRoute.get('tournament');
     if (!requestedTournamentId) {
       hasAppliedTournamentDeepLink.current = true;
       return;
@@ -170,7 +171,7 @@ function TournamentApp() {
     if (tournaments.some((tournament) => tournament.id === requestedTournamentId)) {
       setActiveTournamentId(requestedTournamentId);
     }
-  }, [tournaments, setActiveTournamentId]);
+  }, [tournaments, setActiveTournamentId, initialRoute]);
 
   // Sync title and URL search param
   useEffect(() => {
