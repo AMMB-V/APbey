@@ -63,7 +63,7 @@ const VIEW_TITLES: Record<MainTabType, string> = {
 };
 
 function TournamentApp() {
-  const [activeTab, setActiveTab] = useState<MainTabType>(() => {
+  const [activeTab, updateActiveTab] = useState<MainTabType>(() => {
     if (typeof window === 'undefined') return 'bracket';
 
     // Check hash for legacy AppBey redirects
@@ -84,7 +84,16 @@ function TournamentApp() {
       : 'torneos';
   });
 
-  const [selectedRefereeMatchId, setSelectedRefereeMatchId] = useState<string | undefined>(undefined);
+  const pushNavigation = useRef(false);
+  const [selectedRefereeMatchId, setSelectedRefereeMatchId] = useState<string | undefined>(
+    () => new URLSearchParams(window.location.search).get('match') ?? undefined
+  );
+  const setActiveTab = (tab: MainTabType) => {
+    if (tab === activeTab) return;
+    pushNavigation.current = true;
+    if (tab !== 'marcador' && tab !== 'referee') setSelectedRefereeMatchId(undefined);
+    updateActiveTab(tab);
+  };
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [wizardInitialTab, setWizardInitialTab] = useState<
     'general' | 'arbitration' | 'stages' | 'tiebreakers' | 'permissions'
@@ -178,35 +187,47 @@ function TournamentApp() {
     }
     if (activeTab !== 'marcador' && activeTab !== 'referee') {
       url.searchParams.delete('match');
+    } else if (selectedRefereeMatchId) {
+      url.searchParams.set('match', selectedRefereeMatchId);
+    } else {
+      url.searchParams.delete('match');
     }
-    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl !== currentUrl) {
+      if (pushNavigation.current) window.history.pushState(null, '', nextUrl);
+      else window.history.replaceState(null, '', nextUrl);
+    }
+    pushNavigation.current = false;
 
     // Update document.title per HCI orientation requirement
     const titleText = VIEW_TITLES[activeTab] || 'Torneos de Beyblade X';
     document.title = `APbey | ${titleText}`;
-  }, [activeTab, activeTournament?.id, activeStageId, tournamentStages]);
+  }, [activeTab, activeTournament?.id, activeStageId, tournamentStages, selectedRefereeMatchId]);
 
   // Handle browser back/forward popstate
   useEffect(() => {
     const handleBrowserNavigation = () => {
+      pushNavigation.current = false;
       const params = new URLSearchParams(window.location.search);
+      setSelectedRefereeMatchId(params.get('match') ?? undefined);
       const requestedView = params.get('view');
       if (requestedView && VALID_TABS.includes(requestedView as MainTabType)) {
-        setActiveTab(requestedView as MainTabType);
+        updateActiveTab(requestedView as MainTabType);
       }
       const requestedTournamentId = params.get('tournament');
       if (requestedTournamentId && tournaments.some((tournament) => tournament.id === requestedTournamentId)) {
         setActiveTournamentId(requestedTournamentId);
       }
       const requestedStageId = params.get('stage');
-      if (requestedStageId && tournamentStages.some((stage) => stage.id === requestedStageId)) {
+      if (requestedStageId && stages.some((stage) => stage.id === requestedStageId && stage.tournamentId === requestedTournamentId)) {
         setActiveStageId(requestedStageId);
       }
     };
 
     window.addEventListener('popstate', handleBrowserNavigation);
     return () => window.removeEventListener('popstate', handleBrowserNavigation);
-  }, [setActiveTournamentId, tournamentStages, tournaments]);
+  }, [setActiveTournamentId, stages, tournaments]);
 
   // Global Ctrl+K / Cmd+K listener for CommandPalette
   useEffect(() => {
@@ -222,6 +243,7 @@ function TournamentApp() {
   }, []);
 
   const handleOpenMatchInReferee = (matchId: string) => {
+    if (selectedRefereeMatchId !== matchId) pushNavigation.current = true;
     setSelectedRefereeMatchId(matchId);
     setActiveTab('marcador');
   };
@@ -476,6 +498,7 @@ function TournamentApp() {
         {activeTab === 'torneos' && (
           <TournamentList
             onSelectTournament={(tourneyId, targetTab) => {
+              if (tourneyId !== activeTournament?.id) pushNavigation.current = true;
               setActiveTournamentId(tourneyId);
               setActiveTab((targetTab as MainTabType) || 'bracket');
             }}
@@ -499,7 +522,11 @@ function TournamentApp() {
                       <button
                         key={stage.id}
                         type="button"
-                        onClick={() => setActiveStageId(stage.id)}
+                        onClick={() => {
+                          if (stage.id === activeStageId) return;
+                          pushNavigation.current = true;
+                          setActiveStageId(stage.id);
+                        }}
                         className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-2 whitespace-nowrap min-h-[36px] ${
                           isSelected
                             ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs font-bold'
