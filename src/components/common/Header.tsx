@@ -8,6 +8,9 @@ import {
   TrendingUp,
   Search,
   Wrench,
+  Layers,
+  Shield,
+  Tv,
 } from 'lucide-react';
 import { useTournament } from '../../context/TournamentContext';
 import { ToolsMenu } from './ToolsMenu';
@@ -149,7 +152,27 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Rankings</span>
           </button>
 
-          <ToolsMenu activeTab={activeTab} navigate={setActiveTab} openStadium={() => setShowStadiumModal(true)} />
+          <div className="lg:hidden">
+            <ToolsMenu activeTab={activeTab} navigate={setActiveTab} openStadium={() => setShowStadiumModal(true)} />
+          </div>
+          <div className="hidden shrink-0 items-center gap-1 lg:flex">
+            {([
+              { tab: 'deck', label: 'Deck', Icon: Layers },
+              { tab: 'tierlist', label: 'Tier List', Icon: Shield },
+            ] as const).map(({ tab, label, Icon }) => (
+              <button key={tab} type="button" onClick={() => setActiveTab(tab)}
+                aria-current={activeTab === tab ? 'page' : undefined}
+                className="flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-xl px-2 text-xs font-bold text-[var(--acero)] hover:bg-[var(--grafito)] hover:text-[var(--hueso)] aria-current:bg-[var(--hueso)] aria-current:text-[var(--tinta)]">
+                <Icon aria-hidden="true" className="size-3.5" />
+                {label}
+              </button>
+            ))}
+            <button type="button" onClick={() => setShowStadiumModal(true)} aria-haspopup="dialog"
+              className="flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-xl px-2 text-xs font-bold text-[var(--acero)] hover:bg-[var(--grafito)] hover:text-[var(--hueso)]">
+              <Tv aria-hidden="true" className="size-3.5" />
+              Estadio
+            </button>
+          </div>
 
         </nav>
 

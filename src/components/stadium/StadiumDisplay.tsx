@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTournament } from '../../context/TournamentContext';
 import { AceroIcon } from '../common/AceroIcon';
 import {
@@ -33,6 +33,7 @@ export const StadiumDisplay: React.FC<StadiumDisplayProps> = ({ onClose }) => {
     dismissStationCall,
   } = useTournament();
 
+  const screen = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'arenas' | 'upcoming' | 'standings'>('arenas');
@@ -50,14 +51,26 @@ export const StadiumDisplay: React.FC<StadiumDisplayProps> = ({ onClose }) => {
     return () => clearInterval(interval);
   }, []);
 
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
-      }
+  useEffect(() => {
+    const handleFullscreenChange = () => setIsFullscreen(document.fullscreenElement === screen.current);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement === screen.current) await document.exitFullscreen();
+      else await screen.current?.requestFullscreen?.();
+    } catch {
+      // The stadium overlay stays usable if the browser denies fullscreen.
     }
+  };
+
+  const closeStadium = async () => {
+    if (document.fullscreenElement === screen.current) {
+      try { await document.exitFullscreen(); } catch { /* Close the overlay even if fullscreen exits on removal. */ }
+    }
+    onClose?.();
   };
 
   const getParticipant = (id?: string | null) => {
@@ -92,28 +105,28 @@ export const StadiumDisplay: React.FC<StadiumDisplayProps> = ({ onClose }) => {
     .slice(0, 8);
 
   return (
-    <div className="fixed inset-0 z-50 bg-neutral-950 text-white flex flex-col font-sans select-none overflow-y-auto">
+    <div ref={screen} role="dialog" aria-modal="true" aria-label="Modo Estadio" className="fixed inset-0 z-50 bg-neutral-950 text-white flex flex-col font-sans select-none overflow-y-auto overflow-x-hidden">
       {/* Stadium Top Bar */}
-      <header className="px-6 py-4 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-orange-600 to-rose-600 flex items-center justify-center shadow-lg shadow-orange-950/50">
+      <header className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-neutral-800 bg-neutral-900 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-5 lg:grid-cols-[minmax(0,1fr)_auto_auto]">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+          <div className="hidden sm:flex shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-orange-600 to-rose-600 items-center justify-center shadow-lg shadow-orange-950/50">
             <Radio className="w-6 h-6 text-white animate-pulse" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-black uppercase tracking-widest text-amber-400 bg-amber-950/80 border border-amber-800/60 px-2 py-0.5 rounded">
-                LIVE STADIUM DISPLAY · PANTALLA OFICIAL
+                Modo Estadio
               </span>
-              <span className="text-xs text-neutral-400 font-mono">WBO RULESET</span>
+              <span className="hidden text-xs text-neutral-400 font-mono xl:inline">WBO RULESET</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white mt-0.5">
+            <h1 className="truncate text-sm font-black tracking-tight text-white sm:text-xl mt-0.5">
               {activeTournament?.name || 'Sin torneo seleccionado'}
             </h1>
           </div>
         </div>
 
         {/* Center Clock & Navigation tabs */}
-        <div className="hidden md:flex items-center gap-1 bg-neutral-950 p-1 rounded-xl border border-neutral-800">
+        <div className="col-span-2 row-start-2 flex flex-wrap items-center gap-1 lg:col-span-1 lg:col-start-2 lg:row-start-1 bg-neutral-950 p-1 rounded-xl border border-neutral-800">
           <button
             onClick={() => setActiveTab('arenas')}
             className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -137,27 +150,30 @@ export const StadiumDisplay: React.FC<StadiumDisplayProps> = ({ onClose }) => {
         </div>
 
         {/* Right Controls */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-950 border border-neutral-800 text-neutral-300 font-mono text-sm">
+        <div className="col-start-2 row-start-1 flex items-center gap-2 lg:col-start-3">
+          <div className="hidden items-center gap-2 px-3 xl:flex py-1.5 rounded-lg bg-neutral-950 border border-neutral-800 text-neutral-300 font-mono text-sm">
             <Clock className="w-4 h-4 text-amber-400" />
             <span className="tabular-nums font-bold">{currentTime}</span>
           </div>
 
-          <button
-            onClick={toggleFullscreen}
+          {document.fullscreenEnabled && <button
+            type="button"
+            aria-label={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+            onClick={() => void toggleFullscreen()}
             title={isFullscreen ? 'Salir de Pantalla Completa' : 'Modo Pantalla Completa para Proyector'}
-            className="p-2.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 transition-colors"
+            className="hidden min-h-11 min-w-11 place-items-center sm:grid rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 transition-colors"
           >
             {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
-          </button>
+          </button>}
 
           {onClose && (
             <button
-              onClick={onClose}
-              title="Cerrar pantalla de estadio"
-              className="p-2.5 rounded-lg bg-neutral-800 hover:bg-rose-900/60 text-neutral-300 hover:text-rose-200 transition-colors"
+              type="button"
+              onClick={() => void closeStadium()}
+              className="flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg bg-neutral-800 px-2.5 text-sm font-semibold text-white hover:bg-rose-900/60"
             >
-              <X className="w-5 h-5" />
+              <X aria-hidden="true" className="w-4 h-4" />
+              Cerrar
             </button>
           )}
         </div>
