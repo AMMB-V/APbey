@@ -292,12 +292,16 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
               </span>
             </div>
 
-            <div className="overflow-x-auto">
+            <p className="text-xs text-[var(--acero)]">
+              PF · Puntos a favor · PC · Puntos en contra · DIF · Diferencia de puntos
+            </p>
+            <div className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cobalto)]" tabIndex={0} role="region" aria-label="Tabla de posiciones">
+
               <table className="tabla">
                 <thead>
                   <tr>
                     <th className="py-2.5 px-3 w-10 text-center">#</th>
-                    <th className="py-2.5 px-3">Blader</th>
+                    <th scope="col" className="sticky left-0 z-10 bg-[var(--chasis)] py-2.5 px-3 text-left">Blader</th>
                     <th className="py-2.5 px-2 text-center" title="Partidos Jugados">PJ</th>
                     <th className="py-2.5 px-2 text-center" title="Partidos Ganados">PG</th>
                     <th className="py-2.5 px-2 text-center" title="Partidos Empatados">PE</th>
@@ -329,7 +333,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
                           {row.rank}
                         </span>
                       </td>
-                      <td className="py-3 px-3 font-medium text-[var(--hueso)]">
+                      <th scope="row" className="sticky left-0 z-10 bg-[var(--chasis)] py-3 px-3 text-left font-medium text-[var(--hueso)]">
                         <div className="flex items-center gap-1.5">
                           <span className="font-semibold">{row.participant.displayName}</span>
                           {row.advances && (
@@ -343,7 +347,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
                             {row.participant.deckCombos[0]}
                           </div>
                         )}
-                      </td>
+                      </th>
                       <td className="py-3 px-2 text-center font-mono tabular-nums text-[var(--hueso)]">{row.played}</td>
                       <td className="py-3 px-2 text-center font-mono tabular-nums text-emerald-400 font-semibold">{row.won}</td>
                       <td className="py-3 px-2 text-center font-mono tabular-nums text-[var(--acero)]">{row.drawn}</td>
