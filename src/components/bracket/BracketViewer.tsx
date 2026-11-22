@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Match, Participant, Round, Stage } from '../../types/tournament';
 import { useTournament } from '../../context/TournamentContext';
+import { BracketConnections } from './BracketConnections';
 import { AceroIcon } from '../common/AceroIcon';
 import {
   Trophy,
@@ -18,17 +19,20 @@ import {
 
 interface BracketViewerProps {
   stage: Stage;
+  demo?: { matches: Match[]; rounds: Round[]; participants: Participant[] };
   onOpenMatchInReferee?: (matchId: string) => void;
 }
 
 export const BracketViewer: React.FC<BracketViewerProps> = ({
   stage,
+  demo,
   onOpenMatchInReferee,
 }) => {
   const {
-    matches,
-    rounds,
-    participants,
+    activeTournament,
+    matches: tournamentMatches,
+    rounds: tournamentRounds,
+    participants: tournamentParticipants,
     currentRole,
     currentUser,
     users,
@@ -39,7 +43,14 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
     generateNextSwissRound,
   } = useTournament();
 
-  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const { matches, rounds, participants } = demo ?? {
+    matches: tournamentMatches, rounds: tournamentRounds, participants: tournamentParticipants,
+  };
+
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [routeTarget, setRouteTarget] = useState<string | null>(null);
+  const [mineOnly, setMineOnly] = useState(false);
+  const board = useRef<HTMLDivElement>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [bracketFilter, setBracketFilter] = useState<'all' | 'winners' | 'losers' | 'finals'>('all');
   const [stationInput, setStationInput] = useState<string>('Estadio 1');
@@ -47,7 +58,10 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
   // Filter rounds for this stage
   const allStageRounds = rounds
     .filter((r) => r.stageId === stage.id && r.bracket !== 'group')
-    .sort((a, b) => a.number - b.number);
+    .sort((a, b) => {
+      const lane = (round: Round) => round.bracket === 'losers' ? 1 : round.bracket === 'grand_final' ? 2 : 0;
+      return lane(a) - lane(b) || a.number - b.number;
+    });
 
   // Apply bracket filter (Winners / Losers / Finals) if double elimination
   const stageRounds = allStageRounds.filter((r) => {
@@ -57,6 +71,32 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
   });
 
   const stageMatches = matches.filter((m) => m.stageId === stage.id);
+
+  const canManage = !demo && (currentRole === 'admin' ||
+    (currentRole === 'organizer' && Boolean(currentUser && activeTournament?.organizerId === currentUser.id)));
+  const canScore = (match: Match) => stage.status === 'in_progress' && match.status !== 'completed' &&
+    (canManage || (currentRole === 'referee' && Boolean(currentUser && match.refereeId === currentUser.id)));
+  const selectedMatch = stageMatches.find(match => match.id === selectedMatchId);
+  const matchLabels = new Map(allStageRounds.flatMap((round, index) =>
+    stageMatches.filter(match => match.roundId === round.id).map(match => [match.id, `R${index + 1}–C${match.position}`] as const)
+  ));
+  const visibleMatches = mineOnly ? stageMatches.filter(match => match.refereeId === currentUser?.id) : stageMatches;
+  const hasRoutes = stageMatches.some(match => match.nextMatchWinnerId || match.nextMatchLoserId);
+
+  useEffect(() => {
+    if (!routeTarget) return;
+    const target = Array.from(board.current?.querySelectorAll<HTMLElement>('[data-bracket-match]') ?? [])
+      .find(card => card.dataset.bracketMatch === routeTarget);
+    target?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    target?.querySelector('button')?.focus({ preventScroll: true });
+    setRouteTarget(null);
+  }, [routeTarget, bracketFilter, mineOnly]);
+
+  function followRoute(id: string) {
+    setMineOnly(false);
+    setBracketFilter('all');
+    setRouteTarget(id);
+  }
 
   const getParticipant = (id?: string | null): Participant | undefined => {
     if (!id) return undefined;
@@ -101,6 +141,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
               <button
                 key={tab}
                 onClick={() => setBracketFilter(tab)}
+                aria-pressed={tab === bracketFilter}
                 className={`px-2.5 py-1 text-xs rounded-[var(--r-chip)] font-semibold transition-colors ${
                   bracketFilter === tab
                     ? 'bg-[var(--hueso)] text-[var(--tinta)] shadow-xs'
@@ -110,9 +151,9 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                 {tab === 'all'
                   ? 'Todos'
                   : tab === 'winners'
-                  ? 'Winners Bracket'
+                  ? 'Ganadores'
                   : tab === 'losers'
-                  ? 'Losers Bracket'
+                  ? 'Perdedores'
                   : 'Gran Final'}
               </button>
             ))}
@@ -174,7 +215,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
             <Printer className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Imprimir Cuadro</span>
           </button>
-          {(currentRole === 'organizer' || currentRole === 'admin') && stage.status === 'pending' && (
+          {canManage && stage.status === 'pending' && (
             <button
               type="button"
               onClick={() => startStage(stage.id)}
@@ -189,14 +230,29 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
         </div>
       </div>
 
+      {(hasRoutes || currentRole === 'referee') && (
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-[var(--acero)]">
+          {hasRoutes && <>
+            <span><span className="mr-2 inline-block w-6 align-middle border-t-2 border-[var(--cobalto-texto)]" />Avance del ganador</span>
+            <span><span className="mr-2 inline-block w-6 align-middle border-t-2 border-dashed border-[var(--cobre)]" />Destino del perdedor</span>
+          </>}
+          {!demo && currentRole === 'referee' && <button type="button" aria-pressed={mineOnly}
+            className="acero-btn acero-btn--secondary min-h-11" onClick={() => setMineOnly(!mineOnly)}>Mis combates</button>}
+        </div>
+      )}
+      {mineOnly && visibleMatches.length === 0 && (
+        <p className="text-sm text-[var(--acero)]">Todavía no tienes combates asignados en esta etapa.</p>
+      )}
       {/* Scalable Canvas with Zoom Transform */}
       <div className="overflow-x-auto overflow-y-hidden pb-8 pt-2 rounded-[var(--r-card)] bg-[var(--grafito)] border border-[var(--costura)] p-4">
         <div
-          className="flex gap-8 min-w-max items-start transition-transform origin-top-left"
-          style={{ transform: `scale(${zoomLevel})` }}
+          ref={board}
+          className="relative flex gap-10 w-max min-w-full items-start px-4"
+          style={{ zoom: zoomLevel }}
         >
+          {hasRoutes && <BracketConnections board={board} matches={visibleMatches} />}
           {stageRounds.map((round) => {
-            const roundMatches = stageMatches
+            const roundMatches = visibleMatches
               .filter((m) => m.roundId === round.id)
               .sort((a, b) => a.position - b.position);
 
@@ -219,18 +275,15 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                     const p2 = getParticipant(match.participant2Id);
                     const isCompleted = match.status === 'completed';
                     const isLive = match.status === 'in_progress';
-                    const p1IsWinner = match.winnerId === p1?.id;
-                    const p2IsWinner = match.winnerId === p2?.id;
+                    const p1IsWinner = Boolean(p1 && match.winnerId === p1.id);
+                    const p2IsWinner = Boolean(p2 && match.winnerId === p2.id);
                     const ref = getReferee(match.refereeId);
 
                     return (
                       <div
                         key={match.id}
-                        onClick={() => {
-                          setSelectedMatch(match);
-                          setStationInput(match.station || 'Estadio 1');
-                        }}
-                        className={`group relative rounded-[var(--r-control)] border bg-[var(--chasis)] p-3.5 shadow-xs transition-all cursor-pointer ${
+                        data-bracket-match={match.id}
+                        className={`group relative rounded-[var(--r-control)] border bg-[var(--chasis)] p-3.5 shadow-xs transition-all focus-within:ring-1 focus-within:ring-[var(--hueso)] ${
                           isLive
                             ? 'border-[var(--tarjeta-amarilla)] ring-2 ring-[var(--tarjeta-amarilla)]/50'
                             : isCompleted
@@ -240,7 +293,14 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                       >
                         {/* Match Status Bar */}
                         <div className="flex items-center justify-between text-[11px] mb-2 text-[var(--acero)]">
-                          <span className="font-mono font-medium">Match #{match.position}</span>
+                          <button type="button" className="min-h-8 font-mono font-semibold text-[var(--hueso)] hover:underline"
+                            aria-label={`Detalles del combate ${matchLabels.get(match.id)}`}
+                            onClick={() => {
+                              setSelectedMatchId(match.id);
+                              setStationInput(match.station || 'Estadio 1');
+                            }}>
+                            {matchLabels.get(match.id)}
+                          </button>
                           <div className="flex items-center gap-1.5">
                             {match.station && (
                               <span className="text-[10px] font-bold text-[var(--tinta)] bg-[var(--tarjeta-amarilla)] px-1.5 py-0.2 rounded font-mono">
@@ -314,6 +374,17 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                           </span>
                         </div>
 
+                        {(match.nextMatchWinnerId || match.nextMatchLoserId) && (
+                          <div className="mt-2 flex flex-wrap gap-x-3 text-xs">
+                            {([[match.nextMatchWinnerId, 'Ganador', 'text-[var(--cobalto-texto)]'],
+                               [match.nextMatchLoserId, 'Perdedor', 'text-[var(--cobre)]']] as const).map(([id, label, color]) =>
+                              id && matchLabels.has(id) && <button key={label} type="button"
+                                className={`min-h-8 font-semibold hover:underline ${color}`}
+                                onClick={() => followRoute(id)}>{label} → {matchLabels.get(id)}</button>
+                            )}
+                          </div>
+                        )}
+
                         {/* Action link to Referee */}
                         {onOpenMatchInReferee && !match.isBye && p1 && p2 && (
                           <div className="mt-2.5 pt-2 border-t border-[var(--costura)] flex items-center justify-between text-[11px]">
@@ -327,7 +398,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                               }}
                               className="text-[var(--cobalto)] hover:underline font-bold flex items-center gap-0.5"
                             >
-                              {isCompleted ? 'Ver resultado' : 'Arbitrar'} <ChevronRight className="w-3 h-3" />
+                              {isCompleted ? 'Ver resultado' : canScore(match) ? 'Arbitrar' : 'Ver combate'} <ChevronRight className="w-3 h-3" />
                             </button>
                           </div>
                         )}
@@ -348,10 +419,10 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-[var(--costura)]">
               <h3 className="font-bold text-sm flex items-center gap-2 font-display">
                 <Scale className="w-4 h-4 text-[var(--cobalto)]" />
-                Detalles del Match #{selectedMatch.position}
+                Combate {matchLabels.get(selectedMatch.id)}
               </h3>
               <button
-                onClick={() => setSelectedMatch(null)}
+                onClick={() => setSelectedMatchId(null)}
                 className="text-[var(--acero)] hover:text-white font-bold text-xs"
               >
                 ✕ Cerrar
@@ -381,6 +452,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                 </div>
               </div>
 
+              {canManage && <>
               {/* Station assignment controls */}
               <div className="space-y-1.5 pt-1">
                 <label className="text-xs font-semibold text-[var(--acero)]">
@@ -404,7 +476,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                     onClick={() => {
                       assignStationToMatch(selectedMatch.id, stationInput);
                       callMatchToStation(selectedMatch.id);
-                      setSelectedMatch(null);
+                      setSelectedMatchId(null);
                     }}
                     className="acero-btn acero-btn--primary text-xs px-3 py-1.5 flex items-center gap-1"
                   >
@@ -430,20 +502,21 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                   ))}
                 </select>
               </div>
+              </>}
             </div>
 
             <div className="pt-2 border-t border-[var(--costura)] flex items-center justify-end gap-2">
-              {onOpenMatchInReferee && (
+              {onOpenMatchInReferee && selectedMatch.participant1Id && selectedMatch.participant2Id && !selectedMatch.isBye && (
                 <button
                   onClick={() => {
                     const mId = selectedMatch.id;
-                    setSelectedMatch(null);
+                    setSelectedMatchId(null);
                     onOpenMatchInReferee(mId);
                   }}
                   className="acero-btn acero-btn--primary text-xs px-4 py-1.5 flex items-center gap-1.5"
                 >
                   <Scale className="w-3.5 h-3.5" />
-                  Abrir Consola de Árbitro
+                  {canScore(selectedMatch) ? 'Abrir marcador para arbitrar' : 'Ver marcador'}
                 </button>
               )}
             </div>

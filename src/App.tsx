@@ -62,6 +62,8 @@ const VIEW_TITLES: Record<MainTabType, string> = {
   admin: 'Gestión & Árbitros',
 };
 
+import { BracketDemo } from './components/bracket/BracketDemo';
+
 function TournamentApp() {
   const [activeTab, updateActiveTab] = useState<MainTabType>(() => {
     if (typeof window === 'undefined') return 'bracket';
@@ -106,6 +108,7 @@ function TournamentApp() {
     activeTournament,
     setActiveTournamentId,
     stages,
+    matches,
     participants,
     showStadiumModal,
     setShowStadiumModal,
@@ -247,6 +250,23 @@ function TournamentApp() {
     setSelectedRefereeMatchId(matchId);
     setActiveTab('marcador');
   };
+
+  const tournamentMatches = matches.filter(match => match.tournamentId === activeTournament?.id);
+  const readyMatches = tournamentMatches.filter(match =>
+    match.participant1Id && match.participant2Id && !match.isBye && match.status !== 'completed');
+  const canManageTournament = currentRole === 'admin' ||
+    (currentRole === 'organizer' && Boolean(currentUser && activeTournament?.organizerId === currentUser.id));
+  const featuredMatches = currentRole === 'referee'
+    ? readyMatches.filter(match => currentUser && match.refereeId === currentUser.id)
+    : readyMatches;
+  const featuredMatch = featuredMatches.find(match => match.status === 'in_progress') ??
+    (canManageTournament ? featuredMatches.find(match => !match.refereeId || !match.station) : undefined) ??
+    featuredMatches[0];
+  const featuredStage = tournamentStages.find(stage => stage.id === featuredMatch?.stageId);
+
+  if (import.meta.env.VITE_BRACKET_DEMO && new URLSearchParams(window.location.search).get('demo') === 'cuadro') {
+    return <BracketDemo />;
+  }
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[var(--grafito)] text-[var(--hueso)] flex flex-col font-sans antialiased selection:bg-[var(--cobalto)] selection:text-[var(--tinta)] pb-24 md:pb-6">
@@ -400,6 +420,47 @@ function TournamentApp() {
                   Revisa el estado del evento antes de registrar participantes o iniciar una etapa.
                 </p>
               </div>
+              <div className="rounded-2xl border border-[var(--costura)] bg-gradient-to-br from-[var(--chasis)] to-[var(--grafito)] p-5">
+                <p className="text-xs font-semibold text-[var(--cobalto-texto)]">
+                  {featuredMatch?.status === 'in_progress' ? 'En vivo' : featuredMatch ? 'Próximo combate' : 'Actividad del torneo'}
+                  {featuredStage && ` · ${featuredStage.name}`}
+                </p>
+                {featuredMatch ? (
+                  <>
+                    <h3 className="mt-2 text-xl font-black">
+                      {participants.find(p => p.id === featuredMatch.participant1Id)?.displayName ?? 'Jugador 1'}
+                      <span className="mx-2 text-[var(--acero)]">vs.</span>
+                      {participants.find(p => p.id === featuredMatch.participant2Id)?.displayName ?? 'Jugador 2'}
+                    </h3>
+                    <p className="mt-1 text-sm text-[var(--acero)]">
+                      {featuredMatch.station || 'Mesa pendiente'}
+                      {canManageTournament && !featuredMatch.refereeId && ' · Sin árbitro asignado'}
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button type="button" className="acero-btn acero-btn--primary min-h-11"
+                        onClick={() => {
+                          setActiveStageId(featuredMatch.stageId);
+                          handleOpenMatchInReferee(featuredMatch.id);
+                        }}>
+                        {currentRole === 'referee' || canManageTournament ? 'Abrir marcador' : 'Ver combate'}
+                      </button>
+                      <button type="button" className="acero-btn acero-btn--secondary min-h-11"
+                        onClick={() => {
+                          setActiveStageId(featuredMatch.stageId);
+                          setActiveTab('bracket');
+                        }}>Ver cuadro</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-2 text-sm">
+                      {currentRole === 'referee' ? 'Todavía no tienes combates asignados.' : 'No hay combates listos por el momento.'}
+                    </p>
+                    <button type="button" className="acero-btn acero-btn--secondary mt-3 min-h-11"
+                      onClick={() => setActiveTab('bracket')}>Ver cuadro</button>
+                  </>
+                )}
+              </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
                   ['Estado', activeTournament.status === 'in_progress' ? 'En vivo' : activeTournament.status === 'completed' ? 'Finalizado' : 'Registro'],
@@ -416,7 +477,7 @@ function TournamentApp() {
               <div className="rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-5">
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-[var(--hueso)]">Ruta del torneo</h3>
-                  <button
+                  {canManageTournament && <button
                     type="button"
                     onClick={() => {
                       setWizardInitialTab('general');
@@ -425,7 +486,7 @@ function TournamentApp() {
                     className="text-xs font-bold text-[var(--cobalto)] hover:text-white"
                   >
                     Editar configuración
-                  </button>
+                  </button>}
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   {tournamentStages.map((stage, index) => (
@@ -500,7 +561,7 @@ function TournamentApp() {
             onSelectTournament={(tourneyId, targetTab) => {
               if (tourneyId !== activeTournament?.id) pushNavigation.current = true;
               setActiveTournamentId(tourneyId);
-              setActiveTab((targetTab as MainTabType) || 'bracket');
+              setActiveTab((targetTab as MainTabType) || 'overview');
             }}
           />
         )}
