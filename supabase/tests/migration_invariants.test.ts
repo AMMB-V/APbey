@@ -60,7 +60,7 @@ describe('audit follow-up migration', () => {
 
       expect(sql).toContain('create or replace function public.publish_tournament_snapshot');
       expect(sql).not.toContain('security definer');
-      expect(sql).toContain('select public.publish_tournament(');
+      expect(sql).toContain('select * from public.publish_tournament(');
       expect(sql).toContain('insert into public.tournament_finish_points');
       expect(sql).toContain('insert into public.tournament_referees');
       expect(sql).toContain('insert into public.participants');

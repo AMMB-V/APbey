@@ -159,12 +159,12 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
       stageStructure: newStageStructure,
       advanceCount: 2,
       groupSize: isSwiss ? 1 : 4,
-      tiebreakers: swissTiebreakers,
+      tiebreakers: isSwiss ? swissTiebreakers : standardTiebreakers,
     };
     const configuredStageConfig: StageConfig = {
       ...stageConfig,
-      stageStructure: templateStage?.config.stageStructure ?? newStageStructure,
-      swissRounds: templateStage?.config.swissRounds ?? newSwissRounds,
+      stageStructure: newStageStructure,
+      swissRounds: newSwissRounds,
       groupSize: isSwiss ? 1 : (stageConfig.groupSize || 4),
       pointsPerMatchWin: isSwiss ? 1 : (stageConfig.pointsPerMatchWin ?? 3),
       pointsPerMatchDraw: isSwiss ? 0 : (stageConfig.pointsPerMatchDraw ?? 1),
@@ -198,6 +198,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
               stageStructure: 'two_stage',
               grandFinalType: 'one_or_two_matches',
               grandFinalReset: true,
+              ...(newSecondFormat === 'swiss' && { pointsPerMatchWin: 1, pointsPerMatchDraw: 0, pointsPerBye: 1 }),
               tiebreakers: newSecondFormat === 'swiss' ? swissTiebreakers : standardTiebreakers,
             },
           }

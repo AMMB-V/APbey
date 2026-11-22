@@ -279,6 +279,15 @@ export function computeStandings(
     }
   }
 
+  for (const [key, tied] of clusterRows) {
+    if (tied.length === 2) {
+      const winner = getPairwiseWinner(tied[0].participantId, tied[1].participantId);
+      if (winner) tied.forEach(row => { row.directWins = Number(row.participantId === winner); });
+    } else if (tied.length > 2) {
+      tied.forEach(row => { row.directWins = clusterMiniLeagueWins.get(key)?.get(row.participantId); });
+    }
+  }
+
   // Sort based on configurable tiebreakerOrder with transitive multi-way tie resolution
   rows.sort((a, b) => {
     for (const criterion of tiebreakerOrder) {

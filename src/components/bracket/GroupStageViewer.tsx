@@ -23,7 +23,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
   onOpenMatchInReferee,
 }) => {
   const {
-    groups,
+    groups, stages,
     matches,
     battles,
     penalties,
@@ -68,6 +68,11 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
     matchPointTotals(groupMatches, battles, penalties)
   );
 
+  const hasNextStage = stages.some(s => s.tournamentId === stage.tournamentId && s.position > stage.position) ||
+    (stage.position === 1 && stage.config.stageStructure === 'two_stage');
+  const groupComplete = groupMatches.length > 0 && groupMatches.every(m => m.status === 'completed');
+  const groupLocked = (id?: string | null) => stage.status === 'completed' ||
+    stageMatches.some(m => m.groupId === id && !m.isBye && m.status !== 'pending');
   const totalMatches = stageMatches.length;
   const completedMatches = stageMatches.filter((m) => m.status === 'completed').length;
   const groupReferee = users.find((u) => u.id === activeGroup?.refereeId);
@@ -97,7 +102,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
           <div className="flex items-center gap-2 text-xs text-[var(--acero)] mt-1">
             <span>{stageGroups.length} Grupos</span>
             <span>·</span>
-            <span>Clasifican los primeros {advanceCount} de cada grupo</span>
+            {hasNextStage && <span>Clasifican los primeros {advanceCount} de cada grupo</span>}
             <span>·</span>
             <span>Meta: {stage.pointsToWin} puntos</span>
             <span>·</span>
@@ -111,7 +116,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
             <>
               <button
                 onClick={() => rebalanceGroups(stage.id, stage.config.groupSize || 4)}
-                disabled={tourneyParticipants.length < 2}
+                disabled={tourneyParticipants.length < 2 || stage.status === 'completed' || stageMatches.some(m => !m.isBye && m.status !== 'pending')}
                 className="acero-btn acero-btn--secondary text-xs px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-50"
                 title="Subdivide y equilibra automáticamente los grupos según el número de bladers totales"
               >
@@ -142,14 +147,15 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
                 </button>
               )}
 
-              {stage.status === 'in_progress' && (
+              {stage.status === 'in_progress' && hasNextStage && (
                 <button
-                  onClick={() => advanceCurrentStage(stage.id)}
+                  disabled={!totalMatches || completedMatches < totalMatches}
+                  onClick={() => { try { advanceCurrentStage(stage.id); } catch (e) { window.alert(e instanceof Error ? e.message : 'No se pudo avanzar.'); } }}
                   className="acero-btn acero-btn--primary text-xs px-3.5 py-1.5 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs"
                   title="Calcula los clasificados y genera el cuadro de playoffs de eliminación directa"
                 >
                   <AceroIcon id="i-trofeo" size="sm" />
-                  Avanzar a Playoffs (Top {advanceCount * stageGroups.length})
+                  Avanzar a la siguiente etapa (Top {advanceCount * stageGroups.length})
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -320,12 +326,12 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
                   {standings.map((row) => (
                     <tr
                       key={row.participantId}
-                      className={row.advances ? 'bg-emerald-950/20' : ''}
+                      className={hasNextStage && groupComplete && row.advances ? 'bg-emerald-950/20' : ''}
                     >
                       <td className="py-3 px-3 text-center font-mono font-bold">
                         <span
                           className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs ${
-                            row.advances
+                            hasNextStage && groupComplete && row.advances
                               ? 'bg-emerald-600 text-white font-bold'
                               : 'text-[var(--acero)]'
                           }`}
@@ -336,7 +342,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
                       <th scope="row" className="sticky left-0 z-10 bg-[var(--chasis)] py-3 px-3 text-left font-medium text-[var(--hueso)]">
                         <div className="flex items-center gap-1.5">
                           <span className="font-semibold">{row.participant.displayName}</span>
-                          {row.advances && (
+                          {hasNextStage && groupComplete && row.advances && (
                             <span className="text-[10px] font-bold text-emerald-300 bg-emerald-950 border border-emerald-700/60 px-1.5 py-0.2 rounded-[var(--r-chip)]">
                               Clasifica
                             </span>
@@ -370,6 +376,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
                       {(currentRole === 'organizer' || currentRole === 'admin') && (
                         <td className="py-3 px-2 text-right">
                           <select
+                            disabled={groupLocked(activeGroup?.id)}
                             defaultValue=""
                             onChange={(e) => {
                               if (e.target.value) {
@@ -382,7 +389,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
                             {stageGroups
                               .filter(g => g.id !== activeGroup.id)
                               .map(g => (
-                                <option key={g.id} value={g.id}>
+                                <option key={g.id} value={g.id} disabled={groupLocked(g.id)}>
                                   {g.name}
                                 </option>
                               ))}

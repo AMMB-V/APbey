@@ -23,9 +23,9 @@ export function generateSingleElimination(
 
   // Participant seed map
   const seedToParticipant = new Map<number, Participant>();
-  for (const p of participants) {
-    seedToParticipant.set(p.seed, p);
-  }
+  [...participants].sort((a, b) => a.seed - b.seed).forEach((p, i) => {
+    seedToParticipant.set(i + 1, p);
+  });
 
   const rounds: Round[] = [];
   const matches: Match[] = [];

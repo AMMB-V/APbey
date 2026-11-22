@@ -230,6 +230,7 @@ export interface GroupStandingRow {
   pointsRatio?: number;        // Cociente / ratio de puntos (PF / PC)
   buchholz?: number;
   medianBuchholz?: number;
+  directWins?: number;
   rank: number;
   advances: boolean;
 }

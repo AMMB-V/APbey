@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceSwissStageToPlayoffs } from './advancement';
+import { advanceGroupStageToPlayoffs, advanceSwissStageToPlayoffs } from './advancement';
 import { Match, Participant, Stage } from '../../types/tournament';
 
 const participants: Participant[] = [1, 2, 3, 4].map((seed) => ({
@@ -89,5 +89,35 @@ describe('Swiss stage advancement', () => {
     );
 
     expect(result.nextStage.bestOf).toBe(3);
+  });
+});
+
+describe('configured tournament transitions', () => {
+  const results = [completedMatch('m1', 'p1', 'p2', 'p1'), completedMatch('m2', 'p3', 'p4', 'p3')];
+  const groups = ['g1', 'g2'].map((id, index) => ({
+    id, name: id, position: index + 1, stageId: stage.id,
+    participantIds: participants.slice(index * 2, index * 2 + 2).map(p => p.id),
+  }));
+  const grouped = results.map((m, i) => ({ ...m, groupId: groups[i].id }));
+  const source = { ...stage, config: { ...stage.config, advanceCount: 1 } };
+
+  it.each(['swiss', 'single_elimination', 'double_elimination', 'round_robin'] as const)(
+    'uses the scheduled %s stage and exactly one qualifier per group', type => {
+      const destination: Stage = { ...stage, id: 'next', position: 2, status: 'pending', type };
+      const { nextStage, qualifiers, nextMatches, nextRounds } = advanceGroupStageToPlayoffs(
+        't1', source, groups, grouped, participants, { destination }
+      );
+      expect(nextStage).toMatchObject({ id: 'next', position: 2, type, status: 'in_progress' });
+      expect(qualifiers.map(p => p.id)).toEqual(['p1', 'p3']);
+      expect(nextRounds.every(r => r.stageId === destination.id)).toBe(true);
+      expect(nextMatches.length).toBeGreaterThan(0);
+      expect(nextMatches.every(m => m.stageId === destination.id)).toBe(true);
+      if (type === 'swiss') expect(nextStage.config).toMatchObject({ pointsPerBye: 1, pointsPerMatchWin: 1 });
+    }
+  );
+
+  it('keeps pending group matches from producing qualifiers', () => {
+    expect(() => advanceGroupStageToPlayoffs('t1', source, groups,
+      [{ ...grouped[0], status: 'pending' }], participants)).toThrow('Completa todos');
   });
 });

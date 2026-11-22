@@ -23,6 +23,7 @@ export const ParticipantManager: React.FC = () => {
     addParticipant,
     addBulkParticipants,
     removeParticipant,
+    matches, groups,
     toggleCheckIn,
     checkInAll,
     toggleInspected,
@@ -351,6 +352,7 @@ export const ParticipantManager: React.FC = () => {
                     {currentRole !== 'public' && (
                       <td className="py-2.5 px-3 text-right">
                         <button
+                          disabled={matches.some(m => m.participant1Id === p.id || m.participant2Id === p.id) || groups.some(g => g.participantIds.includes(p.id))}
                           onClick={() => removeParticipant(p.id)}
                           className="p-1.5 rounded-[var(--r-control)] text-[var(--acero)] hover:text-rose-400 hover:bg-[var(--grafito)] transition-colors"
                           title="Eliminar participante"

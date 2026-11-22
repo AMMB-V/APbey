@@ -7,6 +7,9 @@ import {
   Stage,
 } from '../../types/tournament';
 import { generateSingleElimination } from './formats/singleElimination';
+import { generateDoubleElimination } from './formats/doubleElimination';
+import { generateSwiss } from './formats/swiss';
+import { generateRoundRobin } from './formats/roundRobin';
 import { computeStandings, type MatchPointTotals } from './tiebreakers';
 import { createEntityId } from '../storage/entityIds';
 
@@ -17,18 +20,48 @@ export interface AdvanceStageResult {
   qualifiers: Participant[];
 }
 
+interface TransitionOptions {
+  destination?: Stage;
+  pointsToWin?: number;
+  bestOf?: number;
+  thirdPlaceMatch?: boolean;
+  name?: string;
+  getMatchPoints?: MatchPointTotals;
+}
+
+function createQualifiedStage(current: Stage, qualifiers: Participant[], options: TransitionOptions): AdvanceStageResult {
+  if (qualifiers.length < 2) throw new Error('Se requieren al menos dos clasificados.');
+  const configured = options.destination;
+  if (configured && (configured.status !== 'pending' || configured.tournamentId !== current.tournamentId)) {
+    throw new Error('La siguiente etapa debe estar pendiente en este torneo.');
+  }
+  const nextStage: Stage = configured ? { ...configured, status: 'in_progress' } : {
+    id: createEntityId(), tournamentId: current.tournamentId, position: current.position + 1,
+    name: options.name || 'Fase Final (Eliminación Directa)', type: 'single_elimination',
+    status: 'in_progress', matchType: current.matchType, pointsToWin: options.pointsToWin || 7,
+    bestOf: options.bestOf ?? 3, config: { tiebreakers: ['points', 'point_diff', 'seed'], thirdPlaceMatch: options.thirdPlaceMatch !== false },
+  };
+  const args = [current.tournamentId, nextStage.id, qualifiers] as const;
+  let schedule;
+  switch (nextStage.type) {
+    case 'single_elimination': schedule = generateSingleElimination(...args, nextStage.config); break;
+    case 'double_elimination': schedule = generateDoubleElimination(...args, nextStage.config); break;
+    case 'round_robin': schedule = generateRoundRobin(...args); break;
+    case 'swiss':
+      nextStage.config = { pointsPerMatchWin: 1, pointsPerBye: 1, pointsPerMatchDraw: 0, ...nextStage.config };
+      schedule = generateSwiss(...args, { scoring: nextStage.config });
+      break;
+    default: throw new Error('Selecciona un formato final compatible antes de avanzar.');
+  }
+  return { nextStage, nextRounds: schedule.rounds, nextMatches: schedule.matches, qualifiers };
+}
+
 export function advanceSwissStageToPlayoffs(
   tournamentId: string,
   currentStage: Stage,
   allMatches: Match[],
   allParticipants: Participant[],
-  nextStageConfig: {
-    pointsToWin?: number;
-    bestOf?: number;
-    thirdPlaceMatch?: boolean;
-    name?: string;
-    getMatchPoints?: MatchPointTotals;
-  } = {}
+  nextStageConfig: TransitionOptions = {}
 ): AdvanceStageResult {
   const stageMatches = allMatches.filter((match) => match.stageId === currentStage.id);
   if (stageMatches.some((match) => match.status !== 'completed')) {
@@ -52,35 +85,7 @@ export function advanceSwissStageToPlayoffs(
     throw new Error('Swiss debe clasificar al menos a 2 participantes para crear playoffs.');
   }
 
-  const nextStageId = createEntityId();
-  const nextStage: Stage = {
-    id: nextStageId,
-    tournamentId,
-    position: currentStage.position + 1,
-    name: nextStageConfig.name || 'Fase Final (Eliminación Directa)',
-    type: 'single_elimination',
-    status: 'in_progress',
-    matchType: currentStage.matchType,
-    pointsToWin: nextStageConfig.pointsToWin || 7,
-    bestOf: nextStageConfig.bestOf ?? 3,
-    config: {
-      tiebreakers: ['points', 'point_diff', 'seed'],
-      thirdPlaceMatch: nextStageConfig.thirdPlaceMatch !== false,
-    },
-  };
-  const { rounds, matches } = generateSingleElimination(
-    tournamentId,
-    nextStageId,
-    qualified,
-    { thirdPlaceMatch: nextStage.config.thirdPlaceMatch }
-  );
-
-  return {
-    nextStage,
-    nextRounds: rounds,
-    nextMatches: matches,
-    qualifiers: qualified,
-  };
+  return createQualifiedStage(currentStage, qualified, nextStageConfig);
 }
 
 /**
@@ -93,15 +98,12 @@ export function advanceGroupStageToPlayoffs(
   groups: Group[],
   allMatches: Match[],
   allParticipants: Participant[],
-  nextStageConfig: {
-    pointsToWin?: number;
-    bestOf?: number;
-    thirdPlaceMatch?: boolean;
-    name?: string;
-    getMatchPoints?: MatchPointTotals;
-  } = {}
+  nextStageConfig: TransitionOptions = {}
 ): AdvanceStageResult {
-  const qualifiers: Participant[] = [];
+  const stageMatches = allMatches.filter(match => match.stageId === currentStage.id);
+  if (!stageMatches.length || stageMatches.some(match => match.status !== 'completed')) {
+    throw new Error('Completa todos los combates de grupos antes de avanzar.');
+  }
   const advanceCount = currentStage.config.advanceCount || 2;
 
   // Compute standings for each group
@@ -135,74 +137,8 @@ export function advanceGroupStageToPlayoffs(
     }
   }
 
-  // Assign clean seeds for the playoff bracket
-  // E.g. for 4 groups with 2 advancing (8 players):
-  // Seed 1: A1, Seed 2: B1, Seed 3: C1, Seed 4: D1
-  // Seed 5: D2, Seed 6: C2, Seed 7: B2, Seed 8: A2 (inversion prevents same-group rematch until finals)
-  const finalPlayoffParticipants: Participant[] = [];
-  let seedCounter = 1;
-
-  // Winners
-  for (let g = 0; g < groupCount; g++) {
-    const p = groupStandings[g].standings.find(s => s.rank === 1)?.participant;
-    if (p) {
-      finalPlayoffParticipants.push({ ...p, seed: seedCounter++ });
-    }
-  }
-
-  // Second places reversed to avoid early group rematches
-  for (let g = groupCount - 1; g >= 0; g--) {
-    const p = groupStandings[g].standings.find(s => s.rank === 2)?.participant;
-    if (p) {
-      finalPlayoffParticipants.push({ ...p, seed: seedCounter++ });
-    }
-  }
-
-  // If more than 2 advance, add rest
-  if (advanceCount > 2) {
-    for (let rank = 3; rank <= advanceCount; rank++) {
-      for (let g = 0; g < groupCount; g++) {
-        const p = groupStandings[g].standings.find(s => s.rank === rank)?.participant;
-        if (p) {
-          finalPlayoffParticipants.push({ ...p, seed: seedCounter++ });
-        }
-      }
-    }
-  }
-
-  qualifiers.push(...finalPlayoffParticipants);
-
-  // Next stage object
-  const nextStageId = createEntityId();
-  const nextStage: Stage = {
-    id: nextStageId,
-    tournamentId,
-    position: currentStage.position + 1,
-    name: nextStageConfig.name || 'Fase Final (Eliminación Directa)',
-    type: 'single_elimination',
-    status: 'in_progress',
-    matchType: currentStage.matchType,
-    pointsToWin: nextStageConfig.pointsToWin || 7, // Standard 7 pts for finals
-    bestOf: nextStageConfig.bestOf ?? 3,
-    config: {
-      tiebreakers: ['points', 'point_diff', 'seed'],
-      thirdPlaceMatch: nextStageConfig.thirdPlaceMatch !== false,
-    },
-  };
-
-  const { rounds, matches } = generateSingleElimination(
-    tournamentId,
-    nextStageId,
-    finalPlayoffParticipants,
-    { thirdPlaceMatch: nextStage.config.thirdPlaceMatch }
-  );
-
-  return {
-    nextStage,
-    nextRounds: rounds,
-    nextMatches: matches,
-    qualifiers: finalPlayoffParticipants,
-  };
+  const qualifiers = seededQualifiers.map((p, i) => ({ ...p, seed: i + 1 }));
+  return createQualifiedStage(currentStage, qualifiers, nextStageConfig);
 }
 
 export function getAdvancementSlot(

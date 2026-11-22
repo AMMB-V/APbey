@@ -21,7 +21,7 @@ as $$
 declare
   v_result public.tournaments;
 begin
-  select public.publish_tournament(
+  select * from public.publish_tournament(
     (p_tournament ->> 'id')::uuid,
     p_tournament ->> 'slug',
     p_tournament ->> 'name',

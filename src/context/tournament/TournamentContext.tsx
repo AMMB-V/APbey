@@ -1537,6 +1537,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     assertWritablePersistence();
     const p = participants.find(part => part.id === id);
     if (!p) return;
+    if (matches.some(m => m.participant1Id === id || m.participant2Id === id) || groups.some(g => g.participantIds.includes(id))) {
+      throw new Error('El participante ya figura en el calendario.');
+    }
     setParticipants(prev => {
       const filtered = prev.filter(part => part.id !== id);
       // Renormalize seeds
@@ -1600,6 +1603,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!finalStage) return null;
 
     const finalMatches = matchList.filter((match) => match.stageId === finalStage.id);
+    if (finalStage.position === 1 && finalStage.config.stageStructure === 'two_stage' &&
+      ['group_stage', 'swiss', 'round_robin'].includes(finalStage.type)) {
+      return { stageId: finalStage.id, tournamentComplete: false };
+    }
     const swissRoundsRemaining = finalStage.type === 'swiss' && rounds.filter(
       (round) => round.stageId === finalStage.id && round.bracket === 'swiss'
     ).length < (finalStage.config.swissRounds || 3);
@@ -1823,6 +1830,18 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const stage = stages.find(s => s.id === stageId);
     if (!stage) return;
 
+    const prior = stages.filter(s => s.tournamentId === stage.tournamentId && s.position < stage.position)
+      .sort((a, b) => b.position - a.position)[0];
+    if (prior && ['group_stage', 'swiss', 'round_robin'].includes(prior.type) && stage.status === 'pending') {
+      advanceCurrentStage(prior.id);
+      return;
+    }
+    if (prior && prior.status !== 'completed') {
+      const previousMatches = matches.filter(m => m.stageId === prior.id);
+      if (!previousMatches.length || previousMatches.some(m => m.status !== 'completed')) {
+        throw new Error('Completa la etapa anterior antes de iniciar esta.');
+      }
+    }
     // Validate that tournament has at least 2 participants before starting
     if (stage.status !== 'pending') {
       throw new Error('La etapa ya fue iniciada y no puede reiniciarse.');
@@ -1870,9 +1889,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const stageRounds = rounds.filter((round) => round.stageId === stageId && round.bracket === 'swiss');
     const stageMatches = matches.filter((match) => match.stageId === stageId);
     const tournament = tournaments.find((item) => item.id === stage.tournamentId);
+    const roster = new Set(stageMatches.flatMap(m => [m.participant1Id, m.participant2Id]));
     const stageParticipants = participants.filter((participant) =>
       participant.tournamentId === stage.tournamentId &&
-      participant.status !== 'withdrawn' &&
+      roster.has(participant.id) && participant.status !== 'withdrawn' &&
       (!tournament?.checkInRequired || participant.checkedIn)
     );
     const configuredRounds = stage.config.swissRounds || 3;
@@ -1906,14 +1926,20 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!stage) return;
     const stageGroups = groups.filter(g => g.stageId === stageId);
     const stageMatches = matches.filter(m => m.stageId === stageId);
-    const tParts = participants.filter(p => p.tournamentId === stage.tournamentId);
-
-    // Guard: Do not advance if there are no participants or matches
-    if (tParts.length < 2 || (stageGroups.length === 0 && stageMatches.length === 0)) {
-      console.warn('[TournamentContext] No se puede avanzar a playoffs sin participantes o grupos configurados.');
-      return;
+    if (stage.status !== 'in_progress') return;
+    if (!stageMatches.length || stageMatches.some(m => m.status !== 'completed')) {
+      throw new Error('Completa todos los combates antes de avanzar.');
     }
-
+    const later = stages.filter(s => s.tournamentId === stage.tournamentId && s.position > stage.position)
+      .sort((a, b) => a.position - b.position);
+    const destination = later[0];
+    if (stage.config.stageStructure === 'single_stage' || (!destination && stage.position > 1)) return;
+    if (destination && (matches.some(m => m.stageId === destination.id) || later[1]?.position === destination.position)) {
+      throw new Error('La siguiente etapa ya tiene un cuadro o una posición duplicada.');
+    }
+    const roster = new Set(stageMatches.flatMap(m => [m.participant1Id, m.participant2Id]));
+    const tParts = participants.filter(p => p.tournamentId === stage.tournamentId && roster.has(p.id) &&
+      p.status !== 'withdrawn' && p.status !== 'disqualified');
     if (stage.type === 'swiss' && rounds.filter(
       (round) => round.stageId === stage.id && round.bracket === 'swiss'
     ).length < (stage.config.swissRounds || 3)) {
@@ -1922,34 +1948,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const tournament = tournaments.find(t => t.id === stage.tournamentId);
     const getMatchPoints = matchPointTotals(stageMatches, battles, penalties);
-    const result = stage.type === 'swiss'
-      ? advanceSwissStageToPlayoffs(
-        stage.tournamentId,
-        stage,
-        stageMatches,
-        tParts,
-        {
-          name: 'Fase Final (Eliminación Directa)',
-          pointsToWin: tournament?.pointsToWinPlayoffs || 5,
-          bestOf: 3,
-          thirdPlaceMatch: true,
-          getMatchPoints,
-        }
-      )
-      : advanceGroupStageToPlayoffs(
-        stage.tournamentId,
-        stage,
-        stageGroups,
-        stageMatches,
-        tParts,
-        {
-          name: 'Fase Final (Eliminación Directa)',
-          pointsToWin: tournament?.pointsToWinPlayoffs || 5,
-          bestOf: 3,
-          thirdPlaceMatch: true,
-          getMatchPoints,
-        }
-      );
+    const options = { destination, getMatchPoints, pointsToWin: tournament?.pointsToWinPlayoffs || 5 };
+    const result = stage.type === 'group_stage'
+      ? advanceGroupStageToPlayoffs(stage.tournamentId, stage, stageGroups, stageMatches, tParts, options)
+      : advanceSwissStageToPlayoffs(stage.tournamentId, stage, stageMatches, tParts, options);
 
     // Collect referees from groups to move them over to the playoff matches
     const activeReferees = Array.from(new Set([
@@ -1967,25 +1969,15 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return m;
     });
 
-    // Update current stage to completed
-    setStages(prev => {
-      const updated = prev.map(s => s.id === stageId ? { ...s, status: 'completed' as const } : s);
-      const withNewStage = [...updated, result.nextStage];
-      saveState({ stages: withNewStage });
-      return withNewStage;
-    });
-
-    setRounds(prev => {
-      const updated = [...prev, ...result.nextRounds];
-      saveState({ rounds: updated });
-      return updated;
-    });
-
-    setMatches(prev => {
-      const updated = [...prev, ...playoffMatchesWithReferees];
-      saveState({ matches: updated });
-      return updated;
-    });
+    const updatedStages = stages.filter(s => s.id !== result.nextStage.id)
+      .map(s => s.id === stageId ? { ...s, status: 'completed' as const } : s);
+    updatedStages.push(result.nextStage);
+    const updatedRounds = [...rounds, ...result.nextRounds];
+    const updatedMatches = [...matches, ...playoffMatchesWithReferees];
+    setStages(updatedStages);
+    setRounds(updatedRounds);
+    setMatches(updatedMatches);
+    saveState({ stages: updatedStages, rounds: updatedRounds, matches: updatedMatches });
 
     logAudit(
       'stages',
@@ -2837,9 +2829,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const toGroup = groups.find(g => g.id === toGroupId);
     if (!blader || !toGroup) return;
 
-    const fromGroup = groups.find(g => g.participantIds.includes(participantId));
+    const fromGroup = groups.find(g => g.stageId === toGroup.stageId && g.participantIds.includes(participantId));
     if (!fromGroup || fromGroup.id === toGroupId) return;
 
+    if (stages.find(s => s.id === toGroup.stageId)?.status === 'completed' ||
+      matches.some(m => (m.groupId === fromGroup.id || m.groupId === toGroupId) && !m.isBye && m.status !== 'pending')) {
+      throw new Error('El grupo ya tiene combates iniciados.');
+    }
     // Update group participants
     const updatedGroups = groups.map(g => {
       if (g.id === fromGroup.id) {
@@ -2878,6 +2874,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         legs: 1,
       });
 
+      const updatedRounds = [...rounds.filter(r => r.groupId !== fromGroup.id && r.groupId !== toGroupId), ...rrFrom.rounds, ...rrTo.rounds];
+      setRounds(updatedRounds);
+      saveState({ rounds: updatedRounds });
       setMatches(prev => {
         const unaffectedMatches = prev.filter(m => m.groupId !== fromGroup.id && m.groupId !== toGroupId);
         const newGroupMatches = [...rrFrom.matches, ...rrTo.matches].map(m => {
@@ -2900,6 +2899,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     assertWritablePersistence();
     const stage = stages.find(s => s.id === stageId);
     if (!stage) return;
+    if (stage.status === 'completed' || matches.some(m => m.stageId === stageId && !m.isBye && m.status !== 'pending')) {
+      throw new Error('La etapa ya tiene combates iniciados.');
+    }
     const tParts = participants.filter(p => p.tournamentId === stage.tournamentId);
 
     // Calculate optimal number of groups so no group has < 3 players

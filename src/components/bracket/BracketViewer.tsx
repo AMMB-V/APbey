@@ -3,6 +3,7 @@ import { Match, Participant, Round, Stage } from '../../types/tournament';
 import { useTournament } from '../../context/TournamentContext';
 import { MatchQueue, type QueueFilter } from './MatchQueue';
 import { BracketConnections } from './BracketConnections';
+import { computeStandings, matchPointTotals } from '../../lib/engine/tiebreakers';
 import { AceroIcon } from '../common/AceroIcon';
 import {
   Trophy,
@@ -45,7 +46,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
     assignStationToMatch,
     callMatchToStation,
     startStage,
-    generateNextSwissRound,
+    generateNextSwissRound, advanceCurrentStage, stages, battles, penalties,
   } = useTournament();
 
   const { matches, rounds, participants } = demo ?? {
@@ -70,7 +71,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
 
   // Filter rounds for this stage
   const allStageRounds = rounds
-    .filter((r) => r.stageId === stage.id && r.bracket !== 'group')
+    .filter((r) => r.stageId === stage.id && (stage.type === 'round_robin' || r.bracket !== 'group'))
     .sort((a, b) => {
       const lane = (round: Round) => round.bracket === 'losers' ? 1 : round.bracket === 'grand_final' ? 2 : 0;
       return lane(a) - lane(b) || a.number - b.number;
@@ -85,6 +86,13 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
 
   const stageMatches = matches.filter((m) => m.stageId === stage.id);
 
+  const roster = new Set(stageMatches.flatMap(m => [m.participant1Id, m.participant2Id]));
+  const ranked = stage.type === 'swiss' || stage.type === 'round_robin';
+  const standings = ranked ? computeStandings(stageMatches, participants.filter(p => roster.has(p.id)),
+    stage.config.tiebreakers, stage.config.advanceCount, stage.config, matchPointTotals(stageMatches, battles, penalties)) : [];
+  const roundsRemaining = stage.type === 'swiss' && allStageRounds.length < (stage.config.swissRounds || 3);
+  const hasNextStage = stages.some(s => s.tournamentId === stage.tournamentId && s.position > stage.position) ||
+    (stage.position === 1 && stage.config.stageStructure === 'two_stage');
   const canManage = !demo && (currentRole === 'admin' ||
     (currentRole === 'organizer' && Boolean(currentUser && activeTournament?.organizerId === currentUser.id)));
   const canScore = (match: Match) => stage.status === 'in_progress' && match.status !== 'completed' &&
@@ -200,20 +208,27 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
           <div className="flex items-center gap-2">
             <AceroIcon id="i-trofeo" size="md" className="text-[var(--cobalto)]" />
             <h3 className="font-bold text-sm tracking-tight font-display">
-              Cuadro Eliminatorio Oficial (Best of {stage.bestOf || 1})
+              {stage.type === 'swiss' ? 'Sistema suizo' : stage.type === 'round_robin' ? 'Todos contra todos' : 'Cuadro eliminatorio'} · Al mejor de {stage.bestOf || 1}
             </h3>
           </div>
         )}
 
         {/* Right: Ergonomic Zoom Controls & Print Button */}
         <div className="flex items-center gap-2">
-          {stage.type === 'swiss' && stage.status === 'in_progress' && (
+          {canManage && roundsRemaining && stage.status === 'in_progress' && (
             <button
               type="button"
+              disabled={stageMatches.some(m => m.status !== 'completed')}
               onClick={handleGenerateSwissRound}
               className="acero-btn acero-btn--primary text-xs px-3 py-1.5"
             >
               Generar siguiente ronda Swiss
+            </button>
+          )}
+          {canManage && ranked && hasNextStage && !roundsRemaining && stage.status === 'in_progress' && (
+            <button className="acero-btn acero-btn--primary" disabled={!stageMatches.length || stageMatches.some(m => m.status !== 'completed')}
+              onClick={() => { try { advanceCurrentStage(stage.id); } catch (e) { window.alert(e instanceof Error ? e.message : 'No se pudo avanzar.'); } }}>
+              Avanzar a la siguiente etapa
             </button>
           )}
           {/* Zoom controls */}
@@ -256,18 +271,26 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
           {canManage && stage.status === 'pending' && (
             <button
               type="button"
-              onClick={() => startStage(stage.id)}
+              onClick={() => { try { startStage(stage.id); } catch (e) { window.alert(e instanceof Error ? e.message : 'No se pudo iniciar.'); } }}
               disabled={participants.filter((participant) => participant.tournamentId === stage.tournamentId).length < 2}
               className="acero-btn acero-btn--primary text-xs px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               title="Generar la llave y habilitar el arbitraje"
             >
               <Radio className="w-3.5 h-3.5" />
-              Iniciar eliminación
+              Iniciar etapa
             </button>
           )}
         </div>
       </div>
 
+      {standings.length > 0 && <div className="overflow-x-auto">
+        <table className="tabla"><caption>Clasificación {stage.status === 'completed' ? 'final' : 'provisional'}</caption>
+          <thead><tr><th>Puesto</th><th>Blader</th><th>Victorias</th><th>Puntos</th>
+            {stage.type === 'swiss' && <th>Buchholz medio</th>}{stage.config.tiebreakers?.includes('head_to_head') && <th>Directo</th>}<th>Diferencia</th></tr></thead>
+          <tbody>{standings.map(row => <tr key={row.participantId}><td>{row.rank}</td><th scope="row">{row.participant.displayName}</th>
+            <td>{row.won}</td><td>{row.points}</td>{stage.type === 'swiss' && <td>{row.medianBuchholz}</td>}{stage.config.tiebreakers?.includes('head_to_head') && <td>{row.directWins ?? '—'}</td>}<td>{row.pointDiff}</td></tr>)}</tbody>
+        </table>
+      </div>}
       {(hasRoutes || currentRole === 'referee') && (
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-[var(--acero)]">
           {hasRoutes && <>
