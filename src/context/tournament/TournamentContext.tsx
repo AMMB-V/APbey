@@ -180,7 +180,7 @@ interface TournamentContextType {
   moveParticipantToGroup: (participantId: string, toGroupId: string) => void;
   rebalanceGroups: (stageId: string, targetGroupSize?: number) => void;
   assignStationToMatch: (matchId: string, station: string | null) => void;
-  callMatchToStation: (matchId: string) => void;
+  callMatchToStation: (matchId: string, station?: string) => void;
   dismissStationCall: (matchId: string) => void;
   activeStationAlert: { matchId: string; message: string; timestamp: number } | null;
   showStadiumModal: boolean;
@@ -3156,13 +3156,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     logAudit('matches', matchId, 'update', `Mesa/Estadio ${station ? `"${station}" asignado` : 'desasignado'}.`);
   };
 
-  const callMatchToStation = (matchId: string) => {
+  const callMatchToStation = (matchId: string, station?: string) => {
     assertWritablePersistence();
     const targetMatch = matches.find(m => m.id === matchId);
     if (!targetMatch) return;
     const p1 = participants.find(p => p.id === targetMatch.participant1Id)?.displayName || 'Blader 1';
     const p2 = participants.find(p => p.id === targetMatch.participant2Id)?.displayName || 'Blader 2';
-    const stationLabel = targetMatch.station || 'Estadio Principal';
+    const stationLabel = (station ?? targetMatch.station) || 'Estadio Principal';
 
     setMatches(prev => {
       const updated = prev.map(m => m.id === matchId ? { ...m, calledToStation: true } : m);

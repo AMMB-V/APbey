@@ -239,6 +239,12 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
 
   return (
     <div className="min-w-0 max-w-4xl mx-auto px-0 sm:px-4 py-4 w-full flex flex-col gap-5">
+      {officialMatch && onNavigateTab && (
+        <button type="button" onClick={() => onNavigateTab('bracket')}
+          className="self-start min-h-11 text-sm font-semibold text-[var(--cobalto-texto)] hover:underline">
+          ← Volver al cuadro
+        </button>
+      )}
       {/* View Header with Status */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>

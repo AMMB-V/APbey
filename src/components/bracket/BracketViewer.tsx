@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Match, Participant, Round, Stage } from '../../types/tournament';
 import { useTournament } from '../../context/TournamentContext';
+import { MatchQueue } from './MatchQueue';
 import { BracketConnections } from './BracketConnections';
 import { AceroIcon } from '../common/AceroIcon';
 import {
@@ -16,6 +17,8 @@ import {
   Radio,
   Layers,
 } from 'lucide-react';
+
+type BracketFilter = 'all' | 'winners' | 'losers' | 'finals';
 
 interface BracketViewerProps {
   stage: Stage;
@@ -47,12 +50,18 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
     matches: tournamentMatches, rounds: tournamentRounds, participants: tournamentParticipants,
   };
 
+  const scrollKey = `apbey-bracket-scroll-${stage.id}`;
+  const [restored] = useState(() => {
+    const saved = sessionStorage.getItem(scrollKey);
+    return saved ? JSON.parse(saved) as { left: number; top: number; zoom: number; filter: BracketFilter; mineOnly: boolean } : null;
+  });
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [routeTarget, setRouteTarget] = useState<string | null>(null);
-  const [mineOnly, setMineOnly] = useState(false);
+  const [mineOnly, setMineOnly] = useState(restored?.mineOnly ?? false);
   const board = useRef<HTMLDivElement>(null);
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
-  const [bracketFilter, setBracketFilter] = useState<'all' | 'winners' | 'losers' | 'finals'>('all');
+  const viewport = useRef<HTMLDivElement>(null);
+  const [zoomLevel, setZoomLevel] = useState(restored?.zoom ?? 1);
+  const [bracketFilter, setBracketFilter] = useState<BracketFilter>(restored?.filter ?? 'all');
   const [stationInput, setStationInput] = useState<string>('Estadio 1');
 
   // Filter rounds for this stage
@@ -91,6 +100,29 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
     target?.querySelector('button')?.focus({ preventScroll: true });
     setRouteTarget(null);
   }, [routeTarget, bracketFilter, mineOnly]);
+
+  useLayoutEffect(() => {
+    const element = viewport.current;
+    const saved = sessionStorage.getItem(scrollKey);
+    if (!element || !saved || !allStageRounds.length) return;
+    sessionStorage.removeItem(scrollKey);
+    const { left, top } = JSON.parse(saved);
+    element.scrollLeft = left;
+    window.scrollTo(0, top);
+  }, [scrollKey, allStageRounds.length]);
+
+  function openMarker(matchId: string) {
+    if (!onOpenMatchInReferee) return;
+    sessionStorage.setItem(scrollKey, JSON.stringify({
+      left: viewport.current?.scrollLeft ?? 0, top: window.scrollY, zoom: zoomLevel, filter: bracketFilter, mineOnly,
+    }));
+    onOpenMatchInReferee(matchId);
+  }
+
+  function openDetails(match: Match) {
+    setSelectedMatchId(match.id);
+    setStationInput(match.station || '');
+  }
 
   function followRoute(id: string) {
     setMineOnly(false);
@@ -243,8 +275,12 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
       {mineOnly && visibleMatches.length === 0 && (
         <p className="text-sm text-[var(--acero)]">Todavía no tienes combates asignados en esta etapa.</p>
       )}
+      {visibleMatches.length > 0 && <MatchQueue key={stage.id} matches={visibleMatches} canManage={canManage}
+        label={match => matchLabels.get(match.id)} playerName={id => getParticipant(id)?.displayName}
+        onLocate={followRoute} onManage={openDetails} onOpen={onOpenMatchInReferee && openMarker}
+        canScore={canScore} />}
       {/* Scalable Canvas with Zoom Transform */}
-      <div className="overflow-x-auto overflow-y-hidden pb-8 pt-2 rounded-[var(--r-card)] bg-[var(--grafito)] border border-[var(--costura)] p-4">
+      <div ref={viewport} className="overflow-x-auto overflow-y-hidden pb-8 pt-2 rounded-[var(--r-card)] bg-[var(--grafito)] border border-[var(--costura)] p-4">
         <div
           ref={board}
           className="relative flex gap-10 w-max min-w-full items-start px-4"
@@ -295,10 +331,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                         <div className="flex items-center justify-between text-[11px] mb-2 text-[var(--acero)]">
                           <button type="button" className="min-h-8 font-mono font-semibold text-[var(--hueso)] hover:underline"
                             aria-label={`Detalles del combate ${matchLabels.get(match.id)}`}
-                            onClick={() => {
-                              setSelectedMatchId(match.id);
-                              setStationInput(match.station || 'Estadio 1');
-                            }}>
+                            onClick={() => openDetails(match)}>
                             {matchLabels.get(match.id)}
                           </button>
                           <div className="flex items-center gap-1.5">
@@ -394,7 +427,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onOpenMatchInReferee(match.id);
+                                openMarker(match.id);
                               }}
                               className="text-[var(--cobalto)] hover:underline font-bold flex items-center gap-0.5"
                             >
@@ -467,15 +500,15 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                     className="grow bg-[var(--grafito)] border border-[var(--costura)] rounded-[var(--r-control)] px-3 py-1.5 text-xs text-[var(--hueso)] focus:outline-hidden"
                   />
                   <button
-                    onClick={() => assignStationToMatch(selectedMatch.id, stationInput)}
+                    onClick={() => assignStationToMatch(selectedMatch.id, stationInput.trim())}
                     className="acero-btn acero-btn--secondary text-xs px-3 py-1.5"
                   >
                     Guardar
                   </button>
                   <button
                     onClick={() => {
-                      assignStationToMatch(selectedMatch.id, stationInput);
-                      callMatchToStation(selectedMatch.id);
+                      assignStationToMatch(selectedMatch.id, stationInput.trim());
+                      callMatchToStation(selectedMatch.id, stationInput.trim());
                       setSelectedMatchId(null);
                     }}
                     className="acero-btn acero-btn--primary text-xs px-3 py-1.5 flex items-center gap-1"
@@ -511,7 +544,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                   onClick={() => {
                     const mId = selectedMatch.id;
                     setSelectedMatchId(null);
-                    onOpenMatchInReferee(mId);
+                    openMarker(mId);
                   }}
                   className="acero-btn acero-btn--primary text-xs px-4 py-1.5 flex items-center gap-1.5"
                 >

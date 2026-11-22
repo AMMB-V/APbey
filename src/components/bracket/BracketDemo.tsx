@@ -28,10 +28,21 @@ const participants: Participant[] = ['Astra', 'Boreal', 'Cometa', 'Delta', 'Eco'
   }));
 
 export function BracketDemo() {
-  const demo = useMemo(() => ({
-    ...generateDoubleElimination(stage.tournamentId, stage.id, participants),
-    participants,
-  }), []);
+  const demo = useMemo(() => {
+    const bracket = generateDoubleElimination(stage.tournamentId, stage.id, participants);
+    const firstRound = bracket.rounds.find(round => round.bracket === 'winners')?.id;
+    return {
+      ...bracket,
+      participants,
+      matches: bracket.matches.map(match => {
+        if (match.roundId !== firstRound) return match;
+        if (match.position === 1) return { ...match, station: 'Mesa A', status: 'in_progress' as const, score1: 2, score2: 1 };
+        if (match.position === 2) return { ...match, station: 'Mesa A', status: 'completed' as const,
+          score1: 4, score2: 2, sets1: 2, winnerId: match.participant1Id };
+        return { ...match, station: match.position === 3 ? 'Mesa B' : undefined };
+      }),
+    };
+  }, []);
 
   return (
     <main className="min-h-screen bg-[var(--grafito)] p-4 text-[var(--hueso)] sm:p-8">
