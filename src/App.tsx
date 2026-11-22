@@ -75,6 +75,7 @@ function TournamentApp() {
     if (hash.includes('rankings')) return 'rankings';
     if (hash.includes('deck')) return 'deck';
 
+    if (import.meta.env.VITE_BRACKET_DEMO && new URLSearchParams(window.location.search).get('demo') === 'cuadro') return 'bracket';
     const requestedView = new URLSearchParams(window.location.search).get('view');
     if (requestedView && VALID_TABS.includes(requestedView as MainTabType)) {
       return requestedView as MainTabType;
@@ -174,6 +175,7 @@ function TournamentApp() {
     window.localStorage.setItem('apbey_active_tab', activeTab);
     const url = new URL(window.location.href);
     url.searchParams.set('view', activeTab);
+    if (activeTab !== 'bracket') url.searchParams.delete('demo');
     if (activeTournament?.id) {
       url.searchParams.set('tournament', activeTournament.id);
     } else {
@@ -264,9 +266,8 @@ function TournamentApp() {
     featuredMatches[0];
   const featuredStage = tournamentStages.find(stage => stage.id === featuredMatch?.stageId);
 
-  if (import.meta.env.VITE_BRACKET_DEMO && new URLSearchParams(window.location.search).get('demo') === 'cuadro') {
-    return <BracketDemo />;
-  }
+  const showBracketDemo = import.meta.env.VITE_BRACKET_DEMO &&
+    new URLSearchParams(window.location.search).get('demo') === 'cuadro' && activeTab === 'bracket';
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[var(--grafito)] text-[var(--hueso)] flex flex-col font-sans antialiased selection:bg-[var(--cobalto)] selection:text-[var(--tinta)] pb-24 md:pb-6">
@@ -356,54 +357,30 @@ function TournamentApp() {
               className="mb-5 flex w-full items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-1.5"
             >
               {[
-                { id: 'overview' as const, label: 'Resumen', shortLabel: 'Resumen', icon: LayoutDashboard, color: 'amber', num: '1' },
-                { id: 'participants' as const, label: 'Participantes', shortLabel: 'Bladers', icon: Users, color: 'cyan', num: '2' },
-                { id: 'stages' as const, label: 'Etapas', shortLabel: 'Etapas', icon: ListOrdered, color: 'purple', wizardTab: 'stages' as const, num: '3' },
-                { id: 'bracket' as const, label: 'Brackets', shortLabel: 'Brackets', icon: Trophy, color: 'indigo', num: '4' },
-                { id: 'referee' as const, label: 'Árbitros', shortLabel: 'Árbitros', icon: Scale, color: 'emerald', num: '5' },
-                { id: 'config' as const, label: 'Configuración', shortLabel: 'Config', icon: Settings, color: 'neutral', wizardTab: 'general' as const, num: '6' },
-              ].map((item) => {
-                const isSelected =
-                  item.id === 'config'
-                    ? activeTab === 'wizard'
-                    : item.id === 'stages'
-                      ? activeTab === 'wizard' && wizardInitialTab === 'stages'
-                      : activeTab === item.id;
+                { id: 'overview' as const, label: 'Resumen', icon: LayoutDashboard },
+                { id: 'participants' as const, label: 'Participantes', icon: Users },
+                { id: 'bracket' as const, label: 'Cuadro', icon: Trophy },
+                { id: 'wizard' as const, label: 'Configuración', icon: Settings },
+              ].filter(item => canManageTournament || item.id !== 'wizard').map((item) => {
+                const isSelected = activeTab === item.id;
                 const Icon = item.icon;
-                const colorMap: Record<string, { badge: string; text: string; bg: string; border: string }> = {
-                  amber:   { badge: 'bg-amber-500 text-black',   text: 'text-amber-300',   bg: 'bg-amber-500/15',   border: 'border-amber-500/40' },
-                  cyan:    { badge: 'bg-cyan-500 text-black',    text: 'text-cyan-300',    bg: 'bg-cyan-500/15',    border: 'border-cyan-500/40' },
-                  purple:  { badge: 'bg-purple-500 text-white',  text: 'text-purple-300',  bg: 'bg-purple-500/15',  border: 'border-purple-500/40' },
-                  indigo:  { badge: 'bg-indigo-500 text-white',  text: 'text-indigo-300',  bg: 'bg-indigo-500/15',  border: 'border-indigo-500/40' },
-                  emerald: { badge: 'bg-emerald-500 text-black', text: 'text-emerald-300', bg: 'bg-emerald-500/15', border: 'border-emerald-500/40' },
-                  neutral: { badge: 'bg-neutral-500 text-white', text: 'text-neutral-300', bg: 'bg-neutral-500/15', border: 'border-neutral-500/40' },
-                };
-                const c = colorMap[item.color];
                 return (
                   <button
                     key={item.id}
                     type="button"
                     aria-current={isSelected ? 'page' : undefined}
                     onClick={() => {
-                      if (item.id === 'config' || item.id === 'stages') {
-                        setWizardInitialTab(item.wizardTab || 'general');
-                        setActiveTab('wizard');
-                      } else {
-                        setActiveTab(item.id);
-                      }
+                      if (item.id === 'wizard') setWizardInitialTab('general');
+                      setActiveTab(item.id);
                     }}
-                    className={`shrink-0 rounded-xl px-3 py-1.5 text-[11px] font-bold transition-all flex items-center gap-1.5 min-h-[36px] border ${
+                    className={`${item.id === 'bracket' ? 'hidden md:flex' : 'flex'} shrink-0 rounded-xl px-3 py-1.5 text-[11px] font-bold transition-all items-center gap-1.5 min-h-11 border ${
                       isSelected
-                        ? `${c.bg} ${c.text} ${c.border} shadow-sm`
+                        ? 'bg-[var(--grafito)] text-[var(--cobalto-texto)] border-[var(--costura)]'
                         : 'text-[var(--acero)] hover:bg-[var(--grafito)] hover:text-[var(--hueso)] border-transparent'
                     }`}
                   >
-                    <span className={`w-4 h-4 rounded-full text-[9px] font-black flex items-center justify-center shrink-0 ${isSelected ? c.badge : 'bg-[var(--grafito)] text-[var(--acero)]'}`}>
-                      {item.num}
-                    </span>
                     <Icon className="h-3 w-3 shrink-0" />
-                    <span className="hidden sm:inline">{item.label}</span>
-                    <span className="sm:hidden">{item.shortLabel}</span>
+                    <span>{item.label}</span>
                   </button>
                 );
               })}
@@ -567,7 +544,8 @@ function TournamentApp() {
         )}
 
         {/* View 1: Brackets & Groups */}
-        {activeTab === 'bracket' && (
+        {showBracketDemo && <BracketDemo />}
+        {activeTab === 'bracket' && !showBracketDemo && (
           <div className="space-y-6">
             {tournamentStages.length > 1 && (
               <div className="bg-[var(--chasis)] rounded-2xl border border-[var(--costura)] p-3 shadow-xs flex items-center justify-between overflow-x-auto gap-4">

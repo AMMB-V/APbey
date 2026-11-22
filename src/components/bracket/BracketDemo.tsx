@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { generateDoubleElimination } from '../../lib/engine/formats/doubleElimination';
-import type { Participant, Stage } from '../../types/tournament';
+import type { Participant, SetScore, Stage } from '../../types/tournament';
+import { SetTimeline } from '../scoreboard/SetTimeline';
 import { BracketViewer } from './BracketViewer';
 
 const stage: Stage = {
@@ -28,6 +29,7 @@ const participants: Participant[] = ['Astra', 'Boreal', 'Cometa', 'Delta', 'Eco'
   }));
 
 export function BracketDemo() {
+  const [scores, setScores] = useState<SetScore[]>([[2, 2]]);
   const demo = useMemo(() => {
     const bracket = generateDoubleElimination(stage.tournamentId, stage.id, participants);
     const firstRound = bracket.rounds.find(round => round.bracket === 'winners')?.id;
@@ -45,7 +47,7 @@ export function BracketDemo() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-[var(--grafito)] p-4 text-[var(--hueso)] sm:p-8">
+    <section aria-label="Demostración del cuadro">
       <div className="mx-auto max-w-screen-2xl space-y-5">
         <a href="/?view=torneos" className="inline-flex min-h-11 items-center text-sm font-semibold text-[var(--cobalto-texto)]">
           Volver a torneos
@@ -56,7 +58,15 @@ export function BracketDemo() {
           <p className="mt-2 text-sm text-[var(--acero)]">Selecciona el destino de un ganador o perdedor para saltar a su siguiente combate.</p>
         </header>
         <BracketViewer stage={stage} demo={demo} />
+        <details className="rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-4">
+          <summary className="cursor-pointer text-sm font-semibold">Probar un desempate por sets</summary>
+          <div className="mt-3">
+            <SetTimeline scores={scores} canCloseTie={scores.length === 1} onCloseTie={() => setScores([[2, 2], [0, 0]])} />
+            {scores.length > 1 && <button type="button" className="mt-2 min-h-11 text-sm text-[var(--cobalto-texto)]"
+              onClick={() => setScores([[2, 2]])}>Reiniciar demostración</button>}
+          </div>
+        </details>
       </div>
-    </main>
+    </section>
   );
 }

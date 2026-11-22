@@ -2309,7 +2309,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (supabaseSyncInfo.isConfigured) {
       const supabase = getSupabaseClient();
       if (!supabase) throw new Error('Supabase no está disponible.');
-      const { error } = await supabase.rpc(partial ? 'save_match_set_progress' : 'report_match_sets', {
+      const { data, error } = await supabase.rpc(partial ? 'save_match_set_progress' : 'report_match_sets', {
         p_match_id: matchId,
         p_expected_version: expectedVersion,
         p_scores: scores,
@@ -2323,6 +2323,21 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           match_closed: 'Este combate ya está finalizado.',
         };
         throw new Error(messages[error.message] || 'No se pudo guardar el resultado. Revisa el estado del combate e inténtalo de nuevo.');
+      }
+      if (partial && data?.id === matchId) {
+        setMatches(current => current.map(item =>
+          item.id === matchId && item.version <= data.version ? {
+            ...item,
+            score1: data.score1,
+            score2: data.score2,
+            sets1: data.sets1,
+            sets2: data.sets2,
+            status: data.status,
+            startedAt: data.started_at,
+            setCheckpoint: data.set_checkpoint,
+            version: data.version,
+          } : item
+        ));
       }
       return;
     }

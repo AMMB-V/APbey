@@ -17,6 +17,7 @@ import {
 import { useTournament } from '../../context/TournamentContext';
 import { SyncBadge } from '../common/SyncBadge';
 import { Snackbar } from '../common/Snackbar';
+import { SetTimeline } from './SetTimeline';
 import { MatchSetReport } from '../referee/MatchSetReport';
 import { FinishType } from '../../types/tournament';
 import { getMatchPointsToWin, getSetsNeeded, liveSetScores } from '../../lib/engine/arbitration';
@@ -131,6 +132,18 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
   const matchPenalties = officialMatch
     ? penalties.filter((p) => p.matchId === officialMatch.id)
     : [];
+
+  const setScores = officialMatch ? liveSetScores(officialMatch, matchBattles, matchPenalties, target) : [];
+  const canCloseTie = Boolean(canArbitrate && officialMatch?.status === 'in_progress' &&
+    activeP1Score > 0 && activeP1Score === activeP2Score && activeP1Score < target);
+
+  function closeTiedSet() {
+    if (!officialMatch || !canCloseTie) return;
+    void saveScore(async () => {
+      await reportMatchSets(officialMatch.id, officialMatch.version, [...setScores, [0, 0]], true);
+      return true;
+    }, 'Set empatado guardado. El siguiente set empieza en 0–0.');
+  }
 
   // Next match finder
   const nextMatch = tournamentMatches.find(
@@ -291,7 +304,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
             )}
             {officialMatch && activeStage && officialMatch.status !== 'completed' && (
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[var(--cobalto)]/20 border border-[var(--cobalto)]/40 text-[var(--cobalto-texto)]">
-                Set {liveSetScores(officialMatch, matchBattles, matchPenalties, target).length}
+                Set {setScores.length}
               </span>
             )}
           </div>
@@ -481,6 +494,9 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
             </div>
           </div>
 
+          {officialMatch.status === 'in_progress' && (
+            <SetTimeline scores={setScores} canCloseTie={canCloseTie && !savingScore} onCloseTie={closeTiedSet} />
+          )}
           {activeStage && activeTournament && (
             <MatchSetReport
               key={officialMatch.id}
@@ -489,7 +505,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               players={[officialP1, officialP2]}
               target={target}
               canReport={!savingScore && canArbitrate && officialMatch.status !== 'completed'}
-              currentScores={liveSetScores(officialMatch, matchBattles, matchPenalties, target)}
+              currentScores={setScores}
               onReport={reportMatchSets}
             />
           )}
