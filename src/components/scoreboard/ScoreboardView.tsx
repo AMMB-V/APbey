@@ -17,6 +17,7 @@ import {
 import { useTournament } from '../../context/TournamentContext';
 import { SyncBadge } from '../common/SyncBadge';
 import { Snackbar } from '../common/Snackbar';
+import { SetTimeline } from './SetTimeline';
 import { MatchSetReport } from '../referee/MatchSetReport';
 import { FinishType } from '../../types/tournament';
 import { getMatchPointsToWin, getSetsNeeded, liveSetScores } from '../../lib/engine/arbitration';
@@ -50,11 +51,13 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const savingRef = useRef(false);
   const [savingScore, setSavingScore] = useState(false);
+  const [saveFailure, setSaveFailure] = useState<{ matchId: string; score1: number; score2: number } | null>(null);
 
   const saveScore = async (save: () => Promise<boolean>, message: string, undo?: () => void) => {
     if (savingRef.current) return false;
     savingRef.current = true;
     setSavingScore(true);
+    setSaveFailure(null);
     setSnackbarOpen(false);
     setLastAction(null);
     let saved = false;
@@ -66,6 +69,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
       savingRef.current = false;
       setSavingScore(false);
     }
+    if (!saved && officialMatch) setSaveFailure({ matchId: officialMatch.id, score1: officialMatch.score1, score2: officialMatch.score2 });
     setSnackbarMessage(saved ? message : 'No se pudo guardar. Revisa el marcador e inténtalo de nuevo.');
     if (saved && undo) setLastAction(() => undo);
     setSnackbarOpen(true);
@@ -132,17 +136,39 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
     ? penalties.filter((p) => p.matchId === officialMatch.id)
     : [];
 
-  // Next match finder
-  const nextMatch = tournamentMatches.find(
-    (m) => m.id !== selectedOfficialMatchId && m.status !== 'completed'
-  );
+  const setScores = officialMatch ? liveSetScores(officialMatch, matchBattles, matchPenalties, target) : [];
+  const canCloseTie = Boolean(canArbitrate && officialMatch?.status === 'in_progress' &&
+    activeP1Score > 0 && activeP1Score === activeP2Score && activeP1Score < target);
+
+  function closeTiedSet() {
+    if (!officialMatch || !canCloseTie) return;
+    void saveScore(async () => {
+      await reportMatchSets(officialMatch.id, officialMatch.version, [...setScores, [0, 0]], true);
+      return true;
+    }, 'Set empatado guardado. El siguiente set empieza en 0–0.');
+  }
+
+  const stationQueue = officialMatch?.station ? matches.filter(match =>
+    match.tournamentId === officialMatch.tournamentId && match.id !== officialMatch.id && match.station === officialMatch.station && match.status === 'pending' && !match.isBye) : [];
+  const nextMatch = stationQueue.find(match => match.participant1Id && match.participant2Id &&
+    stages.some(stage => stage.id === match.stageId && stage.status === 'in_progress') &&
+    (currentRole === 'referee' ? match.refereeId === currentUser?.id : Boolean(match.refereeId)));
+  const nextStageName = stages.find(stage => stage.id === nextMatch?.stageId)?.name;
+  const blockedBySaveFailure = saveFailure?.matchId === officialMatch?.id && Boolean(saveFailure);
+  const nextParticipants = nextMatch && [nextMatch.participant1Id, nextMatch.participant2Id]
+    .map(id => participants.find(player => player.id === id)?.displayName ?? 'Por definir').join(' vs. ');
+  const stationQueueMessage = !officialMatch?.station ? 'Asigna una mesa para ver su siguiente combate.' :
+    stationQueue.some(match => !match.participant1Id || !match.participant2Id)
+      ? 'Hay cruces en esta mesa que aún esperan participantes.'
+      : stationQueue.length ? 'Revisa el árbitro asignado y la fase de los combates pendientes.'
+      : 'No hay más combates pendientes en esta mesa.';
 
   const handleNextMatch = () => {
-    if (nextMatch) {
-      setSelectedOfficialMatchId(nextMatch.id);
-      setSnackbarMessage(`Cargado siguiente combate: Mesa ${nextMatch.station || 'A'}`);
-      setSnackbarOpen(true);
-    }
+    if (!nextMatch || savingScore) return;
+    setSelectedOfficialMatchId(nextMatch.id);
+    setLastAction(null);
+    setSnackbarOpen(false);
+    window.scrollTo(0, 0);
   };
 
   const playSoundEffect = (points: number) => {
@@ -220,17 +246,18 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
   ) => (
     <button
       type="button"
+      aria-label={`${title}, +${points} para ${scorer === "p1" ? officialP1?.displayName : officialP2?.displayName}`}
       onClick={() => handleRecordBattle(scorer, finish, points)}
-      disabled={savingScore || !canArbitrate || !officialMatch || officialMatch.status === 'completed'}
-      className={`w-full min-h-[56px] py-3 px-4 rounded-2xl bg-[var(--chasis)] border-2 ${borderColor} hover:opacity-90 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-between shadow-md group`}
+      disabled={savingScore || blockedBySaveFailure || !canArbitrate || !officialMatch || officialMatch.status === 'completed'}
+      className={`w-full min-w-0 min-h-[56px] py-2 px-2 sm:px-4 rounded-2xl bg-[var(--chasis)] border-2 ${borderColor} hover:opacity-90 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-between shadow-md group`}
     >
-      <div className="flex items-center gap-3 text-left">
-        <div className={`p-2 rounded-xl bg-[var(--grafito)] ${textColor} shrink-0`}>
+      <div className="flex min-w-0 items-center gap-1 sm:gap-3 text-left">
+        <div className={`hidden rounded-xl bg-[var(--grafito)] p-2 sm:block ${textColor} shrink-0`}>
           {icon}
         </div>
         <div>
           <div className="text-sm font-black text-[var(--hueso)]">{title}</div>
-          <div className="text-[10px] text-[var(--acero)]">{detail}</div>
+          <div className="hidden text-[10px] text-[var(--acero)] sm:block">{detail}</div>
         </div>
       </div>
       <span className={`text-lg font-black font-mono ${textColor}`}>+{points}</span>
@@ -238,7 +265,13 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
   );
 
   return (
-    <div className="min-w-0 max-w-4xl mx-auto px-0 sm:px-4 py-4 w-full flex flex-col gap-5">
+    <div className="min-w-0 max-w-4xl mx-auto px-0 sm:px-4 py-4 pb-20 md:pb-4 w-full flex flex-col gap-5">
+      {officialMatch && onNavigateTab && (
+        <button type="button" onClick={() => onNavigateTab('bracket')}
+          className="self-start min-h-11 text-sm font-semibold text-[var(--cobalto-texto)] hover:underline">
+          ← Volver al cuadro
+        </button>
+      )}
       {/* View Header with Status */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
@@ -285,23 +318,12 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
             )}
             {officialMatch && activeStage && officialMatch.status !== 'completed' && (
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[var(--cobalto)]/20 border border-[var(--cobalto)]/40 text-[var(--cobalto-texto)]">
-                Set {liveSetScores(officialMatch, matchBattles, matchPenalties, target).length}
+                Set {setScores.length}
               </span>
             )}
           </div>
 
           <div className="flex items-center gap-2">
-            {nextMatch && (
-              <button
-                type="button"
-                onClick={handleNextMatch}
-                className="px-3 py-1.5 rounded-xl bg-[var(--grafito)] border border-[var(--costura)] hover:border-[var(--cobalto)] text-xs font-bold text-[var(--hueso)] flex items-center gap-1.5 transition-colors min-h-[36px]"
-              >
-                <span>Siguiente Combate</span>
-                <ArrowRight className="w-3.5 h-3.5 text-[var(--cobalto-texto)]" />
-              </button>
-            )}
-
             {currentRole === 'referee' && officialMatch && officialMatch.refereeId !== currentUser?.id && (
               <span className="text-xs text-amber-400">Solo lectura. Este combate no está asignado a tu cuenta.</span>
             )}
@@ -392,6 +414,15 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
         </div>
       ) : (
         <>
+          {officialMatch.status !== 'completed' && (
+            <div className="fixed bottom-20 left-3 right-3 z-30 flex min-w-0 items-center justify-between gap-2 rounded-xl border border-[var(--costura)] bg-[var(--chasis)] p-2 text-xs shadow-lg md:hidden">
+              <span className="min-w-0 truncate text-[var(--cobalto-texto)]">{officialP1.displayName}</span>
+              <span className="shrink-0 text-center font-mono font-bold tabular-nums">
+                {activeP1Score}–{activeP2Score}<span className="block text-[var(--acero)]">Set {setScores.length}</span>
+              </span>
+              <span className="min-w-0 truncate text-[var(--cobre)]">{officialP2.displayName}</span>
+            </div>
+          )}
           {/* Main Scoreboard Digits Display */}
           <div className="grid grid-cols-2 gap-3 sm:gap-6 bg-[var(--chasis)] border-2 border-[var(--costura)] rounded-3xl p-4 sm:p-6 shadow-2xl relative overflow-hidden">
             {/* Blader 1 (Azul / Cobalto) */}
@@ -475,6 +506,9 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
             </div>
           </div>
 
+          {officialMatch.status === 'in_progress' && (
+            <SetTimeline scores={setScores} canCloseTie={canCloseTie && !savingScore && !blockedBySaveFailure} onCloseTie={closeTiedSet} />
+          )}
           {activeStage && activeTournament && (
             <MatchSetReport
               key={officialMatch.id}
@@ -482,8 +516,8 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               stage={activeStage}
               players={[officialP1, officialP2]}
               target={target}
-              canReport={!savingScore && canArbitrate && officialMatch.status !== 'completed'}
-              currentScores={liveSetScores(officialMatch, matchBattles, matchPenalties, target)}
+              canReport={!savingScore && !blockedBySaveFailure && canArbitrate && officialMatch.status !== 'completed'}
+              currentScores={setScores}
               onReport={reportMatchSets}
             />
           )}
@@ -507,7 +541,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                 }
                 setShowFoulModal(true);
               }}
-              disabled={savingScore || !canArbitrate || officialMatch.status === 'completed'}
+              disabled={savingScore || blockedBySaveFailure || !canArbitrate || officialMatch.status === 'completed'}
               className="px-3 py-1.5 rounded-xl bg-amber-950/50 border border-amber-800 text-xs font-bold text-amber-300 hover:bg-amber-950 flex items-center gap-1.5 transition-colors min-h-[36px]"
             >
               <AlertTriangle className="w-3.5 h-3.5" />
@@ -515,11 +549,23 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
             </button>
           </div>
 
+          {saveFailure?.matchId === officialMatch.id && (
+            <div role="alert" className="rounded-xl border border-amber-600 bg-[var(--chasis)] p-3 text-sm">
+              <p>Guardado sin confirmar. Marcador anterior al intento: {saveFailure.score1}–{saveFailure.score2}.</p>
+              <button type="button" className="mt-1 min-h-11 font-bold text-[var(--cobalto-texto)]"
+                onClick={() => {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set('match', officialMatch.id);
+                  window.history.replaceState(null, '', url);
+                  window.location.reload();
+                }}>Actualizar marcador</button>
+            </div>
+          )}
           {/* Points Punchpad with Icons (HCI touch targets >= 56px) */}
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {/* P1 Controls */}
             <div className="flex flex-col gap-2">
-              <div className="text-center text-xs font-bold text-[var(--cobalto-texto)] pb-1 border-b border-[var(--cobalto)]/30 truncate">
+              <div className="break-words text-center text-xs font-bold text-[var(--cobalto-texto)] pb-1 border-b border-[var(--cobalto)]/30">
                 Anotar a {officialP1.displayName}
               </div>
               {renderFinishButton(
@@ -566,7 +612,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
 
             {/* P2 Controls */}
             <div className="flex flex-col gap-2">
-              <div className="text-center text-xs font-bold text-[var(--cobre)] pb-1 border-b border-[var(--cobre)]/30 truncate">
+              <div className="text-center text-xs font-bold text-[var(--cobre)] pb-1 border-b border-[var(--cobre)]/30 break-words">
                 Anotar a {officialP2.displayName}
               </div>
               {renderFinishButton(
@@ -634,10 +680,11 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                     onClick={handleNextMatch}
                     className="flex-1 sm:flex-initial px-4 py-2.5 bg-[var(--cobalto)] text-[var(--tinta)] font-black text-xs rounded-xl min-h-[44px] flex items-center justify-center gap-1.5 transition-all"
                   >
-                    <span>Siguiente Combate</span>
+                    <span>Siguiente en {nextMatch.station} · {nextParticipants}{nextStageName && ` · ${nextStageName}`}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 )}
+                {!nextMatch && canArbitrate && <p className="text-xs text-emerald-200">{stationQueueMessage}</p>}
               </div>
             </div>
           )}
@@ -657,7 +704,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                   onClick={() => {
                     if (canArbitrate) undoBattle(officialMatch.id);
                   }}
-                  disabled={savingScore || !canArbitrate}
+                  disabled={savingScore || blockedBySaveFailure || !canArbitrate}
                   className="text-xs text-[var(--acero)] hover:text-rose-400 flex items-center gap-1 min-h-[32px] px-2"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />

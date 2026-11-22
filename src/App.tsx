@@ -1,3 +1,4 @@
+import type { QueueFilter } from './components/bracket/MatchQueue';
 import React, { useState, useEffect, useRef } from 'react';
 import { TournamentProvider, useTournament } from './context/TournamentContext';
 import { Header, MainTabType } from './components/common/Header';
@@ -62,6 +63,8 @@ const VIEW_TITLES: Record<MainTabType, string> = {
   admin: 'Gestión & Árbitros',
 };
 
+import { BracketDemo } from './components/bracket/BracketDemo';
+
 function TournamentApp() {
   const [activeTab, updateActiveTab] = useState<MainTabType>(() => {
     if (typeof window === 'undefined') return 'bracket';
@@ -73,6 +76,7 @@ function TournamentApp() {
     if (hash.includes('rankings')) return 'rankings';
     if (hash.includes('deck')) return 'deck';
 
+    if (import.meta.env.VITE_BRACKET_DEMO && new URLSearchParams(window.location.search).get('demo') === 'cuadro') return 'bracket';
     const requestedView = new URLSearchParams(window.location.search).get('view');
     if (requestedView && VALID_TABS.includes(requestedView as MainTabType)) {
       return requestedView as MainTabType;
@@ -106,6 +110,7 @@ function TournamentApp() {
     activeTournament,
     setActiveTournamentId,
     stages,
+    matches,
     participants,
     showStadiumModal,
     setShowStadiumModal,
@@ -124,6 +129,7 @@ function TournamentApp() {
     ? stages.filter((s) => s.tournamentId === activeTournament.id).sort((a, b) => a.position - b.position)
     : [];
 
+  const [queueFilter, setQueueFilter] = useState<QueueFilter>();
   const [activeStageId, setActiveStageId] = useState<string>(tournamentStages[0]?.id || '');
   const initializedStageForTournament = useRef<string | null>(null);
 
@@ -171,6 +177,7 @@ function TournamentApp() {
     window.localStorage.setItem('apbey_active_tab', activeTab);
     const url = new URL(window.location.href);
     url.searchParams.set('view', activeTab);
+    if (activeTab !== 'bracket') url.searchParams.delete('demo');
     if (activeTournament?.id) {
       url.searchParams.set('tournament', activeTournament.id);
     } else {
@@ -248,8 +255,30 @@ function TournamentApp() {
     setActiveTab('marcador');
   };
 
+  const tournamentMatches = matches.filter(match => match.tournamentId === activeTournament?.id);
+  const readyMatches = tournamentMatches.filter(match =>
+    match.participant1Id && match.participant2Id && !match.isBye && match.status !== 'completed');
+  const canManageTournament = currentRole === 'admin' ||
+    (currentRole === 'organizer' && Boolean(currentUser && activeTournament?.organizerId === currentUser.id));
+  const pendingByStage = tournamentStages.filter(stage => stage.type !== 'group_stage').map(stage => ({
+    stage,
+    noStation: readyMatches.filter(match => match.stageId === stage.id && !match.station).length,
+    noReferee: readyMatches.filter(match => match.stageId === stage.id && !match.refereeId).length,
+  })).filter(item => item.noStation || item.noReferee);
+
+  const featuredMatches = currentRole === 'referee'
+    ? readyMatches.filter(match => currentUser && match.refereeId === currentUser.id)
+    : readyMatches;
+  const featuredMatch = featuredMatches.find(match => match.status === 'in_progress') ??
+    (canManageTournament ? featuredMatches.find(match => !match.refereeId || !match.station) : undefined) ??
+    featuredMatches[0];
+  const featuredStage = tournamentStages.find(stage => stage.id === featuredMatch?.stageId);
+
+  const showBracketDemo = import.meta.env.VITE_BRACKET_DEMO &&
+    new URLSearchParams(window.location.search).get('demo') === 'cuadro' && activeTab === 'bracket';
+
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[var(--grafito)] text-[var(--hueso)] flex flex-col font-sans antialiased selection:bg-[var(--cobalto)] selection:text-[var(--tinta)] pb-24 md:pb-6">
+    <div className="min-h-screen overflow-x-clip bg-[var(--grafito)] text-[var(--hueso)] flex flex-col font-sans antialiased selection:bg-[var(--cobalto)] selection:text-[var(--tinta)] pb-24 md:pb-6">
       {/* WCAG 2.2 AA Skip to Content Link */}
       <a
         href="#main-content"
@@ -336,54 +365,30 @@ function TournamentApp() {
               className="mb-5 flex w-full items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-1.5"
             >
               {[
-                { id: 'overview' as const, label: 'Resumen', shortLabel: 'Resumen', icon: LayoutDashboard, color: 'amber', num: '1' },
-                { id: 'participants' as const, label: 'Participantes', shortLabel: 'Bladers', icon: Users, color: 'cyan', num: '2' },
-                { id: 'stages' as const, label: 'Etapas', shortLabel: 'Etapas', icon: ListOrdered, color: 'purple', wizardTab: 'stages' as const, num: '3' },
-                { id: 'bracket' as const, label: 'Brackets', shortLabel: 'Brackets', icon: Trophy, color: 'indigo', num: '4' },
-                { id: 'referee' as const, label: 'Árbitros', shortLabel: 'Árbitros', icon: Scale, color: 'emerald', num: '5' },
-                { id: 'config' as const, label: 'Configuración', shortLabel: 'Config', icon: Settings, color: 'neutral', wizardTab: 'general' as const, num: '6' },
-              ].map((item) => {
-                const isSelected =
-                  item.id === 'config'
-                    ? activeTab === 'wizard'
-                    : item.id === 'stages'
-                      ? activeTab === 'wizard' && wizardInitialTab === 'stages'
-                      : activeTab === item.id;
+                { id: 'overview' as const, label: 'Resumen', icon: LayoutDashboard },
+                { id: 'participants' as const, label: 'Participantes', icon: Users },
+                { id: 'bracket' as const, label: 'Cuadro', icon: Trophy },
+                { id: 'wizard' as const, label: 'Configuración', icon: Settings },
+              ].filter(item => canManageTournament || item.id !== 'wizard').map((item) => {
+                const isSelected = activeTab === item.id;
                 const Icon = item.icon;
-                const colorMap: Record<string, { badge: string; text: string; bg: string; border: string }> = {
-                  amber:   { badge: 'bg-amber-500 text-black',   text: 'text-amber-300',   bg: 'bg-amber-500/15',   border: 'border-amber-500/40' },
-                  cyan:    { badge: 'bg-cyan-500 text-black',    text: 'text-cyan-300',    bg: 'bg-cyan-500/15',    border: 'border-cyan-500/40' },
-                  purple:  { badge: 'bg-purple-500 text-white',  text: 'text-purple-300',  bg: 'bg-purple-500/15',  border: 'border-purple-500/40' },
-                  indigo:  { badge: 'bg-indigo-500 text-white',  text: 'text-indigo-300',  bg: 'bg-indigo-500/15',  border: 'border-indigo-500/40' },
-                  emerald: { badge: 'bg-emerald-500 text-black', text: 'text-emerald-300', bg: 'bg-emerald-500/15', border: 'border-emerald-500/40' },
-                  neutral: { badge: 'bg-neutral-500 text-white', text: 'text-neutral-300', bg: 'bg-neutral-500/15', border: 'border-neutral-500/40' },
-                };
-                const c = colorMap[item.color];
                 return (
                   <button
                     key={item.id}
                     type="button"
                     aria-current={isSelected ? 'page' : undefined}
                     onClick={() => {
-                      if (item.id === 'config' || item.id === 'stages') {
-                        setWizardInitialTab(item.wizardTab || 'general');
-                        setActiveTab('wizard');
-                      } else {
-                        setActiveTab(item.id);
-                      }
+                      if (item.id === 'wizard') setWizardInitialTab('general');
+                      setActiveTab(item.id);
                     }}
-                    className={`shrink-0 rounded-xl px-3 py-1.5 text-[11px] font-bold transition-all flex items-center gap-1.5 min-h-[36px] border ${
+                    className={`${item.id === 'bracket' ? 'hidden md:flex' : 'flex'} shrink-0 rounded-xl px-3 py-1.5 text-[11px] font-bold transition-all items-center gap-1.5 min-h-11 border ${
                       isSelected
-                        ? `${c.bg} ${c.text} ${c.border} shadow-sm`
+                        ? 'bg-[var(--grafito)] text-[var(--cobalto-texto)] border-[var(--costura)]'
                         : 'text-[var(--acero)] hover:bg-[var(--grafito)] hover:text-[var(--hueso)] border-transparent'
                     }`}
                   >
-                    <span className={`w-4 h-4 rounded-full text-[9px] font-black flex items-center justify-center shrink-0 ${isSelected ? c.badge : 'bg-[var(--grafito)] text-[var(--acero)]'}`}>
-                      {item.num}
-                    </span>
                     <Icon className="h-3 w-3 shrink-0" />
-                    <span className="hidden sm:inline">{item.label}</span>
-                    <span className="sm:hidden">{item.shortLabel}</span>
+                    <span>{item.label}</span>
                   </button>
                 );
               })}
@@ -400,6 +405,63 @@ function TournamentApp() {
                   Revisa el estado del evento antes de registrar participantes o iniciar una etapa.
                 </p>
               </div>
+              <div className="rounded-2xl border border-[var(--costura)] bg-gradient-to-br from-[var(--chasis)] to-[var(--grafito)] p-5">
+                <p className="text-xs font-semibold text-[var(--cobalto-texto)]">
+                  {featuredMatch?.status === 'in_progress' ? 'En vivo' : featuredMatch ? 'Próximo combate' : 'Actividad del torneo'}
+                  {featuredStage && ` · ${featuredStage.name}`}
+                </p>
+                {featuredMatch ? (
+                  <>
+                    <h3 className="mt-2 text-xl font-black">
+                      {participants.find(p => p.id === featuredMatch.participant1Id)?.displayName ?? 'Jugador 1'}
+                      <span className="mx-2 text-[var(--acero)]">vs.</span>
+                      {participants.find(p => p.id === featuredMatch.participant2Id)?.displayName ?? 'Jugador 2'}
+                    </h3>
+                    <p className="mt-1 text-sm text-[var(--acero)]">
+                      {featuredMatch.station || 'Mesa pendiente'}
+                      {canManageTournament && !featuredMatch.refereeId && ' · Sin árbitro asignado'}
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button type="button" className="acero-btn acero-btn--primary min-h-11"
+                        onClick={() => {
+                          setActiveStageId(featuredMatch.stageId);
+                          handleOpenMatchInReferee(featuredMatch.id);
+                        }}>
+                        {currentRole === 'referee' || canManageTournament ? 'Abrir marcador' : 'Ver combate'}
+                      </button>
+                      <button type="button" className="acero-btn acero-btn--secondary min-h-11"
+                        onClick={() => {
+                          setActiveStageId(featuredMatch.stageId);
+                          setActiveTab('bracket');
+                        }}>Ver cuadro</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-2 text-sm">
+                      {currentRole === 'referee' ? 'Todavía no tienes combates asignados.' : 'No hay combates listos por el momento.'}
+                    </p>
+                    <button type="button" className="acero-btn acero-btn--secondary mt-3 min-h-11"
+                      onClick={() => setActiveTab('bracket')}>Ver cuadro</button>
+                  </>
+                )}
+              </div>
+              {canManageTournament && pendingByStage.length > 0 && (
+                <section aria-label="Pendientes de asignación" className="rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-4">
+                  <h3 className="font-bold">Pendientes de asignación</h3>
+                  {pendingByStage.map(({ stage, noStation, noReferee }) => <div key={stage.id} className="flex flex-wrap items-center gap-x-4 text-sm">
+                    <span className="font-semibold">{stage.name}</span>
+                    {([['no-station', noStation, 'sin mesa'], ['no-referee', noReferee, 'sin árbitro']] as const).map(([filter, count, title]) =>
+                      count > 0 && <button key={filter} type="button" className="min-h-11 text-[var(--cobalto-texto)] hover:underline"
+                        onClick={() => {
+                          setQueueFilter(filter);
+                          setActiveStageId(stage.id);
+                          setActiveTab('bracket');
+                        }}>{count} {title}</button>
+                    )}
+                  </div>)}
+                </section>
+              )}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
                   ['Estado', activeTournament.status === 'in_progress' ? 'En vivo' : activeTournament.status === 'completed' ? 'Finalizado' : 'Registro'],
@@ -416,7 +478,7 @@ function TournamentApp() {
               <div className="rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-5">
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-[var(--hueso)]">Ruta del torneo</h3>
-                  <button
+                  {canManageTournament && <button
                     type="button"
                     onClick={() => {
                       setWizardInitialTab('general');
@@ -425,7 +487,7 @@ function TournamentApp() {
                     className="text-xs font-bold text-[var(--cobalto)] hover:text-white"
                   >
                     Editar configuración
-                  </button>
+                  </button>}
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   {tournamentStages.map((stage, index) => (
@@ -500,13 +562,14 @@ function TournamentApp() {
             onSelectTournament={(tourneyId, targetTab) => {
               if (tourneyId !== activeTournament?.id) pushNavigation.current = true;
               setActiveTournamentId(tourneyId);
-              setActiveTab((targetTab as MainTabType) || 'bracket');
+              setActiveTab((targetTab as MainTabType) || 'overview');
             }}
           />
         )}
 
         {/* View 1: Brackets & Groups */}
-        {activeTab === 'bracket' && (
+        {showBracketDemo && <BracketDemo />}
+        {activeTab === 'bracket' && !showBracketDemo && (
           <div className="space-y-6">
             {tournamentStages.length > 1 && (
               <div className="bg-[var(--chasis)] rounded-2xl border border-[var(--costura)] p-3 shadow-xs flex items-center justify-between overflow-x-auto gap-4">
@@ -564,7 +627,9 @@ function TournamentApp() {
                   />
                 ) : (
                   <BracketViewer
+                    key={`${currentStage.id}-${queueFilter ?? ""}`}
                     stage={currentStage}
+                    queueFilter={queueFilter}
                     onOpenMatchInReferee={handleOpenMatchInReferee}
                   />
                 )}

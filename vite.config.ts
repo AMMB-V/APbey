@@ -8,6 +8,11 @@ const rootDir = fileURLToPath(new URL('.', import.meta.url));
 
 export default defineConfig(() => {
   return {
+    define: {
+      'import.meta.env.VITE_BRACKET_DEMO': JSON.stringify(
+        process.env.VERCEL_GIT_COMMIT_REF === 'staging' && process.env.VERCEL_ENV !== 'production'
+      ),
+    },
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Radio,
   LogIn,
@@ -6,15 +6,11 @@ import {
   KeyRound,
   Trophy,
   TrendingUp,
-  Layers,
-  Shield,
   Search,
   Wrench,
-  Tv,
-  ChevronDown,
-  GitBranch,
 } from 'lucide-react';
 import { useTournament } from '../../context/TournamentContext';
+import { ToolsMenu } from './ToolsMenu';
 import { AceroIcon } from './AceroIcon';
 import { SyncBadge } from './SyncBadge';
 import { ProfileModal } from '../auth/ProfileModal';
@@ -45,6 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCommandPalette,
 }) => {
   const {
+    activeTournament,
     currentUser,
     currentRole,
     logout,
@@ -54,22 +51,6 @@ export const Header: React.FC<HeaderProps> = ({
   } = useTournament();
 
   const [showProfile, setShowProfile] = useState(false);
-  const [toolsOpen, setToolsOpen] = useState(false);
-  const toolsMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!toolsOpen) return;
-
-    const handleOutsidePointerDown = (event: PointerEvent) => {
-      if (toolsMenuRef.current && !toolsMenuRef.current.contains(event.target as Node)) {
-        setToolsOpen(false);
-      }
-    };
-
-    document.addEventListener('pointerdown', handleOutsidePointerDown);
-    return () => document.removeEventListener('pointerdown', handleOutsidePointerDown);
-  }, [toolsOpen]);
-
   const isStaff = currentRole === 'referee' || currentRole === 'organizer' || currentRole === 'admin';
 
   const roleLabels: Record<string, { label: string; color: string }> = {
@@ -124,7 +105,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {/* 2. Brackets */}
-          <button
+          {!activeTournament && <button
             type="button"
             onClick={() => setActiveTab('bracket')}
             aria-current={activeTab === 'bracket' ? 'page' : undefined}
@@ -135,8 +116,8 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <AceroIcon id="i-trofeo" size="sm" />
-            <span>Brackets</span>
-          </button>
+            <span>Cuadro</span>
+          </button>}
 
           {/* 3. Marcador (Unified Free & Official) */}
           <button
@@ -165,72 +146,11 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
-            <span>Rankings & Salón</span>
+            <span>Rankings</span>
           </button>
 
-          {/* 5. Herramientas Dropdown (Deck 3on3, Tier List) */}
-          <div ref={toolsMenuRef} className="relative">
-            <button
-              type="button"
-              onClick={() => setToolsOpen(!toolsOpen)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1 whitespace-nowrap min-h-[36px] ${
-                activeTab === 'deck' || activeTab === 'tierlist'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-xs'
-                  : 'text-[var(--acero)] hover:text-[var(--hueso)] hover:bg-[var(--grafito)]'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Herramientas</span>
-              <ChevronDown className="w-3 h-3 ml-0.5 opacity-70" />
-            </button>
+          <ToolsMenu activeTab={activeTab} navigate={setActiveTab} openStadium={() => setShowStadiumModal(true)} />
 
-            {toolsOpen && (
-              <div
-                role="menu"
-                className="absolute left-0 mt-1 w-48 bg-[var(--chasis)] border border-[var(--costura)] rounded-2xl shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('deck');
-                    setToolsOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-[10px] font-bold text-[var(--hueso)] hover:bg-[var(--grafito)] rounded-xl flex items-center gap-2"
-                >
-                  <Layers className="w-4 h-4 text-cyan-400" />
-                  <span>Deck 3on3 Builder</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('tierlist');
-                    setToolsOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-[10px] font-bold text-[var(--hueso)] hover:bg-[var(--grafito)] rounded-xl flex items-center gap-2"
-                >
-                  <Shield className="w-4 h-4 text-rose-400" />
-                  <span>Tier List Competitiva</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* 6. Gestionar (Solo para Staff) */}
-          {isStaff && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('admin')}
-              aria-current={activeTab === 'admin' || activeTab === 'wizard' ? 'page' : undefined}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
-                activeTab === 'admin' || activeTab === 'wizard'
-                  ? 'bg-amber-400 text-black shadow-xs'
-                  : 'text-amber-300 hover:text-amber-200 hover:bg-amber-950/40'
-              }`}
-            >
-              <Wrench className="w-3.5 h-3.5" />
-              <span>Gestionar</span>
-            </button>
-          )}
         </nav>
 
         {/* Zone 3: Utilities, SyncBadge, Search & Account */}
@@ -256,16 +176,23 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Stadium Display Trigger */}
-          <button
-            type="button"
-            onClick={() => setShowStadiumModal(true)}
-            title="Abrir Pantalla de Estadio en Vivo para TV o Proyector"
-            className="hidden sm:flex p-2 text-amber-300 hover:text-amber-200 bg-amber-950/30 border border-amber-800/60 rounded-xl min-w-[38px] min-h-[38px] items-center justify-center transition-colors"
-          >
-            <Tv className="w-4 h-4" />
-          </button>
-
+          {/* 6. Gestionar (Solo para Staff) */}
+          {isStaff && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('admin')}
+              aria-label="Gestionar"
+              aria-current={activeTab === 'admin' || activeTab === 'wizard' ? 'page' : undefined}
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+                activeTab === 'admin' || activeTab === 'wizard'
+                  ? 'bg-amber-400 text-black shadow-xs'
+                  : 'text-amber-300 hover:text-amber-200 hover:bg-amber-950/40'
+              }`}
+            >
+              <Wrench className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Gestionar</span>
+            </button>
+          )}
           {/* User Account Button / Login */}
           {currentRole === 'public' || !currentUser ? (
             <div className="flex items-center gap-1.5">

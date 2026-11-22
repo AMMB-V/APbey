@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 
 interface TournamentListProps {
-  onSelectTournament: (tournamentId: string, targetTab?: 'bracket' | 'referee' | 'wizard' | 'participants') => void;
+  onSelectTournament: (tournamentId: string, targetTab?: 'overview' | 'bracket' | 'referee' | 'wizard' | 'participants') => void;
 }
 
 export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTournament }) => {
@@ -372,7 +372,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
           return (
             <div
               key={tourney.id}
-              onClick={() => onSelectTournament(tourney.id, 'bracket')}
+              onClick={() => onSelectTournament(tourney.id, 'overview')}
               className={`p-5 rounded-[var(--r-card)] border transition-all cursor-pointer flex flex-col justify-between group ${
                 isActive
                   ? 'bg-[var(--chasis)] border-[var(--cobalto)] shadow-md ring-1 ring-[var(--cobalto)]'
