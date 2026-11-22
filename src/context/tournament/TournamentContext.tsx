@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { matchPointTotals } from '../../lib/engine/tiebreakers';
 import {
   AuditLog,
   Battle,
@@ -1887,6 +1888,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       {
         tiebreakers: stage.config.tiebreakers,
         scoring: stage.config,
+        getMatchPoints: matchPointTotals(stageMatches, battles, penalties),
       }
     );
     const updatedRounds = [...rounds, next.round];
@@ -1919,6 +1921,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     const tournament = tournaments.find(t => t.id === stage.tournamentId);
+    const getMatchPoints = matchPointTotals(stageMatches, battles, penalties);
     const result = stage.type === 'swiss'
       ? advanceSwissStageToPlayoffs(
         stage.tournamentId,
@@ -1930,6 +1933,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           pointsToWin: tournament?.pointsToWinPlayoffs || 5,
           bestOf: 3,
           thirdPlaceMatch: true,
+          getMatchPoints,
         }
       )
       : advanceGroupStageToPlayoffs(
@@ -1943,6 +1947,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           pointsToWin: tournament?.pointsToWinPlayoffs || 5,
           bestOf: 3,
           thirdPlaceMatch: true,
+          getMatchPoints,
         }
       );
 

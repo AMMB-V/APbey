@@ -1,17 +1,62 @@
 import {
+  Battle,
   GroupStandingRow,
   Match,
   Participant,
+  Penalty,
+  SetScore,
   StandingsScoringConfig,
   TiebreakerCriteria,
 } from '../../types/tournament';
+
+export type MatchPointTotals = (match: Match) => SetScore;
+
+function sumScores(scores: SetScore[]): SetScore {
+  return scores.reduce<SetScore>(([total1, total2], [score1, score2]) =>
+    [total1 + score1, total2 + score2], [0, 0]);
+}
+
+function recordedMatchPoints(match: Match): SetScore {
+  return match.manualSetScores?.length ? sumScores(match.manualSetScores) : [match.score1, match.score2];
+}
+
+export function matchPointTotals(matches: Match[], battles: Battle[], penalties: Penalty[]): MatchPointTotals {
+  const completed = new Map(matches.filter(match => match.status === 'completed').map(match => [match.id, match]));
+  const livePoints = new Map<string, SetScore>();
+  function addPoints(match: Match, playerId: string | null | undefined, points: number) {
+    if (match.manualSetScores?.length || points <= 0 || !playerId) return;
+    const slot = playerId === match.participant1Id ? 0 : playerId === match.participant2Id ? 1 : -1;
+    if (slot === -1) return;
+    const total = livePoints.get(match.id) ?? sumScores(match.setCheckpoint?.scores ?? []);
+    total[slot] += points;
+    livePoints.set(match.id, total);
+  }
+  for (const battle of battles) {
+    const match = completed.get(battle.matchId);
+    if (match && !battle.voided && battle.battleNumber > (match.setCheckpoint?.battleNumber ?? 0)) {
+      addPoints(match, battle.scorerId, battle.points);
+    }
+  }
+  for (const penalty of penalties) {
+    const match = completed.get(penalty.matchId);
+    if (match && !match.setCheckpoint?.penaltyIds.includes(penalty.id)) {
+      addPoints(match, penalty.awardedTo, penalty.pointsAwarded);
+    }
+  }
+  return match => livePoints.get(match.id) ?? (
+    match.setCheckpoint && !match.manualSetScores?.length
+      ? sumScores([...match.setCheckpoint.scores.slice(0, -1), [match.score1, match.score2]])
+      : recordedMatchPoints(match)
+  );
+}
 
 export function computeStandings(
   matches: Match[],
   participants: Participant[],
   tiebreakerOrder: TiebreakerCriteria[] = ['points', 'median_buchholz', 'head_to_head', 'point_diff', 'seed'],
   advanceCount: number = 2,
-  scoring: StandingsScoringConfig = {}
+  scoring: StandingsScoringConfig = {},
+  getMatchPoints: MatchPointTotals = recordedMatchPoints
 ): GroupStandingRow[] {
   const pointsPerMatchWin = scoring.pointsPerMatchWin ?? 3;
   const pointsPerMatchDraw = scoring.pointsPerMatchDraw ?? 1;
@@ -69,10 +114,11 @@ export function computeStandings(
       s1.played += 1;
       s2.played += 1;
 
-      s1.pointsFor += match.score1;
-      s1.pointsAgainst += match.score2;
-      s2.pointsFor += match.score2;
-      s2.pointsAgainst += match.score1;
+      const [score1, score2] = getMatchPoints(match);
+      s1.pointsFor += score1;
+      s1.pointsAgainst += score2;
+      s2.pointsFor += score2;
+      s2.pointsAgainst += score1;
       s1.gameWins += match.sets1;
       s1.gameLosses += match.sets2;
       s2.gameWins += match.sets2;
