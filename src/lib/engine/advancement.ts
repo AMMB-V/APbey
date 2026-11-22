@@ -7,7 +7,7 @@ import {
   Stage,
 } from '../../types/tournament';
 import { generateSingleElimination } from './formats/singleElimination';
-import { computeStandings } from './tiebreakers';
+import { computeStandings, type MatchPointTotals } from './tiebreakers';
 import { createEntityId } from '../storage/entityIds';
 
 export interface AdvanceStageResult {
@@ -27,6 +27,7 @@ export function advanceSwissStageToPlayoffs(
     bestOf?: number;
     thirdPlaceMatch?: boolean;
     name?: string;
+    getMatchPoints?: MatchPointTotals;
   } = {}
 ): AdvanceStageResult {
   const stageMatches = allMatches.filter((match) => match.stageId === currentStage.id);
@@ -40,7 +41,8 @@ export function advanceSwissStageToPlayoffs(
     allParticipants,
     currentStage.config.tiebreakers,
     advanceCount,
-    currentStage.config
+    currentStage.config,
+    nextStageConfig.getMatchPoints
   );
   const qualified = standings
     .filter((row) => row.advances)
@@ -96,6 +98,7 @@ export function advanceGroupStageToPlayoffs(
     bestOf?: number;
     thirdPlaceMatch?: boolean;
     name?: string;
+    getMatchPoints?: MatchPointTotals;
   } = {}
 ): AdvanceStageResult {
   const qualifiers: Participant[] = [];
@@ -112,7 +115,8 @@ export function advanceGroupStageToPlayoffs(
       groupParticipants,
       currentStage.config.tiebreakers,
       advanceCount,
-      currentStage.config
+      currentStage.config,
+      nextStageConfig.getMatchPoints
     );
     groupStandings.push({ group, standings });
   }

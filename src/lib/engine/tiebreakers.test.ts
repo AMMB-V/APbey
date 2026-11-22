@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeStandings } from './tiebreakers';
+import { computeStandings, matchPointTotals } from './tiebreakers';
 import { Match, Participant } from '../../types/tournament';
 
 const participants: Participant[] = [1, 2, 3].map((seed) => ({
@@ -182,4 +182,31 @@ describe('computeStandings', () => {
     expect(p1Row?.points).toBe(6);
     expect(p1Row?.won).toBe(6);
   });
+});
+
+it('counts tied and deciding sets in the standings', () => {
+  const match: Match = {
+    ...completedMatch('m1', 'p1', 'p2', 'p1', 4, 2),
+    manualSetScores: [[2, 2], [4, 2]],
+  };
+  const standings = computeStandings([match], participants);
+  expect(standings.find(row => row.participant.id === 'p1')).toMatchObject({
+    won: 1, pointsFor: 6, pointsAgainst: 4, pointDiff: 2,
+  });
+  expect(standings.find(row => row.participant.id === 'p2')).toMatchObject({
+    lost: 1, pointsFor: 4, pointsAgainst: 6,
+  });
+});
+
+it('combines the saved partial with later scoring events without counting earlier or voided points twice', () => {
+  const match: Match = {
+    ...completedMatch('m1', 'p1', 'p2', 'p1', 4, 2),
+    setCheckpoint: { scores: [[2, 2], [1, 2]], battleNumber: 1, penaltyIds: [] },
+  };
+  const battles = [1, 2, 3].map(battleNumber => ({
+    id: String(battleNumber), matchId: match.id, battleNumber, setNumber: 2,
+    scorerId: 'p1', finish: 'xtreme' as const, points: 3, voided: battleNumber === 3,
+    recordedBy: 'referee', createdAt: '2026-11-22',
+  }));
+  expect(matchPointTotals([match], battles, [])(match)).toEqual([6, 4]);
 });

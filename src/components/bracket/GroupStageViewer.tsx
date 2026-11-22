@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Group, Match, Participant, Stage } from '../../types/tournament';
 import { useTournament } from '../../context/TournamentContext';
-import { computeStandings } from '../../lib/engine/tiebreakers';
+import { computeStandings, matchPointTotals } from '../../lib/engine/tiebreakers';
 import { AceroIcon } from '../common/AceroIcon';
 import {
   Trophy,
@@ -25,6 +25,8 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
   const {
     groups,
     matches,
+    battles,
+    penalties,
     participants,
     currentRole,
     currentUser,
@@ -62,7 +64,8 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
     groupParticipants,
     stage.config.tiebreakers,
     advanceCount,
-    stage.config
+    stage.config,
+    matchPointTotals(groupMatches, battles, penalties)
   );
 
   const totalMatches = stageMatches.length;

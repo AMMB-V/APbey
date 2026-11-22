@@ -1,5 +1,5 @@
 import { Match, Participant, Round, StandingsScoringConfig, TiebreakerCriteria } from '../../../types/tournament';
-import { computeStandings } from '../tiebreakers';
+import { computeStandings, type MatchPointTotals } from '../tiebreakers';
 import { createEntityId } from '../../storage/entityIds';
 
 export interface SwissRoundResult {
@@ -16,6 +16,7 @@ export function generateSwissRound(
   options: {
     tiebreakers?: TiebreakerCriteria[];
     scoring?: StandingsScoringConfig;
+    getMatchPoints?: MatchPointTotals;
     randomFn?: () => number;
   } = {}
 ): SwissRoundResult {
@@ -115,7 +116,8 @@ export function generateSwissRound(
     participants,
     options.tiebreakers || ['points', 'median_buchholz', 'head_to_head', 'point_diff', 'seed'],
     2,
-    options.scoring
+    options.scoring,
+    options.getMatchPoints
   );
   const availableParticipants = standings.map((s) => s.participant);
 
@@ -221,6 +223,7 @@ export function generateSwiss(
   options?: {
     tiebreakers?: TiebreakerCriteria[];
     scoring?: StandingsScoringConfig;
+    getMatchPoints?: MatchPointTotals;
     randomFn?: () => number;
   }
 ): { rounds: Round[]; matches: Match[] } {
@@ -240,6 +243,7 @@ export function generateNextSwissRound(
   options?: {
     tiebreakers?: TiebreakerCriteria[];
     scoring?: StandingsScoringConfig;
+    getMatchPoints?: MatchPointTotals;
     randomFn?: () => number;
   }
 ): SwissRoundResult {
