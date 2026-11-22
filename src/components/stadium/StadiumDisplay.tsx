@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTournament } from '../../context/TournamentContext';
+import { getMatchPointsToWin, liveSetScores } from '../../lib/engine/arbitration';
 import { AceroIcon } from '../common/AceroIcon';
 import {
   Maximize,
@@ -27,8 +28,10 @@ export const StadiumDisplay: React.FC<StadiumDisplayProps> = ({ onClose }) => {
     matches,
     participants,
     stages,
+    rounds,
     groups,
     battles,
+    penalties,
     activeStationAlert,
     dismissStationCall,
   } = useTournament();
@@ -183,18 +186,18 @@ export const StadiumDisplay: React.FC<StadiumDisplayProps> = ({ onClose }) => {
       {activeStationAlert && (
         <aside
           aria-label="Convocatoria a Estadio"
-          className="bg-gradient-to-r from-amber-600 via-rose-600 to-amber-600 text-white px-6 py-4 shadow-2xl border-b-2 border-amber-300 animate-pulse shrink-0"
+          className="bg-[var(--tarjeta-amarilla)] text-[var(--tinta)] px-6 py-4 shadow-2xl shrink-0"
         >
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-[var(--chasis)]/20 backdrop-blur-md rounded-2xl shrink-0">
-                <Volume2 className="w-8 h-8 text-white animate-bounce" />
+                <Volume2 className="w-8 h-8 text-[var(--tinta)]" />
               </div>
               <div>
-                <div className="text-xs font-black tracking-widest uppercase bg-black/30 px-2.5 py-0.5 rounded-full inline-block">
-                  CONVOCATORIA INMEDIATA A ESTADIO
+                <div className="text-xs font-black tracking-widest uppercase bg-black/10 px-2.5 py-0.5 rounded-full inline-block">
+                  LLAMADO A MESA
                 </div>
-                <div className="text-lg sm:text-2xl font-black mt-1 tracking-tight text-white drop-shadow-md">
+                <div className="text-lg sm:text-2xl font-black mt-1 tracking-tight text-[var(--tinta)]">
                   {activeStationAlert.message}
                 </div>
               </div>
@@ -245,6 +248,9 @@ export const StadiumDisplay: React.FC<StadiumDisplayProps> = ({ onClose }) => {
                   const lastBattle = matchBattles[0];
                   const stationName = m.station || `Estadio ${idx + 1}`;
                   const isLive = m.status === 'in_progress';
+                  const setNumber = stg && activeTournament
+                    ? liveSetScores(m, matchBattles, penalties, getMatchPointsToWin(m, stg, activeTournament, rounds.find(round => round.id === m.roundId))).length
+                    : undefined;
                   const isDone = m.status === 'completed';
 
                   return (
@@ -253,17 +259,18 @@ export const StadiumDisplay: React.FC<StadiumDisplayProps> = ({ onClose }) => {
                       className="bg-neutral-900 rounded-3xl border border-neutral-800 overflow-hidden shadow-2xl flex flex-col justify-between"
                     >
                       {/* Arena Header */}
-                      <div className="bg-neutral-800/80 px-6 py-3 border-b border-neutral-700/60 flex items-center justify-between">
+                      <div className="bg-neutral-800/80 px-3 sm:px-6 py-3 border-b border-neutral-700/60 flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-3">
-                          <span className="text-xs font-black uppercase tracking-wider text-amber-400 bg-amber-950/80 border border-amber-800/60 px-2.5 py-1 rounded-lg">
+                          <span className="text-sm sm:text-base font-black text-[var(--hueso)] bg-neutral-950 px-2.5 py-1 rounded-lg">
                             {stationName}
                           </span>
                           <span className="text-xs text-neutral-300 font-medium">
-                            {grp ? grp.name : stg?.name || 'Playoffs'} · Match #{m.position}
+                            {grp ? grp.name : stg?.name || 'Playoffs'} · Combate #{m.position}
                           </span>
                         </div>
 
                         <div className="flex items-center gap-2">
+                          {!isDone && setNumber !== undefined && <span className="text-sm font-bold text-white">Set {setNumber}</span>}
                           {isLive && (
                             <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-800/60 px-2.5 py-1 rounded-lg">
                               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
@@ -277,67 +284,67 @@ export const StadiumDisplay: React.FC<StadiumDisplayProps> = ({ onClose }) => {
                           )}
                           {m.calledToStation && !isDone && (
                             <span className="text-xs font-bold text-amber-400 bg-amber-950/80 border border-amber-800/60 px-2.5 py-1 rounded-lg animate-pulse">
-                              CONVOCADO
+                              LLAMADO A MESA
                             </span>
                           )}
                         </div>
                       </div>
 
-                      {/* Arena Scoreboard (Blue vs Red) */}
-                      <div className="p-6 grid grid-cols-2 gap-6 relative">
+                      {/* Arena Scoreboard */}
+                      <div className="p-3 sm:p-6 grid grid-cols-2 gap-3 sm:gap-6 relative">
                         {/* Center VS pill */}
                         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-neutral-950 border border-neutral-700 flex items-center justify-center font-black text-xs text-neutral-400 shadow-xl z-10">
                           VS
                         </div>
 
                         {/* Blue Blader Corner */}
-                        <div className={`p-5 rounded-2xl border transition-all ${
+                        <div className={`min-w-0 p-3 sm:p-5 rounded-2xl border border-t-4 transition-all ${
                           m.winnerId === p1?.id
-                            ? 'bg-blue-950/50 border-emerald-500'
-                            : 'bg-neutral-950/80 border-blue-900/60'
+                            ? 'bg-blue-950/50 border-emerald-500 border-t-[var(--cobalto)]'
+                            : 'bg-neutral-950/80 border-neutral-700 border-t-[var(--cobalto)]'
                         }`}>
-                          <div className="text-[10px] font-black tracking-widest text-blue-400 uppercase">
-                            CORNER AZUL {p1?.seed ? `· SEED #${p1.seed}` : ''}
+                          <div className="text-[10px] font-black tracking-widest text-[var(--cobalto-texto)] uppercase">
+                            A · AZUL {p1?.seed ? `· SEED #${p1.seed}` : ''}
                           </div>
-                          <div className="text-xl sm:text-2xl font-black text-white mt-1 truncate">
+                          <div className="text-lg sm:text-2xl font-black text-white mt-1 wrap-anywhere">
                             {p1?.displayName || 'Por Definir'}
                           </div>
                           {p1?.deckCombos?.[0] && (
                             <div className="text-xs text-neutral-400 font-mono mt-1 truncate flex items-center gap-1">
-                              <Shield className="w-3 h-3 text-blue-400 shrink-0" />
+                              <Shield className="w-3 h-3 text-[var(--cobalto-texto)] shrink-0" />
                               {p1.deckCombos[0]}
                             </div>
                           )}
 
                           <div className="mt-4 text-center">
-                            <div className="text-6xl sm:text-7xl font-black font-mono tabular-nums text-blue-400 tracking-tight">
+                            <div className="text-[clamp(2.5rem,9vw,4.5rem)] font-black font-mono tabular-nums text-[var(--hueso)] tracking-tight">
                               {m.score1}
                             </div>
                             <span className="text-[10px] uppercase font-bold text-neutral-400">PUNTOS</span>
                           </div>
                         </div>
 
-                        {/* Red Blader Corner */}
-                        <div className={`p-5 rounded-2xl border transition-all ${
+                        {/* Copper Blader Corner */}
+                        <div className={`min-w-0 p-3 sm:p-5 rounded-2xl border border-t-4 transition-all ${
                           m.winnerId === p2?.id
-                            ? 'bg-rose-950/50 border-emerald-500'
-                            : 'bg-neutral-950/80 border-rose-900/60'
+                            ? 'bg-orange-950/50 border-emerald-500 border-t-[var(--cobre)]'
+                            : 'bg-neutral-950/80 border-neutral-700 border-t-[var(--cobre)]'
                         }`}>
-                          <div className="text-[10px] font-black tracking-widest text-rose-400 uppercase">
-                            CORNER ROJO {p2?.seed ? `· SEED #${p2.seed}` : ''}
+                          <div className="text-[10px] font-black tracking-widest text-[var(--cobre)] uppercase">
+                            B · COBRE {p2?.seed ? `· SEED #${p2.seed}` : ''}
                           </div>
-                          <div className="text-xl sm:text-2xl font-black text-white mt-1 truncate">
+                          <div className="text-lg sm:text-2xl font-black text-white mt-1 wrap-anywhere">
                             {p2?.displayName || 'Por Definir'}
                           </div>
                           {p2?.deckCombos?.[0] && (
                             <div className="text-xs text-neutral-400 font-mono mt-1 truncate flex items-center gap-1">
-                              <Shield className="w-3 h-3 text-rose-400 shrink-0" />
+                              <Shield className="w-3 h-3 text-[var(--cobre)] shrink-0" />
                               {p2.deckCombos[0]}
                             </div>
                           )}
 
                           <div className="mt-4 text-center">
-                            <div className="text-6xl sm:text-7xl font-black font-mono tabular-nums text-rose-400 tracking-tight">
+                            <div className="text-[clamp(2.5rem,9vw,4.5rem)] font-black font-mono tabular-nums text-[var(--hueso)] tracking-tight">
                               {m.score2}
                             </div>
                             <span className="text-[10px] uppercase font-bold text-neutral-400">PUNTOS</span>

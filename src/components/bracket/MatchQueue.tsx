@@ -56,7 +56,7 @@ export function MatchQueue({ matches, canManage, label, playerName, onLocate, on
       {listView && <label className="block text-sm">
         Buscar jugador, mesa o combate
         <input type="search" value={query} onChange={event => setQuery(event.target.value)}
-          className="mt-1 block min-h-11 w-full rounded-xl border border-[var(--costura)] bg-[var(--grafito)] px-3" />
+          className="mt-1 block min-h-11 w-full rounded-xl border border-[var(--control-border)] bg-[var(--grafito)] px-3" />
       </label>}
       <div aria-label="Estado de los combates" className="flex flex-wrap gap-2">
         {filters.filter(([key]) => (canManage || !needsManagement(key)) && (listView || key !== 'all')).map(([key, title]) => (
@@ -76,7 +76,7 @@ export function MatchQueue({ matches, canManage, label, playerName, onLocate, on
                 <li key={match.id} className="py-2 text-sm">
                   <p><span className="text-[var(--acero)]">{label(match)} · </span>{playerName(match.participant1Id) ?? "Por definir"} vs. {playerName(match.participant2Id) ?? "Por definir"}</p>
                   {canManage && match.status !== 'completed' && !match.refereeId &&
-                    <p className="text-xs text-[var(--acero)]">Sin árbitro</p>}
+                    <p className="text-xs font-semibold text-[var(--tarjeta-amarilla)]">Sin árbitro</p>}
                   <div className="flex flex-wrap gap-x-4 text-xs font-semibold text-[var(--cobalto-texto)]">
                     <button type="button" className="min-h-11" onClick={() => onLocate(match.id)}>Ubicar en cuadro</button>
                     {listView && ([[match.nextMatchWinnerId, 'Ganador'], [match.nextMatchLoserId, 'Perdedor']] as const).map(([id, route]) => {

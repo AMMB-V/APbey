@@ -436,7 +436,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                   {officialP1.displayName}
                 </span>
                 <span className="text-[10px] text-[var(--acero)] uppercase tracking-wider block font-semibold mt-0.5">
-                  Lado Azul
+                  A · Azul
                 </span>
               </div>
               <div className="my-1.5 sm:my-2 font-mono font-black text-5xl sm:text-7xl tracking-tighter text-[var(--hueso)] select-none drop-shadow-md">
@@ -465,7 +465,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               )}
             </div>
 
-            {/* Blader 2 (Naranja / Cobre) */}
+            {/* Blader 2 (Cobre) */}
             <div
               className={`flex flex-col items-center justify-between p-3 sm:p-5 rounded-2xl border-2 transition-all ${
                 p2Winner ? 'border-emerald-500 bg-emerald-950/30' : 'border-[var(--cobre)]/40 bg-[var(--grafito)]'
@@ -476,7 +476,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                   {officialP2.displayName}
                 </span>
                 <span className="text-[10px] text-[var(--acero)] uppercase tracking-wider block font-semibold mt-0.5">
-                  Lado Naranja
+                  B · Cobre
                 </span>
               </div>
               <div className="my-1.5 sm:my-2 font-mono font-black text-5xl sm:text-7xl tracking-tighter text-[var(--hueso)] select-none drop-shadow-md">

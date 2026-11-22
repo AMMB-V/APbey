@@ -121,7 +121,7 @@ export function MatchSetReport({ match, stage, players, target, currentScores, c
                               ? { ...item, scores: playerIndex === 0 ? [value, item.scores[1]] : [item.scores[0], value] }
                               : item));
                           }}
-                          className="w-full min-h-11 rounded-lg border border-[var(--costura)] bg-[var(--grafito)] p-2 font-mono"
+                          className="w-full min-h-11 rounded-lg border border-[var(--control-border)] bg-[var(--grafito)] p-2 font-mono"
                         />
                       </label>
                     ))}

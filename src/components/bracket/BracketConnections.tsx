@@ -1,9 +1,10 @@
 import { useLayoutEffect, useRef, type RefObject } from 'react';
 import type { Match } from '../../types/tournament';
 
-export function BracketConnections({ board, matches }: {
+export function BracketConnections({ board, matches, highlightedMatchId }: {
   board: RefObject<HTMLDivElement | null>;
   matches: Match[];
+  highlightedMatchId: string | null;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
 
@@ -22,7 +23,9 @@ export function BracketConnections({ board, matches }: {
       const ctx = surface.getContext('2d');
       if (!ctx) return;
       ctx.scale(ratio, ratio);
-      ctx.lineWidth = 2;
+      const colors = getComputedStyle(root);
+      const winnerColor = colors.getPropertyValue("--cobalto-texto").trim();
+      const loserColor = colors.getPropertyValue("--cobre").trim();
       for (const match of matches) {
         const source = cards.get(match.id)?.getBoundingClientRect();
         if (!source) continue;
@@ -37,7 +40,8 @@ export function BracketConnections({ board, matches }: {
           const direction = right ? 1 : -1;
           const turn = x1 + direction * 14;
           const approach = x2 - direction * 7;
-          ctx.strokeStyle = dropped ? '#ee8433' : '#a6baff';
+          ctx.lineWidth = match.id === highlightedMatchId || id === highlightedMatchId ? 4 : 2;
+          ctx.strokeStyle = dropped ? loserColor : winnerColor;
           ctx.setLineDash(dropped ? [5, 5] : []);
           ctx.beginPath();
           ctx.moveTo(x1, y1);
@@ -59,7 +63,7 @@ export function BracketConnections({ board, matches }: {
     observer.observe(root);
     cards.forEach(card => observer.observe(card));
     return () => observer.disconnect();
-  }, [board, matches]);
+  }, [board, matches, highlightedMatchId]);
 
   return <canvas ref={canvas} aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" />;
 }

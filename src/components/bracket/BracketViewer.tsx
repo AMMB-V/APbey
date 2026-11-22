@@ -59,6 +59,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
   });
   const [listView, setListView] = useState(Boolean(queueFilter));
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [highlightedMatchId, setHighlightedMatchId] = useState<string | null>(null);
   const [routeTarget, setRouteTarget] = useState<string | null>(null);
   const [mineOnly, setMineOnly] = useState(restored?.mineOnly ?? false);
   const board = useRef<HTMLDivElement>(null);
@@ -93,7 +94,8 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
     stageMatches.filter(match => match.roundId === round.id).map(match => [match.id, `R${index + 1}–C${match.position}`] as const)
   ));
   const visibleMatches = mineOnly ? stageMatches.filter(match => match.refereeId === currentUser?.id) : stageMatches;
-  const hasRoutes = stageMatches.some(match => match.nextMatchWinnerId || match.nextMatchLoserId);
+  const hasLoserRoutes = stageMatches.some(match => match.nextMatchLoserId);
+  const hasRoutes = hasLoserRoutes || stageMatches.some(match => match.nextMatchWinnerId);
 
   useEffect(() => {
     if (!routeTarget) return;
@@ -290,6 +292,16 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
         label={match => matchLabels.get(match.id)} playerName={id => getParticipant(id)?.displayName}
         onLocate={followRoute} onManage={openDetails} onOpen={onOpenMatchInReferee && openMarker}
         canScore={canScore} />}
+      {!listView && hasRoutes && (
+        <div aria-label="Leyenda de rutas" className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-[var(--hueso)]">
+          <span className="flex items-center gap-2">
+            <span aria-hidden="true" className="w-6 border-t-2 border-[var(--cobalto-texto)]" /> Ruta del ganador
+          </span>
+          {hasLoserRoutes && <span className="flex items-center gap-2">
+            <span aria-hidden="true" className="w-6 border-t-2 border-dashed border-[var(--cobre)]" /> Pasa a llave inferior
+          </span>}
+        </div>
+      )}
       {/* Scalable Canvas with Zoom Transform */}
       <div hidden={listView} ref={viewport} className="overflow-x-auto overflow-y-hidden pb-8 pt-2 rounded-[var(--r-card)] bg-[var(--grafito)] border border-[var(--costura)] p-4">
         <div
@@ -297,7 +309,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
           className="relative flex gap-10 w-max min-w-full items-start px-4"
           style={{ zoom: zoomLevel }}
         >
-          {hasRoutes && <BracketConnections board={board} matches={visibleMatches} />}
+          {hasRoutes && <BracketConnections board={board} matches={visibleMatches} highlightedMatchId={highlightedMatchId} />}
           {stageRounds.map((round) => {
             const roundMatches = visibleMatches
               .filter((m) => m.roundId === round.id)
@@ -330,9 +342,10 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                       <div
                         key={match.id}
                         data-bracket-match={match.id}
+                        onFocus={() => setHighlightedMatchId(match.id)}
                         className={`group relative rounded-[var(--r-control)] border bg-[var(--chasis)] p-3.5 shadow-xs transition-all focus-within:ring-1 focus-within:ring-[var(--hueso)] ${
                           isLive
-                            ? 'border-[var(--tarjeta-amarilla)] ring-2 ring-[var(--tarjeta-amarilla)]/50'
+                            ? 'border-[var(--en-vivo)]'
                             : isCompleted
                             ? 'border-[var(--costura)] hover:border-[var(--acero)]'
                             : 'border-dashed border-[var(--costura)] hover:border-[var(--acero)]'
@@ -347,7 +360,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                           </button>
                           <div className="flex items-center gap-1.5">
                             {match.station && (
-                              <span className="text-[10px] font-bold text-[var(--tinta)] bg-[var(--tarjeta-amarilla)] px-1.5 py-0.2 rounded font-mono">
+                              <span className="text-[10px] font-bold text-[var(--hueso)] bg-[var(--grafito)] px-1.5 py-0.2 rounded font-mono">
                                 {match.station}
                               </span>
                             )}
@@ -357,6 +370,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                                 EN VIVO
                               </span>
                             )}
+                            {isCompleted && !match.isBye && <span className="text-[var(--completado)]">Finalizado</span>}
                             {match.isBye && (
                               <span className="text-[var(--acero)] font-medium">BYE</span>
                             )}
@@ -424,7 +438,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                                [match.nextMatchLoserId, 'Perdedor', 'text-[var(--cobre)]']] as const).map(([id, label, color]) =>
                               id && matchLabels.has(id) && <button key={label} type="button"
                                 className={`min-h-8 font-semibold hover:underline ${color}`}
-                                onClick={() => followRoute(id)}>{label} → {matchLabels.get(id)}</button>
+                                onClick={() => followRoute(id)}>{label} → {stageMatches.find(destination => destination.id === id)?.station || matchLabels.get(id)}</button>
                             )}
                           </div>
                         )}
@@ -440,7 +454,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                                 e.stopPropagation();
                                 openMarker(match.id);
                               }}
-                              className="text-[var(--cobalto)] hover:underline font-bold flex items-center gap-0.5"
+                              className="text-[var(--cobalto-texto)] hover:underline font-bold flex items-center gap-0.5"
                             >
                               {isCompleted ? 'Ver resultado' : canScore(match) ? 'Arbitrar' : 'Ver combate'} <ChevronRight className="w-3 h-3" />
                             </button>

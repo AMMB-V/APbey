@@ -23,14 +23,14 @@
   /* Finish */
   --finish-spin: #a3abb5;
   --finish-over: #62d2b6;
-  --finish-burst: #cc5290;
+  --finish-burst: #df76ac;
   --finish-xtreme: #d3c4ff;
 
   /* Tarjetas y estado */
   --tarjeta-amarilla: #f2c230;
-  --tarjeta-roja: #e24d3a;
+  --tarjeta-roja: #ff8273;
   --en-vivo: #7bc96f;
-  --completado: #6b727c;
+  --completado: var(--acero);
 
   /* Alias semánticos */
   --bg: var(--grafito);
@@ -39,6 +39,7 @@
   --text: var(--hueso);
   --text-muted: var(--acero);
   --focus: var(--hueso);
+  --control-border: #737d8c;
   --p1: var(--cobalto);
   --p2: var(--cobre);
 
@@ -139,7 +140,7 @@
 
 .acero-btn--danger {
   background: var(--tarjeta-roja);
-  color: var(--hueso);
+  color: var(--tinta);
 }
 .acero-btn--danger:hover {
   opacity: 0.9;

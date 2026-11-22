@@ -347,8 +347,8 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
 
           <div className="flex items-center gap-2">
             {isCompleted ? (
-              <span className="font-bold text-emerald-300 bg-emerald-950/80 border border-emerald-700/50 px-2 py-0.5 rounded-[var(--r-chip)] flex items-center gap-1">
-                <Trophy className="w-3 h-3 text-emerald-400" /> MATCH FINALIZADO
+              <span className="font-bold text-[var(--completado)] bg-[var(--chasis)] border border-[var(--costura)] px-2 py-0.5 rounded-[var(--r-chip)] flex items-center gap-1">
+                <Trophy className="w-3 h-3 text-emerald-400" /> FINALIZADO
               </span>
             ) : (
               <span className="font-bold text-[var(--en-vivo)] bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded-[var(--r-chip)] flex items-center gap-1">
@@ -381,8 +381,12 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
         <div className="grid grid-cols-2 gap-3 sm:gap-6 items-stretch">
           {/* Player 1 Card (Cobalto / Azul) */}
           <div
-            onClick={() => !isCompleted && canArbitrate && setSelectedScorer('p1')}
-            className={`p-4 rounded-[var(--r-card)] border transition-all cursor-pointer flex flex-col justify-between ${
+            onClick={event => {
+              if (!isCompleted && canArbitrate && !(event.target as HTMLElement).closest('button')) {
+                setSelectedScorer('p1');
+              }
+            }}
+            className={`p-4 rounded-[var(--r-card)] border transition-all flex flex-col justify-between ${
               selectedScorer === 'p1'
                 ? 'bg-blue-950/70 border-[var(--cobalto)] ring-2 ring-[var(--cobalto)]'
                 : match.winnerId === p1?.id
@@ -392,9 +396,13 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
           >
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[var(--cobalto)] uppercase tracking-wider">
-                  BLADER 1 (AZUL)
-                </span>
+                {!isCompleted && canArbitrate ? (
+                  <button type="button" aria-pressed={selectedScorer === 'p1'}
+                    aria-label={`Anotar para ${p1?.displayName ?? 'A · Azul'}`} onClick={() => setSelectedScorer('p1')}
+                    className="min-h-11 rounded border border-[var(--control-border)] px-2 text-left text-xs font-bold text-[var(--cobalto-texto)]">
+                    {selectedScorer === 'p1' && <span aria-hidden="true">✓ </span>}A · Azul
+                  </button>
+                ) : <span className="text-xs font-bold text-[var(--cobalto-texto)]">A · Azul</span>}
                 {p1?.seed && (
                   <span className="text-[10px] font-mono text-[var(--acero)]">
                     Siembra #{p1.seed}
@@ -465,10 +473,14 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
             </div>
           </div>
 
-          {/* Player 2 Card (Cobre / Rojo) */}
+          {/* Player 2 Card (Cobre) */}
           <div
-            onClick={() => !isCompleted && canArbitrate && setSelectedScorer('p2')}
-            className={`p-4 rounded-[var(--r-card)] border transition-all cursor-pointer flex flex-col justify-between ${
+            onClick={event => {
+              if (!isCompleted && canArbitrate && !(event.target as HTMLElement).closest('button')) {
+                setSelectedScorer('p2');
+              }
+            }}
+            className={`p-4 rounded-[var(--r-card)] border transition-all flex flex-col justify-between ${
               selectedScorer === 'p2'
                 ? 'bg-orange-950/70 border-[var(--cobre)] ring-2 ring-[var(--cobre)]'
                 : match.winnerId === p2?.id
@@ -478,9 +490,13 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
           >
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[var(--cobre)] uppercase tracking-wider">
-                  BLADER 2 (ROJO)
-                </span>
+                {!isCompleted && canArbitrate ? (
+                  <button type="button" aria-pressed={selectedScorer === 'p2'}
+                    aria-label={`Anotar para ${p2?.displayName ?? 'B · Cobre'}`} onClick={() => setSelectedScorer('p2')}
+                    className="min-h-11 rounded border border-[var(--control-border)] px-2 text-left text-xs font-bold text-[var(--cobre)]">
+                    {selectedScorer === 'p2' && <span aria-hidden="true">✓ </span>}B · Cobre
+                  </button>
+                ) : <span className="text-xs font-bold text-[var(--cobre)]">B · Cobre</span>}
                 {p2?.seed && (
                   <span className="text-[10px] font-mono text-[var(--acero)]">
                     Siembra #{p2.seed}
@@ -556,12 +572,12 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
         {!isCompleted && canArbitrate && (
           <div className="mt-4 text-center">
             {selectedScorer ? (
-              <div className="text-xs text-[var(--tinta)] font-bold bg-[var(--tarjeta-amarilla)] py-1.5 px-3 rounded-[var(--r-control)] inline-block">
-                Seleccionado: {selectedScorer === 'p1' ? p1?.displayName : p2?.displayName} → Elige tipo de finish abajo (1 toque)
+              <div className="text-xs text-[var(--hueso)] font-bold border border-[var(--control-border)] py-1.5 px-3 rounded-[var(--r-control)] inline-block">
+                ✓ Anotar para {selectedScorer === 'p1' ? p1?.displayName : p2?.displayName} · Elige un finish
               </div>
             ) : (
               <div className="text-xs text-[var(--acero)] font-medium">
-                👉 Toca al ganador de la batalla (Blader 1 Azul o Blader 2 Rojo) para anotar los puntos
+                Elige A o B para anotar los puntos de la batalla
               </div>
             )}
           </div>
@@ -604,7 +620,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
                 <AceroIcon id="i-xtreme" size="md" className="text-[#d3c4ff]" />
                 <span className="text-xs">Xtreme Finish</span>
               </div>
-              <span className="text-[11px] font-mono font-black">+{activeTournament.finishPoints.xtreme} Pts</span>
+              <span className="text-lg font-mono font-black">+{activeTournament.finishPoints.xtreme} Pts</span>
             </button>
 
             {/* Burst Finish (+2 pts) */}
@@ -613,15 +629,15 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
               disabled={!selectedScorer}
               className={`min-h-[56px] p-3 rounded-[var(--r-control)] font-bold flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95 border ${
                 selectedScorer
-                  ? 'bg-[#5c1c3f] hover:bg-[#782453] border-[#cc5290] text-[#cc5290] shadow-md'
+                  ? 'bg-[#5c1c3f] hover:bg-[#66204a] border-[var(--finish-burst)] text-[var(--finish-burst)] shadow-md'
                   : 'bg-[var(--grafito)] text-[var(--acero)]/40 border-[var(--costura)] cursor-not-allowed'
               }`}
             >
               <div className="flex items-center gap-1.5">
-                <AceroIcon id="i-burst" size="md" className="text-[#cc5290]" />
+                <AceroIcon id="i-burst" size="md" className="text-[var(--finish-burst)]" />
                 <span className="text-xs">Burst Finish</span>
               </div>
-              <span className="text-[11px] font-mono font-black">+{activeTournament.finishPoints.burst} Pts</span>
+              <span className="text-lg font-mono font-black">+{activeTournament.finishPoints.burst} Pts</span>
             </button>
 
             {/* Over Finish (+2 pts) */}
@@ -638,7 +654,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
                 <AceroIcon id="i-over" size="md" className="text-[#62d2b6]" />
                 <span className="text-xs">Over Finish</span>
               </div>
-              <span className="text-[11px] font-mono font-black">+{activeTournament.finishPoints.over} Pts</span>
+              <span className="text-lg font-mono font-black">+{activeTournament.finishPoints.over} Pts</span>
             </button>
 
             {/* Spin Finish (+1 pt) */}
@@ -655,7 +671,7 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
                 <AceroIcon id="i-spin" size="md" className="text-[#a3abb5]" />
                 <span className="text-xs">Spin Finish</span>
               </div>
-              <span className="text-[11px] font-mono font-black">+{activeTournament.finishPoints.spin} Pt</span>
+              <span className="text-lg font-mono font-black">+{activeTournament.finishPoints.spin} Pt</span>
             </button>
           </div>
 
