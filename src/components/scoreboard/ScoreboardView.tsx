@@ -243,7 +243,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-[var(--hueso)] font-display tracking-tight flex items-center gap-2">
-            <Radio className="w-5 h-5 text-[var(--cobalto)] shrink-0" aria-hidden="true" />
+            <Radio className="w-5 h-5 text-[var(--cobalto-texto)] shrink-0" aria-hidden="true" />
             <span>Mesa de Arbitraje y Marcador</span>
           </h1>
           <p className="text-xs text-[var(--acero)] mt-0.5">
@@ -274,7 +274,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-bold text-[var(--hueso)]">Combate en mesa:</span>
             {officialMatch && (
-              <span className="text-xs font-mono font-bold text-[var(--cobalto)]">
+              <span className="text-xs font-mono font-bold text-[var(--cobalto-texto)]">
                 Mesa {officialMatch.station || 'A'}
               </span>
             )}
@@ -284,7 +284,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               </span>
             )}
             {officialMatch && activeStage && officialMatch.status !== 'completed' && (
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[var(--cobalto)]/20 border border-[var(--cobalto)]/40 text-[var(--cobalto)]">
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[var(--cobalto)]/20 border border-[var(--cobalto)]/40 text-[var(--cobalto-texto)]">
                 Set {liveSetScores(officialMatch, matchBattles, matchPenalties, target).length}
               </span>
             )}
@@ -298,7 +298,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                 className="px-3 py-1.5 rounded-xl bg-[var(--grafito)] border border-[var(--costura)] hover:border-[var(--cobalto)] text-xs font-bold text-[var(--hueso)] flex items-center gap-1.5 transition-colors min-h-[36px]"
               >
                 <span>Siguiente Combate</span>
-                <ArrowRight className="w-3.5 h-3.5 text-[var(--cobalto)]" />
+                <ArrowRight className="w-3.5 h-3.5 text-[var(--cobalto-texto)]" />
               </button>
             )}
 
@@ -348,7 +348,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                   <div className="text-xs font-bold text-[var(--hueso)] truncate">
                     {blader1} <span className="font-normal text-[var(--acero)]">vs</span> {blader2}
                   </div>
-                  <div className="text-[11px] font-mono text-[var(--cobalto)] mt-1 font-bold">
+                  <div className="text-[11px] font-mono text-[var(--cobalto-texto)] mt-1 font-bold">
                     {match.score1} - {match.score2}
                   </div>
                 </button>
@@ -360,7 +360,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
 
       {!officialMatch || !officialP1 || !officialP2 ? (
         <div className="bg-[var(--chasis)] border border-[var(--costura)] rounded-3xl p-8 sm:p-12 text-center max-w-lg mx-auto space-y-4">
-          <div className="w-12 h-12 mx-auto rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] flex items-center justify-center text-[var(--cobalto)]">
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-[var(--grafito)] border border-[var(--costura)] flex items-center justify-center text-[var(--cobalto-texto)]">
             <Radio className="w-6 h-6" />
           </div>
           <div className="space-y-1">
@@ -401,7 +401,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
               }`}
             >
               <div className="w-full text-center">
-                <span className="font-bold text-sm sm:text-base block truncate text-[var(--cobalto)]">
+                <span className="font-bold text-sm sm:text-base block truncate text-[var(--cobalto-texto)]">
                   {officialP1.displayName}
                 </span>
                 <span className="text-[10px] text-[var(--acero)] uppercase tracking-wider block font-semibold mt-0.5">
@@ -519,7 +519,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {/* P1 Controls */}
             <div className="flex flex-col gap-2">
-              <div className="text-center text-xs font-bold text-[var(--cobalto)] pb-1 border-b border-[var(--cobalto)]/30 truncate">
+              <div className="text-center text-xs font-bold text-[var(--cobalto-texto)] pb-1 border-b border-[var(--cobalto)]/30 truncate">
                 Anotar a {officialP1.displayName}
               </div>
               {renderFinishButton(
@@ -529,7 +529,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                 'Spin Finish',
                 'Detención por giro',
                 'border-[var(--costura)] hover:border-[var(--cobalto)]',
-                'text-[var(--cobalto)]',
+                'text-[var(--cobalto-texto)]',
                 <RotateCcw className="w-4 h-4" />
               )}
               {renderFinishButton(
@@ -646,7 +646,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
           <div className="bg-[var(--chasis)] border border-[var(--costura)] rounded-3xl p-5 shadow-xl flex flex-col gap-3">
             <div className="flex items-center justify-between pb-2 border-b border-[var(--costura)]">
               <div className="flex items-center gap-2">
-                <History className="w-5 h-5 text-[var(--cobalto)]" />
+                <History className="w-5 h-5 text-[var(--cobalto-texto)]" />
                 <h2 className="text-sm font-black text-[var(--hueso)]">
                   Registro de Puntos & Historial del Combate ({matchBattles.length})
                 </h2>
@@ -688,7 +688,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
                         </span>
                         <div>
                           <div className="font-bold flex items-center gap-2">
-                            <span className={isP1 ? 'text-[var(--cobalto)]' : 'text-[var(--cobre)]'}>
+                            <span className={isP1 ? 'text-[var(--cobalto-texto)]' : 'text-[var(--cobre)]'}>
                               {b.scorerId ? winner?.displayName : 'Empate'}
                             </span>
                             <span className="px-2 py-0.5 rounded-full bg-[var(--chasis)] text-[10px] font-mono font-bold text-[var(--hueso)]">
