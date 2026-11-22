@@ -1,3 +1,4 @@
+import type { QueueFilter } from './components/bracket/MatchQueue';
 import React, { useState, useEffect, useRef } from 'react';
 import { TournamentProvider, useTournament } from './context/TournamentContext';
 import { Header, MainTabType } from './components/common/Header';
@@ -128,6 +129,7 @@ function TournamentApp() {
     ? stages.filter((s) => s.tournamentId === activeTournament.id).sort((a, b) => a.position - b.position)
     : [];
 
+  const [queueFilter, setQueueFilter] = useState<QueueFilter>();
   const [activeStageId, setActiveStageId] = useState<string>(tournamentStages[0]?.id || '');
   const initializedStageForTournament = useRef<string | null>(null);
 
@@ -258,6 +260,12 @@ function TournamentApp() {
     match.participant1Id && match.participant2Id && !match.isBye && match.status !== 'completed');
   const canManageTournament = currentRole === 'admin' ||
     (currentRole === 'organizer' && Boolean(currentUser && activeTournament?.organizerId === currentUser.id));
+  const pendingByStage = tournamentStages.filter(stage => stage.type !== 'group_stage').map(stage => ({
+    stage,
+    noStation: readyMatches.filter(match => match.stageId === stage.id && !match.station).length,
+    noReferee: readyMatches.filter(match => match.stageId === stage.id && !match.refereeId).length,
+  })).filter(item => item.noStation || item.noReferee);
+
   const featuredMatches = currentRole === 'referee'
     ? readyMatches.filter(match => currentUser && match.refereeId === currentUser.id)
     : readyMatches;
@@ -270,7 +278,7 @@ function TournamentApp() {
     new URLSearchParams(window.location.search).get('demo') === 'cuadro' && activeTab === 'bracket';
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[var(--grafito)] text-[var(--hueso)] flex flex-col font-sans antialiased selection:bg-[var(--cobalto)] selection:text-[var(--tinta)] pb-24 md:pb-6">
+    <div className="min-h-screen overflow-x-clip bg-[var(--grafito)] text-[var(--hueso)] flex flex-col font-sans antialiased selection:bg-[var(--cobalto)] selection:text-[var(--tinta)] pb-24 md:pb-6">
       {/* WCAG 2.2 AA Skip to Content Link */}
       <a
         href="#main-content"
@@ -438,6 +446,22 @@ function TournamentApp() {
                   </>
                 )}
               </div>
+              {canManageTournament && pendingByStage.length > 0 && (
+                <section aria-label="Pendientes de asignación" className="rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-4">
+                  <h3 className="font-bold">Pendientes de asignación</h3>
+                  {pendingByStage.map(({ stage, noStation, noReferee }) => <div key={stage.id} className="flex flex-wrap items-center gap-x-4 text-sm">
+                    <span className="font-semibold">{stage.name}</span>
+                    {([['no-station', noStation, 'sin mesa'], ['no-referee', noReferee, 'sin árbitro']] as const).map(([filter, count, title]) =>
+                      count > 0 && <button key={filter} type="button" className="min-h-11 text-[var(--cobalto-texto)] hover:underline"
+                        onClick={() => {
+                          setQueueFilter(filter);
+                          setActiveStageId(stage.id);
+                          setActiveTab('bracket');
+                        }}>{count} {title}</button>
+                    )}
+                  </div>)}
+                </section>
+              )}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
                   ['Estado', activeTournament.status === 'in_progress' ? 'En vivo' : activeTournament.status === 'completed' ? 'Finalizado' : 'Registro'],
@@ -603,7 +627,9 @@ function TournamentApp() {
                   />
                 ) : (
                   <BracketViewer
+                    key={`${currentStage.id}-${queueFilter ?? ""}`}
                     stage={currentStage}
+                    queueFilter={queueFilter}
                     onOpenMatchInReferee={handleOpenMatchInReferee}
                   />
                 )}

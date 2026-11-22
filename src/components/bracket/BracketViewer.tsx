@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Match, Participant, Round, Stage } from '../../types/tournament';
 import { useTournament } from '../../context/TournamentContext';
-import { MatchQueue } from './MatchQueue';
+import { MatchQueue, type QueueFilter } from './MatchQueue';
 import { BracketConnections } from './BracketConnections';
 import { AceroIcon } from '../common/AceroIcon';
 import {
@@ -22,12 +22,14 @@ type BracketFilter = 'all' | 'winners' | 'losers' | 'finals';
 
 interface BracketViewerProps {
   stage: Stage;
+  queueFilter?: QueueFilter;
   demo?: { matches: Match[]; rounds: Round[]; participants: Participant[] };
   onOpenMatchInReferee?: (matchId: string) => void;
 }
 
 export const BracketViewer: React.FC<BracketViewerProps> = ({
   stage,
+  queueFilter,
   demo,
   onOpenMatchInReferee,
 }) => {
@@ -55,6 +57,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
     const saved = sessionStorage.getItem(scrollKey);
     return saved ? JSON.parse(saved) as { left: number; top: number; zoom: number; filter: BracketFilter; mineOnly: boolean } : null;
   });
+  const [listView, setListView] = useState(Boolean(queueFilter));
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [routeTarget, setRouteTarget] = useState<string | null>(null);
   const [mineOnly, setMineOnly] = useState(restored?.mineOnly ?? false);
@@ -99,7 +102,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
     target?.scrollIntoView({ block: 'nearest', inline: 'center' });
     target?.querySelector('button')?.focus({ preventScroll: true });
     setRouteTarget(null);
-  }, [routeTarget, bracketFilter, mineOnly]);
+  }, [routeTarget, bracketFilter, mineOnly, listView]);
 
   useLayoutEffect(() => {
     const element = viewport.current;
@@ -125,6 +128,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
   }
 
   function followRoute(id: string) {
+    setListView(false);
     setMineOnly(false);
     setBracketFilter('all');
     setRouteTarget(id);
@@ -275,12 +279,19 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
       {mineOnly && visibleMatches.length === 0 && (
         <p className="text-sm text-[var(--acero)]">Todavía no tienes combates asignados en esta etapa.</p>
       )}
-      {visibleMatches.length > 0 && <MatchQueue key={stage.id} matches={visibleMatches} canManage={canManage}
+      <div className="flex flex-wrap gap-2" aria-label="Vista de combates">
+        {([false, true] as const).map(list => <button key={String(list)} type="button" aria-pressed={listView === list}
+          onClick={() => setListView(list)}
+          className="min-h-11 rounded-xl border border-[var(--costura)] px-3 text-sm aria-pressed:bg-[var(--hueso)] aria-pressed:text-[var(--tinta)]">
+          {list ? 'Lista' : 'Cuadro'}
+        </button>)}
+      </div>
+      {visibleMatches.length > 0 && <MatchQueue key={`${stage.id}-${listView}`} initialFilter={listView ? queueFilter ?? "all" : "ready"} listView={listView} matches={visibleMatches} canManage={canManage}
         label={match => matchLabels.get(match.id)} playerName={id => getParticipant(id)?.displayName}
         onLocate={followRoute} onManage={openDetails} onOpen={onOpenMatchInReferee && openMarker}
         canScore={canScore} />}
       {/* Scalable Canvas with Zoom Transform */}
-      <div ref={viewport} className="overflow-x-auto overflow-y-hidden pb-8 pt-2 rounded-[var(--r-card)] bg-[var(--grafito)] border border-[var(--costura)] p-4">
+      <div hidden={listView} ref={viewport} className="overflow-x-auto overflow-y-hidden pb-8 pt-2 rounded-[var(--r-card)] bg-[var(--grafito)] border border-[var(--costura)] p-4">
         <div
           ref={board}
           className="relative flex gap-10 w-max min-w-full items-start px-4"
