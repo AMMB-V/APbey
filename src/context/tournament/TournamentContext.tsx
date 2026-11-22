@@ -1995,23 +1995,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       throw new Error('La configuración de una etapa iniciada ya no puede modificarse.');
     }
 
-    let targetStage: Stage | undefined;
     setStages(prev => {
-      const updated = prev.map(s => {
-        if (s.id === stageId) {
-          targetStage = { ...s, ...updates };
-          return targetStage;
-        }
-        return s;
-      });
+      const updated = prev.map(s => s.id === stageId ? { ...s, ...updates } : s);
       saveState({ stages: updated });
       return updated;
     });
-
-    if (targetStage) {
-      await persistStageTiebreakers(stageId, targetStage.config.tiebreakers, targetStage.config);
-    }
-    logAudit('stages', stageId, 'update', `Etapa "${targetStage?.name || stageId}" actualizada.`);
+    logAudit('stages', stageId, 'update', `Etapa "${existingStage.name}" actualizada.`);
   };
 
   const addStage = (tournamentId: string, type: StageType, name?: string): Stage => {
@@ -2098,6 +2087,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       throw new Error('La configuración de una etapa iniciada ya no puede modificarse.');
     }
 
+    if (configUpdates.stageStructure === 'single_stage' &&
+      stages.some(s => s.tournamentId === existingStage.tournamentId && s.id !== stageId)) {
+      throw new Error('Para elegir una sola etapa, retira primero las demás etapas en Estructura.');
+    }
     const numericConfig = [
       configUpdates.pointsPerMatchWin,
       configUpdates.pointsPerMatchDraw,
@@ -2115,29 +2108,17 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       throw new Error('El Sistema Suizo debe tener entre 1 y 20 rondas.');
     }
 
-    let targetStage: Stage | undefined;
+    const config = { ...existingStage.config, ...configUpdates };
+    if (getSupabaseClient()) {
+      const result = await persistStageTiebreakers(stageId, config.tiebreakers, config);
+      if (!result.success) throw new Error(result.message);
+    }
     setStages(prev => {
-      const updated = prev.map(s => {
-        if (s.id === stageId) {
-          targetStage = {
-            ...s,
-            config: {
-              ...s.config,
-              ...configUpdates,
-            },
-          };
-          return targetStage;
-        }
-        return s;
-      });
+      const updated = prev.map(s => s.id === stageId ? { ...s, config } : s);
       saveState({ stages: updated });
       return updated;
     });
-
-    if (targetStage) {
-      await persistStageTiebreakers(stageId, targetStage.config.tiebreakers, targetStage.config);
-    }
-    logAudit('stages', stageId, 'update', `Configuración técnica de etapa "${targetStage?.name || stageId}" actualizada.`);
+    logAudit('stages', stageId, 'update', `Configuración técnica de etapa "${existingStage.name}" actualizada.`);
   };
 
   const updateStageTiebreakers = async (stageId: string, tiebreakers: TiebreakerCriteria[]) => {

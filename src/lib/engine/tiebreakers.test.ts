@@ -210,3 +210,9 @@ it('combines the saved partial with later scoring events without counting earlie
   }));
   expect(matchPointTotals([match], battles, [])(match)).toEqual([6, 4]);
 });
+
+it('awards a round-robin bye to the winner in the second slot', () => {
+  const bye: Match = { ...completedMatch('bye', 'p1', 'p2', 'p2', 0, 0), participant1Id: null, isBye: true };
+  const rows = computeStandings([bye], participants);
+  expect(rows.find(row => row.participantId === 'p2')).toMatchObject({ won: 1, points: 1, medianBuchholz: 0 });
+});

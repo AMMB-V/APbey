@@ -96,19 +96,18 @@ export function computeStandings(
   }
 
   for (const match of matches) {
-    if (match.status !== 'completed' || !match.participant1Id) {
+    if (match.status !== 'completed') continue;
+    if (match.isBye) {
+      const winner = match.winnerId && statsMap.get(match.winnerId);
+      if (winner) {
+        winner.played += 1;
+        winner.won += 1;
+        winner.points += pointsPerBye;
+      }
       continue;
     }
-
-    const s1 = statsMap.get(match.participant1Id);
+    const s1 = match.participant1Id ? statsMap.get(match.participant1Id) : undefined;
     const s2 = match.participant2Id ? statsMap.get(match.participant2Id) : undefined;
-
-    if (match.isBye && s1) {
-      s1.played += 1;
-      s1.won += 1;
-      s1.points += pointsPerBye;
-      continue;
-    }
 
     if (s1 && s2) {
       s1.played += 1;
