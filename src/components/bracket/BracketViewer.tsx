@@ -420,6 +420,22 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
         {stageRounds.map(round => <button type="button" key={round.id} className="acero-btn" onClick={() =>
           document.getElementById(`bracket-round-${round.id}`)?.scrollIntoView({block:'nearest', inline:'center'})}>{round.name}</button>)}
       </nav>}
+      {!listView && stageRounds.length > 1 && <details className="rounded-xl border border-[var(--costura)] p-3">
+        <summary className="cursor-pointer font-semibold">Minimapa del cuadro</summary>
+        <div className="mt-2 flex gap-2 overflow-x-auto pb-2">
+          {stageRounds.map(round => <div key={round.id} className="min-w-20 space-y-1">
+            <p className="text-xs">{round.name}</p>
+            {visibleMatches.filter(match => match.roundId === round.id).map(match => {
+              const followsPlayer = trackedPlayer && [match.participant1Id, match.participant2Id].includes(trackedPlayer);
+              const status = match.status === 'completed' ? 'Finalizado' : match.status === 'in_progress' ? 'En vivo' : 'Pendiente';
+              return <button key={match.id} type="button" onClick={() => setRouteTarget(match.id)}
+                className={`block min-h-8 w-full rounded border border-[var(--costura)] px-1 text-left text-xs ${followsPlayer ? 'ring-2 ring-[var(--cobalto)]' : ''}`}>
+                {matchLabels.get(match.id)} · {status}
+              </button>;
+            })}
+          </div>)}
+        </div>
+      </details>}
       <div hidden={listView} ref={viewport} className="overflow-x-auto overflow-y-hidden pb-8 pt-2 rounded-[var(--r-card)] bg-[var(--grafito)] border border-[var(--costura)] p-4">
         <div
           ref={board}

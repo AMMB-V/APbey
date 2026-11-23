@@ -510,7 +510,11 @@ function TournamentApp() {
                 {(() => {
                   const recent = auditLogs.filter(log => activityIds.has(log.recordId)).sort((a,b) => b.createdAt.localeCompare(a.createdAt)).slice(0,30);
                   return recent.length ? <ol className="divide-y divide-[var(--costura)]">{recent.map(log =>
-                    <li key={log.id} className="py-2"><p>{log.note || log.action}</p><small>{new Date(log.createdAt).toLocaleString()} · {log.actor}</small></li>)}</ol>
+                    <li key={log.id} className="py-2">
+                      <p>{log.note || log.action}</p><small>{new Date(log.createdAt).toLocaleString()} · {log.actor}</small>
+                      {tournamentMatches.some(match => match.id === log.recordId) && <button type="button"
+                        className="acero-btn ml-2" onClick={() => handleOpenMatchInReferee(log.recordId)}>Abrir combate</button>}
+                    </li>)}</ol>
                     : <p>Aún no hay movimientos disponibles.</p>;
                 })()}
               </details>}
