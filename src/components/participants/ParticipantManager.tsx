@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { csvRows, rosterNames } from '../../lib/rosterImport';
 import { useTournament } from '../../context/TournamentContext';
 import { AceroIcon } from '../common/AceroIcon';
 import {
@@ -44,6 +45,14 @@ export const ParticipantManager: React.FC = () => {
     : [];
 
   const checkedInCount = tParticipants.filter((p) => p.checkedIn).length;
+  const seen = new Set(tParticipants.map(p => p.displayName.trim().toLocaleLowerCase()));
+  const importNames = bulkText.split('\n').map(name => name.trim()).filter(Boolean);
+  const uniqueNames = importNames.filter(name => {
+    const key = name.toLocaleLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   const inspectedCount = tParticipants.filter((p) => p.inspected).length;
 
   const handleAddSingle = (e: React.FormEvent) => {
@@ -67,11 +76,8 @@ export const ParticipantManager: React.FC = () => {
     e.preventDefault();
     if (!activeTournament || !bulkText.trim()) return;
     try {
-      const names = bulkText
-        .split('\n')
-        .map((n) => n.trim())
-        .filter((n) => n.length > 0);
-      addBulkParticipants(activeTournament.id, names);
+      if (!uniqueNames.length) return;
+      addBulkParticipants(activeTournament.id, uniqueNames);
       setBulkText('');
       setShowBulkModal(false);
       setActionError('');
@@ -382,6 +388,25 @@ export const ParticipantManager: React.FC = () => {
             </p>
 
             <form onSubmit={handleBulkSubmit} className="mt-4 space-y-4">
+              <label className="block">Archivo CSV o Excel
+                <input type="file" accept=".csv,.xlsx" onChange={async event => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    if (file.size > 10485760) throw new Error('El archivo supera los 10 MB.');
+                    const rows = file.name.toLowerCase().endsWith('.xlsx')
+                      ? (await (await import('read-excel-file/browser')).default(file))[0]?.data ?? []
+                      : csvRows(await file.text());
+                    setBulkText(rosterNames(rows).join('\n'));
+                    setActionError('');
+                  } catch (error) {
+                    setBulkText('');
+                    setActionError(error instanceof Error ? error.message : 'No se pudo leer el archivo.');
+                  }
+                }} />
+              </label>
+              {actionError && <p role="alert">{actionError}</p>}
+              <p aria-live="polite">{uniqueNames.length} por registrar · {importNames.length - uniqueNames.length} duplicados omitidos</p>
               <textarea
                 rows={8}
                 value={bulkText}
@@ -401,6 +426,7 @@ export const ParticipantManager: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={!uniqueNames.length}
                   className="acero-btn acero-btn--primary text-xs px-4 py-1.5"
                 >
                   Importar Bladers

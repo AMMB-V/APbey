@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTournament } from '../../context/TournamentContext';
 import { getMatchPointsToWin, liveSetScores } from '../../lib/engine/arbitration';
 import { AceroIcon } from '../common/AceroIcon';
+import { computeStandings, matchPointTotals } from '../../lib/engine/tiebreakers';
+import { swissScoringDefaults } from '../../lib/engine/formats/swiss';
 import {
   Maximize,
   Minimize,
@@ -40,6 +42,29 @@ export const StadiumDisplay: React.FC<StadiumDisplayProps> = ({ onClose }) => {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'arenas' | 'upcoming' | 'standings'>('arenas');
+  const [rotate, setRotate] = useState(false);
+  const [publicQr, setPublicQr] = useState('');
+  useEffect(() => {
+    let current = true;
+    setPublicQr('');
+    if (activeTournament?.isPublic && onClose) {
+      const url = new URL(window.location.pathname, window.location.origin);
+      url.searchParams.set('publico', '1');
+      url.searchParams.set('tournament', activeTournament.id);
+      import('qrcode').then(qr => qr.toDataURL(url.href, {width: 160})).then(image => {
+        if (current) setPublicQr(image);
+      }).catch(() => {});
+    }
+    return () => { current = false; };
+  }, [activeTournament?.id, activeTournament?.isPublic, Boolean(onClose)]);
+  useEffect(() => {
+    if (!rotate) return;
+    const timer = window.setInterval(() => setActiveTab(tab =>
+      tab === 'arenas' ? 'upcoming' : tab === 'upcoming' ? 'standings' : 'arenas'), 12000);
+    return () => window.clearInterval(timer);
+  }, [rotate]);
+  const rankingStages = stages.filter(stage => stage.tournamentId === activeTournament?.id &&
+    (stage.type === 'swiss' || stage.type === 'round_robin' || stage.type === 'group_stage'));
 
   // Real-time clock
   useEffect(() => {
@@ -150,6 +175,8 @@ export const StadiumDisplay: React.FC<StadiumDisplayProps> = ({ onClose }) => {
           >
             Próximos Combates ({upcomingMatches.length})
           </button>
+          <button type="button" aria-pressed={activeTab === 'standings'} onClick={() => setActiveTab('standings')} className="rounded-lg px-3 py-2 text-xs aria-pressed:bg-neutral-800">Clasificación</button>
+          <button type="button" aria-pressed={rotate} onClick={() => setRotate(value => !value)} className="rounded-lg px-3 py-2 text-xs aria-pressed:bg-neutral-800">{rotate ? 'Pausar rotación' : 'Rotar pantallas'}</button>
         </div>
 
         {/* Right Controls */}
@@ -183,7 +210,7 @@ export const StadiumDisplay: React.FC<StadiumDisplayProps> = ({ onClose }) => {
       </header>
 
       {/* Real-time Match Summon Alert Banner (Llamada a Mesa / Estadio) */}
-      {activeStationAlert && (
+      {activeStationAlert && matches.some(match => match.id === activeStationAlert.matchId && match.tournamentId === activeTournament?.id) && (
         <aside
           aria-label="Convocatoria a Estadio"
           className="bg-[var(--tarjeta-amarilla)] text-[var(--tinta)] px-6 py-4 shadow-2xl shrink-0"
@@ -203,18 +230,36 @@ export const StadiumDisplay: React.FC<StadiumDisplayProps> = ({ onClose }) => {
               </div>
             </div>
 
-            <button
+            {onClose && <button
               onClick={() => dismissStationCall(activeStationAlert.matchId)}
               className="px-5 py-2.5 bg-black/60 hover:bg-black/80 text-white rounded-xl text-xs font-bold border border-white/30 transition-colors shrink-0"
             >
               Confirmar Recepción / Descartar
-            </button>
+            </button>}
           </div>
         </aside>
       )}
 
       {/* Main Content Viewport */}
       <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
+        {publicQr && <details className="mb-4"><summary className="cursor-pointer">QR para seguir el torneo</summary>
+          <img src={publicQr} width={160} height={160} alt="Enlace público del torneo" /></details>}
+        {activeTab === 'standings' && <section className="space-y-4"><h2 className="text-xl font-bold">Clasificación</h2>
+          {!rankingStages.length && <p>Este formato se decide por eliminación.</p>}
+          {rankingStages.flatMap(stage => {
+            const pools = stage.type === 'group_stage' ? groups.filter(group => group.stageId === stage.id) : [null];
+            return pools.map(pool => {
+              const games = matches.filter(match => match.stageId === stage.id && (!pool || match.groupId === pool.id));
+              const roster = new Set(pool?.participantIds ?? games.flatMap(game => [game.participant1Id, game.participant2Id]));
+              const rows = computeStandings(games, participants.filter(player => roster.has(player.id)), stage.config.tiebreakers,
+                stage.config.advanceCount, stage.type === 'swiss' ? {...swissScoringDefaults, ...stage.config} : stage.config,
+                matchPointTotals(games, battles, penalties));
+              return <section key={pool?.id ?? stage.id}><h3 className="font-bold">{pool?.name ?? stage.name}</h3>
+                <ol>{rows.map(row => <li key={row.participant.id} className="flex justify-between border-b border-neutral-700 py-2"><span>{row.rank}. {row.participant.displayName}</span><strong>{row.points} pts</strong></li>)}</ol>
+              </section>;
+            });
+          })}
+        </section>}
         {activeTab === 'arenas' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">

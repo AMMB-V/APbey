@@ -14,8 +14,10 @@ const filters = [
   ['all', 'Todos'],
 ] as const;
 
-export function MatchQueue({ matches, canManage, label, playerName, onLocate, onManage, onOpen, canScore, initialFilter = 'ready', listView = false }: {
+export function MatchQueue({ matches, tournamentMatches = matches, rounds = [], canManage, label, playerName, onLocate, onManage, onOpen, canScore, initialFilter = 'ready', listView = false }: {
   matches: Match[];
+  tournamentMatches?: Match[];
+  rounds?: { id: string; number: number }[];
   initialFilter?: QueueFilter;
   listView?: boolean;
   canManage: boolean;
@@ -31,9 +33,23 @@ export function MatchQueue({ matches, canManage, label, playerName, onLocate, on
   const matching = matches.filter(match => [label(match), playerName(match.participant1Id), playerName(match.participant2Id), match.station]
     .some(value => value?.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) || !query.trim());
   const playable = matching.filter(match => match.participant1Id && match.participant2Id && !match.isBye);
-  const waitingReason = matchAvailability(matches);
+  const waitingReason = matchAvailability(tournamentMatches);
+  const lastPlayed = new Map<string, number>();
+  for (const match of tournamentMatches) {
+    if (match.status !== 'completed' || !match.finishedAt || match.isBye) continue;
+    const time = Date.parse(match.finishedAt);
+    if (!Number.isFinite(time)) continue;
+    for (const id of [match.participant1Id, match.participant2Id]) {
+      if (id) lastPlayed.set(id, Math.max(time, lastPlayed.get(id) ?? 0));
+    }
+  }
+  const roundNumber = new Map(rounds.map(round => [round.id, round.number]));
+  const mostRecent = (match: Match) => Math.max(lastPlayed.get(match.participant1Id ?? '') ?? 0,
+    lastPlayed.get(match.participant2Id ?? '') ?? 0);
   const byStatus = {
-    ready: playable.filter(match => match.status === 'pending' && !waitingReason(match)),
+    ready: playable.filter(match => match.status === 'pending' && !waitingReason(match)).sort((a, b) =>
+      (roundNumber.get(a.roundId) ?? Infinity) - (roundNumber.get(b.roundId) ?? Infinity) ||
+      mostRecent(a) - mostRecent(b)),
     live: playable.filter(match => match.status === 'in_progress'),
     completed: playable.filter(match => match.status === 'completed'),
     all: matching,

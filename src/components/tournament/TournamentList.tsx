@@ -64,6 +64,11 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
   const [newVenue, setNewVenue] = useState('Arena Beyblade');
   const [newCountry, setNewCountry] = useState('PA');
   const [newMaxParticipants, setNewMaxParticipants] = useState<number>(16);
+  const [planningTables, setPlanningTables] = useState(4);
+  const [planningMinutes, setPlanningMinutes] = useState(120);
+  const roundsSuggested = Math.ceil(Math.log2(newMaxParticipants));
+  const swissMinutes = roundsSuggested * Math.ceil(Math.floor(newMaxParticipants / 2) / Math.max(1, planningTables)) * 8;
+  const suggestSwiss = swissMinutes <= planningMinutes;
   const [newEntryFee, setNewEntryFee] = useState<number>(0);
   const [newPointsGroup, setNewPointsGroup] = useState<number>(4);
   const [newPointsPlayoffs, setNewPointsPlayoffs] = useState<number>(5);
@@ -754,6 +759,20 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                 <div className="text-sm font-black uppercase tracking-wide text-[var(--acero)]">Paso 2 · Formato y etapas</div>
               </div>
               {/* Cantidad de etapas */}
+              {creationStep === 2 && <details className="rounded-lg border border-[var(--costura)] p-3">
+                <summary className="cursor-pointer font-bold">Calcular un formato según el tiempo disponible</summary>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <label>Mesas disponibles<input type="number" min="1" value={planningTables} onChange={e => setPlanningTables(Number(e.target.value))} className="block w-full rounded bg-[var(--grafito)] p-2" /></label>
+                  <label>Tiempo en minutos<input type="number" min="1" value={planningMinutes} onChange={e => setPlanningMinutes(Number(e.target.value))} className="block w-full rounded bg-[var(--grafito)] p-2" /></label>
+                </div>
+                {planningTables > 0 && Number.isInteger(planningTables) && planningMinutes > 0 && <>
+                  <p className="my-2">Con {newMaxParticipants} bladers y 8 minutos por combate, {roundsSuggested} rondas suizas requieren unos {swissMinutes} minutos, más pausas.</p>
+                  <button type="button" className="acero-btn" onClick={() => {
+                    setNewStageStructure('single_stage'); setNewFormat(suggestSwiss ? 'swiss' : 'single_elimination');
+                    if (suggestSwiss) setNewSwissRounds(roundsSuggested);
+                  }}>Aplicar {suggestSwiss ? 'sistema suizo' : 'eliminación directa'}</button>
+                </>}
+              </details>}
               <fieldset className={`space-y-2 ${creationStep === 2 ? '' : 'hidden'}`}>
                 <legend className="text-sm font-semibold text-[var(--acero)]">
                   ¿Cuántas etapas tendrá el torneo?

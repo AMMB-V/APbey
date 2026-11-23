@@ -1857,6 +1857,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     // Generate bracket if empty
+    if (!prior && tournament) {
+      const [issue] = startReadiness(tournament, stage, participants);
+      if (issue) throw new Error(issue.message);
+    }
     const existingMatches = matches.filter(m => m.stageId === stageId);
     if (existingMatches.length === 0) {
       generateBracketForStage(stageId);
@@ -4028,3 +4032,4 @@ export function useTournament() {
   }
   return context;
 }
+import { startReadiness } from '../../lib/engine/startReadiness';

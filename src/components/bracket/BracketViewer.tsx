@@ -62,6 +62,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
   const [listView, setListView] = useState(Boolean(queueFilter));
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [highlightedMatchId, setHighlightedMatchId] = useState<string | null>(null);
+  const [trackedPlayer, setTrackedPlayer] = useState('');
   const [routeTarget, setRouteTarget] = useState<string | null>(null);
   const [mineOnly, setMineOnly] = useState(restored?.mineOnly ?? false);
   const board = useRef<HTMLDivElement>(null);
@@ -393,6 +394,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
         </button>)}
       </div>
       {visibleMatches.length > 0 && <MatchQueue key={`${stage.id}-${listView}`} initialFilter={listView ? queueFilter ?? "all" : "ready"} listView={listView} matches={visibleMatches} canManage={canManage}
+        tournamentMatches={matches.filter(match => match.tournamentId === stage.tournamentId)} rounds={rounds}
         label={match => matchLabels.get(match.id)} playerName={id => getParticipant(id)?.displayName}
         onLocate={followRoute} onManage={openDetails} onOpen={onOpenMatchInReferee && openMarker}
         canScore={canScore} />}
@@ -407,6 +409,17 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
         </div>
       )}
       {/* Scalable Canvas with Zoom Transform */}
+      {!listView && <nav aria-label="Mapa del cuadro" className="flex flex-wrap items-center gap-2">
+        <label>Seguir blader <select className="rounded bg-[var(--grafito)] p-2" value={trackedPlayer} onChange={event => {
+          const id = event.target.value;
+          setTrackedPlayer(id);
+          const game = visibleMatches.find(match => id && (match.participant1Id === id || match.participant2Id === id));
+          if (game) setRouteTarget(game.id);
+        }}><option value="">Todos</option>{participants.filter(player => roster.has(player.id)).map(player =>
+          <option key={player.id} value={player.id}>{player.displayName}</option>)}</select></label>
+        {stageRounds.map(round => <button type="button" key={round.id} className="acero-btn" onClick={() =>
+          document.getElementById(`bracket-round-${round.id}`)?.scrollIntoView({block:'nearest', inline:'center'})}>{round.name}</button>)}
+      </nav>}
       <div hidden={listView} ref={viewport} className="overflow-x-auto overflow-y-hidden pb-8 pt-2 rounded-[var(--r-card)] bg-[var(--grafito)] border border-[var(--costura)] p-4">
         <div
           ref={board}
@@ -420,7 +433,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
               .sort((a, b) => a.position - b.position);
 
             return (
-              <div key={round.id} className="flex flex-col w-72 shrink-0">
+              <div key={round.id} id={`bracket-round-${round.id}`} className="flex flex-col w-72 shrink-0">
                 {/* Round Header */}
                 <div className="mb-4 text-center">
                   <div className="text-xs font-bold uppercase tracking-wider text-[var(--hueso)] bg-[var(--chasis)] py-1.5 px-3 rounded-[var(--r-control)] border border-[var(--costura)] shadow-xs">
@@ -446,6 +459,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                       <div
                         key={match.id}
                         data-bracket-match={match.id}
+                        style={trackedPlayer && [match.participant1Id, match.participant2Id].includes(trackedPlayer) ? {outline:'2px solid var(--cobalto)'} : undefined}
                         onFocus={() => setHighlightedMatchId(match.id)}
                         className={`group relative rounded-[var(--r-control)] border bg-[var(--chasis)] p-3.5 shadow-xs transition-all focus-within:ring-1 focus-within:ring-[var(--hueso)] ${
                           isLive

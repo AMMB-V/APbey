@@ -19,6 +19,15 @@ export function MatchSetReport({ match, stage, players, target, currentScores, c
   const [rows, setRows] = useState([{ id: 0, scores: ['', ''] as [string, string] }]);
   const [version, setVersion] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [draftMessage, setDraftMessage] = useState('');
+  const draftKey = 'apbey:set-draft:' + match.id;
+  useEffect(() => {
+    if (version === null || version !== match.version || !canReport) return;
+    try {
+      sessionStorage.setItem(draftKey, JSON.stringify({version, scores: rows.map(row => row.scores)}));
+      setDraftMessage('Borrador en esta pestaña. Confirma para enviar el marcador.');
+    } catch { setDraftMessage('Almacenamiento local no disponible. Mantén abierta esta pestaña.'); }
+  }, [draftKey, rows, version, match.version, canReport]);
   const [error, setError] = useState('');
   const [savedVersion, setSavedVersion] = useState<number | null>(null);
   const saved = savedVersion !== null && match.version <= savedVersion + 1;
@@ -37,7 +46,13 @@ export function MatchSetReport({ match, stage, players, target, currentScores, c
   const changed = version !== null && (version !== match.version || !canReport);
 
   function openReport() {
-    setRows(currentScores.map(([a, b]) => ({
+    let initial: [string, string][] = currentScores.map(([a,b]) => [String(a), String(b)]);
+    try {
+      const draft = JSON.parse(sessionStorage.getItem(draftKey) || 'null');
+      if (draft?.version === match.version && Array.isArray(draft.scores) && draft.scores.every((pair: unknown) =>
+        Array.isArray(pair) && pair.length === 2 && pair.every(value => typeof value === 'string'))) initial = draft.scores;
+    } catch { /* Start with the confirmed score when a draft cannot be read. */ }
+    setRows(initial.map(([a, b]) => ({
       id: nextRowId.current++, scores: [String(a), String(b)],
     })));
     setError('');
@@ -50,6 +65,7 @@ export function MatchSetReport({ match, stage, players, target, currentScores, c
     setError('');
     try {
       await onReport(match.id, version, scores, partial);
+      try { sessionStorage.removeItem(draftKey); } catch { /* The server already confirmed the report. */ }
       if (!partial) setSavedVersion(version);
       dialog.current?.close();
     } catch (cause) {
@@ -84,6 +100,7 @@ export function MatchSetReport({ match, stage, players, target, currentScores, c
           <form onSubmit={(event) => { event.preventDefault(); void submit(); }} className="space-y-4">
             <div>
               <h2 id={titleId} className="text-lg font-bold">Reportar resultado por sets</h2>
+              <p role="status" className="text-xs text-[var(--acero)]">{saving ? 'Enviando marcador…' : draftMessage}</p>
               <p className="mt-1 text-xs text-[var(--acero)]">
                 Al mejor de {stage.bestOf} · {getSetsNeeded(stage)} para ganar · {target} puntos por set. Si empatan, añade otro set.
               </p>

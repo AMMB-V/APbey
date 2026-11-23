@@ -1,4 +1,5 @@
 import type { QueueFilter } from './components/bracket/MatchQueue';
+import { startReadiness } from './lib/engine/startReadiness';
 import React, { useState, useEffect, useRef } from 'react';
 import { TournamentProvider, useTournament } from './context/TournamentContext';
 import { Header, MainTabType } from './components/common/Header';
@@ -106,6 +107,7 @@ function TournamentApp() {
   const {
     currentUser,
     currentRole,
+    auditLogs,
     tournaments,
     activeTournament,
     setActiveTournamentId,
@@ -175,6 +177,7 @@ function TournamentApp() {
 
   // Sync title and URL search param
   useEffect(() => {
+    if (initialRoute.get('publico') === '1') return;
     window.localStorage.setItem('apbey_active_tab', activeTab);
     const url = new URL(window.location.href);
     url.searchParams.set('view', activeTab);
@@ -257,6 +260,9 @@ function TournamentApp() {
   };
 
   const tournamentMatches = matches.filter(match => match.tournamentId === activeTournament?.id);
+  const activityIds = new Set([activeTournament?.id, ...tournamentMatches.map(match => match.id),
+    ...tournamentStages.map(stage => stage.id), ...participants.filter(p => p.tournamentId === activeTournament?.id).map(p => p.id)]);
+  const readiness = activeTournament ? startReadiness(activeTournament, tournamentStages[0], participants) : [];
   const readyMatches = tournamentMatches.filter(match =>
     match.participant1Id && match.participant2Id && !match.isBye && match.status !== 'completed');
   const canManageTournament = currentRole === 'admin' ||
@@ -279,6 +285,12 @@ function TournamentApp() {
 
   const showBracketDemo = import.meta.env.VITE_BRACKET_DEMO &&
     new URLSearchParams(window.location.search).get('demo') === 'cuadro' && activeTab === 'bracket';
+
+  if (initialRoute.get('publico') === '1') {
+    return activeTournament?.isPublic && activeTournament.id === initialRoute.get('tournament')
+      ? <StadiumDisplay />
+      : <main className="p-6">Torneo público no disponible.</main>;
+  }
 
   return (
     <div className="min-h-screen overflow-x-clip bg-[var(--grafito)] text-[var(--hueso)] flex flex-col font-sans antialiased selection:bg-[var(--cobalto)] selection:text-[var(--tinta)] pb-24 md:pb-6">
@@ -404,6 +416,8 @@ function TournamentApp() {
                 <h2 id="tournament-overview-title" className="text-xl font-black text-[var(--hueso)]">
                   Resumen de {activeTournament.name}
                 </h2>
+                {activeTournament.isPublic && <a className="text-sm underline" target="_blank" rel="noreferrer"
+                  href={`?publico=1&tournament=${encodeURIComponent(activeTournament.id)}`}>Abrir enlace para espectadores</a>}
                 <p className="text-sm text-[var(--acero)]">
                   Revisa el estado del evento antes de registrar participantes o iniciar una etapa.
                 </p>
@@ -465,6 +479,19 @@ function TournamentApp() {
                   </div>)}
                 </section>
               )}
+              {canManageTournament && (!tournamentStages.length || tournamentStages[0].status === 'pending') && (
+                <section className="rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-4">
+                  <h3 className="font-bold">Preparación de la primera etapa</h3>
+                  {readiness.length ? <ul className="mt-2 space-y-2">{readiness.map(issue =>
+                    <li key={issue.message} className="flex flex-wrap items-center justify-between gap-2">
+                      <span>{issue.message}</span>
+                      <button type="button" className="acero-btn" onClick={() => {
+                        if (issue.target === 'participants') setActiveTab('participants');
+                        else { setWizardInitialTab('stages'); setActiveTab('wizard'); }
+                      }}>{issue.target === 'participants' ? 'Revisar bladers' : 'Ajustar etapas'}</button>
+                    </li>)}</ul> : <p>Participantes y formato listos para iniciar.</p>}
+                </section>
+              )}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
                   ['Estado', activeTournament.status === 'in_progress' ? 'En vivo' : activeTournament.status === 'completed' ? 'Finalizado' : 'Registro'],
@@ -478,6 +505,15 @@ function TournamentApp() {
                   </div>
                 ))}
               </div>
+              {canManageTournament && <details className="rounded-2xl border border-[var(--costura)] p-4">
+                <summary className="cursor-pointer font-bold">Historial del torneo</summary>
+                {(() => {
+                  const recent = auditLogs.filter(log => activityIds.has(log.recordId)).sort((a,b) => b.createdAt.localeCompare(a.createdAt)).slice(0,30);
+                  return recent.length ? <ol className="divide-y divide-[var(--costura)]">{recent.map(log =>
+                    <li key={log.id} className="py-2"><p>{log.note || log.action}</p><small>{new Date(log.createdAt).toLocaleString()} · {log.actor}</small></li>)}</ol>
+                    : <p>Aún no hay movimientos disponibles.</p>;
+                })()}
+              </details>}
               <div className="rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-5">
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-[var(--hueso)]">Ruta del torneo</h3>
