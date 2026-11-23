@@ -56,53 +56,48 @@ export default async function handler(req: Request, res: Response): Promise<void
     ? `/${url.searchParams.get('path')!.replace(/^\/+/, '')}`
     : url.pathname;
   if (requestPath === '/api/health' || requestPath === '/health') {
-    const candidateKeys = [
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-      process.env.SUPABASE_SECRET_KEY,
-      process.env.SUPABASE_ANON_KEY,
-    ].filter(Boolean) as string[];
+    const privilegedKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+    const healthKey = privilegedKey || process.env.SUPABASE_ANON_KEY;
 
-    const hasConfiguration = Boolean(process.env.SUPABASE_URL && candidateKeys.length > 0);
+    const hasConfiguration = Boolean(process.env.SUPABASE_URL && healthKey);
     let persistenceStatus: 'ready' | 'unconfigured' | 'unreachable' = 'unconfigured';
     let persistenceError: string | null = null;
 
     if (hasConfiguration) {
-      for (const candidateKey of candidateKeys) {
-        try {
-          const supabase = createClient(process.env.SUPABASE_URL!, candidateKey, {
-            auth: { persistSession: false, autoRefreshToken: false },
-          });
-          const { error } = await supabase
-            .from('tournaments')
-            .select('id')
-            .limit(1);
+      try {
+        const supabase = createClient(process.env.SUPABASE_URL!, healthKey!, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
+        const { error } = await supabase
+          .from('tournaments')
+          .select('id')
+          .limit(1);
 
-          if (!error) {
-            persistenceStatus = 'ready';
-            persistenceError = null;
-            break;
-          } else {
-            persistenceError = error.message || error.details || error.code || JSON.stringify(error);
-            console.error('[Health] persistence check key failure:', {
-              error,
-              keyPrefix: candidateKey.slice(0, 8),
-            });
-          }
-        } catch (err) {
-          persistenceError = err instanceof Error ? err.message : String(err);
-          console.error('[Health] persistence check exception:', err);
+        if (!error) {
+          persistenceStatus = 'ready';
+        } else {
+          persistenceError = error.message || error.details || error.code || JSON.stringify(error);
+          console.error('[Health] persistence check failed:', {
+            error,
+            credential: privilegedKey ? 'privileged' : 'anonymous',
+          });
         }
+      } catch (err) {
+        persistenceError = err instanceof Error ? err.message : String(err);
+        console.error('[Health] persistence check exception:', err);
       }
       if (persistenceStatus !== 'ready') {
         persistenceStatus = 'unreachable';
       }
     }
-    const isReady = !isProduction || persistenceStatus === 'ready';
+    const isReady = (!isProduction && persistenceStatus === 'unconfigured') ||
+      (persistenceStatus === 'ready' && (!isProduction || Boolean(privilegedKey)));
     sendJson(res, isReady ? 200 : 503, {
       status: isReady ? 'ok' : 'degraded',
       service: 'apbey-backend',
       persistence: persistenceStatus,
-      ...(persistenceError ? { details: persistenceError } : {}),
+      privilegedPersistence: Boolean(privilegedKey),
+      ...(!isProduction && persistenceError ? { details: persistenceError } : {}),
       requestId,
       timestamp: new Date().toISOString(),
     });
@@ -122,7 +117,7 @@ export default async function handler(req: Request, res: Response): Promise<void
   }
 
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
   if (!supabaseUrl || !supabaseKey) {
     sendJson(res, 503, { valid: false, message: 'La validación de invitaciones no está configurada.' });
     return;

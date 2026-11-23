@@ -44,7 +44,42 @@ describe('Vercel serverless api handler', () => {
     expect(body.status).toBe('ok');
     expect(body.service).toBe('apbey-backend');
     expect(body.persistence).toBe('unconfigured');
+    expect(body.privilegedPersistence).toBe(false);
     expect(body.timestamp).toBeDefined();
+  });
+
+  it('does not report production ready without a privileged Supabase credential', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousUrl = process.env.SUPABASE_URL;
+    const previousAnonKey = process.env.SUPABASE_ANON_KEY;
+    const previousServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const previousSecretKey = process.env.SUPABASE_SECRET_KEY;
+
+    process.env.NODE_ENV = 'production';
+    process.env.SUPABASE_URL = 'https://example.supabase.co';
+    delete process.env.SUPABASE_ANON_KEY;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    delete process.env.SUPABASE_SECRET_KEY;
+
+    try {
+      const { req, res } = createMockReqRes({ url: '/api/health', method: 'GET' });
+      await handler(req as any, res as any);
+      expect(res.statusCode).toBe(503);
+      const body = JSON.parse(res.body);
+      expect(body.status).toBe('degraded');
+      expect(body.privilegedPersistence).toBe(false);
+    } finally {
+      if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previousNodeEnv;
+      if (previousUrl === undefined) delete process.env.SUPABASE_URL;
+      else process.env.SUPABASE_URL = previousUrl;
+      if (previousAnonKey === undefined) delete process.env.SUPABASE_ANON_KEY;
+      else process.env.SUPABASE_ANON_KEY = previousAnonKey;
+      if (previousServiceRole === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+      else process.env.SUPABASE_SERVICE_ROLE_KEY = previousServiceRole;
+      if (previousSecretKey === undefined) delete process.env.SUPABASE_SECRET_KEY;
+      else process.env.SUPABASE_SECRET_KEY = previousSecretKey;
+    }
   });
 
   it('rejects invalid invitation codes with 400', async () => {
