@@ -89,6 +89,8 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
 
   const roster = new Set(stageMatches.flatMap(m => [m.participant1Id, m.participant2Id]));
   const ranked = stage.type === 'swiss' || stage.type === 'round_robin';
+  const showDirectResult = stage.config.tiebreakers?.includes('head_to_head');
+  const standingsTitle = stage.status === 'completed' ? 'Clasificación final' : 'Clasificación provisional';
   const standings = ranked ? computeStandings(stageMatches, participants.filter(p => roster.has(p.id)),
     stage.config.tiebreakers, stage.config.advanceCount,
     stage.type === 'swiss' ? { ...swissScoringDefaults, ...stage.config } : stage.config,
@@ -286,14 +288,46 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
         </div>
       </div>
 
-      {standings.length > 0 && <div className="overflow-x-auto">
-        <table className="tabla"><caption>Clasificación {stage.status === 'completed' ? 'final' : 'provisional'}</caption>
-          <thead><tr><th>Puesto</th><th>Blader</th><th>Victorias</th><th>Puntos</th>
-            {stage.type === 'swiss' && <th>Buchholz medio</th>}{stage.config.tiebreakers?.includes('head_to_head') && <th>Directo</th>}<th>Diferencia</th></tr></thead>
-          <tbody>{standings.map(row => <tr key={row.participantId}><td>{row.rank}</td><th scope="row">{row.participant.displayName}</th>
-            <td>{row.won}</td><td>{row.points}</td>{stage.type === 'swiss' && <td>{row.medianBuchholz}</td>}{stage.config.tiebreakers?.includes('head_to_head') && <td>{row.directWins ?? '—'}</td>}<td>{row.pointDiff}</td></tr>)}</tbody>
-        </table>
-      </div>}
+      {standings.length > 0 && (
+        <div
+          role="region"
+          aria-label={standingsTitle}
+          tabIndex={0}
+          className="max-w-full overflow-x-auto rounded-[var(--r-card)] border border-[var(--costura)] bg-[var(--chasis)] focus-visible:outline-2 focus-visible:outline-[var(--cobalto-texto)]"
+        >
+          <table className="w-full border-separate border-spacing-0 text-sm">
+            <caption className="sticky left-0 w-max px-3 py-3 text-left text-base font-semibold">
+              {standingsTitle}
+            </caption>
+            <thead className="bg-[var(--grafito)] text-xs text-[var(--acero)] [&_th]:border-y [&_th]:border-[var(--costura)] [&_th]:px-3 [&_th]:py-2.5">
+              <tr>
+                <th scope="col">Puesto</th>
+                <th scope="col" className="sticky left-0 bg-[var(--grafito)] text-left">Blader</th>
+                <th scope="col">Victorias</th>
+                <th scope="col">Puntos</th>
+                {stage.type === 'swiss' && <th scope="col">Buchholz medio</th>}
+                {showDirectResult && <th scope="col">Directo</th>}
+                <th scope="col">Diferencia</th>
+              </tr>
+            </thead>
+            <tbody className="tabular-nums [&_td]:px-3 [&_td]:py-2.5 [&_td]:text-center [&_tr:not(:last-child)>*]:border-b [&_tr>*]:border-[var(--costura)]">
+              {standings.map(row => (
+                <tr key={row.participantId}>
+                  <td className="text-[var(--acero)]">{row.rank}</td>
+                  <th scope="row" className="sticky left-0 min-w-28 max-w-36 bg-[var(--chasis)] px-3 py-2.5 text-left font-medium [overflow-wrap:anywhere] sm:max-w-64">
+                    {row.participant.displayName}
+                  </th>
+                  <td>{row.won}</td>
+                  <td className="font-bold">{row.points}</td>
+                  {stage.type === 'swiss' && <td>{row.medianBuchholz}</td>}
+                  {showDirectResult && <td>{row.directWins ?? '—'}</td>}
+                  <td>{row.pointDiff}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {(hasRoutes || currentRole === 'referee') && (
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-[var(--acero)]">
           {hasRoutes && <>
