@@ -293,16 +293,24 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
           role="region"
           aria-label={standingsTitle}
           tabIndex={0}
-          className="max-w-full overflow-x-auto rounded-[var(--r-card)] border border-[var(--costura)] bg-[var(--chasis)] focus-visible:outline-2 focus-visible:outline-[var(--cobalto-texto)]"
+          className="max-w-full overflow-x-auto rounded-[var(--r-card)] border border-[var(--costura)] bg-[linear-gradient(135deg,var(--chasis),var(--grafito))] px-2 pb-2 shadow-sm focus-visible:outline-2 focus-visible:outline-[var(--cobalto-texto)] sm:px-3 sm:pb-3"
         >
-          <table className="w-full border-separate border-spacing-0 text-sm">
-            <caption className="sticky left-0 w-max px-3 py-3 text-left text-base font-semibold">
-              {standingsTitle}
+          <table className="w-full min-w-[46rem] border-separate border-spacing-y-2 text-sm">
+            <caption className="sticky left-0 w-max px-1 py-3 text-left sm:px-2 sm:py-4">
+              <span className="flex items-center gap-2 text-base font-bold text-[var(--hueso)]">
+                <span className="grid size-8 place-items-center rounded-full bg-amber-400/15 text-amber-300" aria-hidden="true">
+                  <Trophy className="size-4" />
+                </span>
+                {standingsTitle}
+              </span>
+              <span className="mt-1 block pl-10 text-xs font-normal text-[var(--acero)]">
+                Orden actualizado según los criterios de desempate de la etapa
+              </span>
             </caption>
-            <thead className="bg-[var(--grafito)] text-xs text-[var(--acero)] [&_th]:border-y [&_th]:border-[var(--costura)] [&_th]:px-3 [&_th]:py-2.5">
+            <thead className="text-[11px] uppercase tracking-wide text-[var(--acero)] [&_th]:px-3 [&_th]:pb-1 [&_th]:font-semibold">
               <tr>
                 <th scope="col">Puesto</th>
-                <th scope="col" className="sticky left-0 bg-[var(--grafito)] text-left">Blader</th>
+                <th scope="col" className="sticky left-0 bg-[var(--chasis)] text-left sm:bg-transparent">Blader</th>
                 <th scope="col">Victorias</th>
                 <th scope="col">Puntos</th>
                 {stage.type === 'swiss' && <th scope="col">Buchholz medio</th>}
@@ -310,20 +318,56 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                 <th scope="col">Diferencia</th>
               </tr>
             </thead>
-            <tbody className="tabular-nums [&_td]:px-3 [&_td]:py-2.5 [&_td]:text-center [&_tr:not(:last-child)>*]:border-b [&_tr>*]:border-[var(--costura)]">
-              {standings.map(row => (
-                <tr key={row.participantId}>
-                  <td className="text-[var(--acero)]">{row.rank}</td>
-                  <th scope="row" className="sticky left-0 min-w-28 max-w-36 bg-[var(--chasis)] px-3 py-2.5 text-left font-medium [overflow-wrap:anywhere] sm:max-w-64">
-                    {row.participant.displayName}
-                  </th>
-                  <td>{row.won}</td>
-                  <td className="font-bold">{row.points}</td>
-                  {stage.type === 'swiss' && <td>{row.medianBuchholz}</td>}
-                  {showDirectResult && <td>{row.directWins ?? '—'}</td>}
-                  <td>{row.pointDiff}</td>
-                </tr>
-              ))}
+            <tbody className="tabular-nums [&_td]:border-y [&_td]:border-[var(--costura)] [&_td]:bg-[var(--chasis)] [&_td]:px-3 [&_td]:py-3 [&_td]:text-center [&_th]:border-y [&_th]:border-[var(--costura)] [&_th]:bg-[var(--chasis)] [&_th]:px-3 [&_th]:py-3">
+              {standings.map(row => {
+                const podiumStyle = row.rank === 1
+                  ? '[&>*]:border-amber-400/50'
+                  : row.rank === 2
+                    ? '[&>*]:border-slate-300/40'
+                    : row.rank === 3
+                      ? '[&>*]:border-orange-400/40'
+                      : '';
+                const rankStyle = row.rank === 1
+                  ? 'bg-amber-400 text-slate-950 shadow-[0_0_18px_rgb(251_191_36/0.25)]'
+                  : row.rank === 2
+                    ? 'bg-slate-300 text-slate-950'
+                    : row.rank === 3
+                      ? 'bg-orange-400 text-slate-950'
+                      : 'bg-[var(--grafito)] text-[var(--acero)]';
+
+                return (
+                  <tr
+                    key={row.participantId}
+                    className={`${podiumStyle} transition-transform duration-150 hover:-translate-y-0.5 [&>*:first-child]:rounded-l-[var(--r-control)] [&>*:first-child]:border-l [&>*:last-child]:rounded-r-[var(--r-control)] [&>*:last-child]:border-r`}
+                  >
+                    <td>
+                      <span className={`mx-auto grid size-8 place-items-center rounded-full font-bold ${rankStyle}`} aria-label={`Puesto ${row.rank}`}>
+                        {row.rank}
+                      </span>
+                    </td>
+                    <th scope="row" className="sticky left-0 min-w-28 max-w-36 text-left font-semibold [overflow-wrap:anywhere] sm:static sm:max-w-64">
+                      {row.participant.displayName}
+                    </th>
+                    <td>
+                      <span className="inline-flex min-w-8 justify-center rounded-full bg-emerald-400/10 px-2 py-1 font-semibold text-emerald-300">
+                        {row.won}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="inline-flex min-w-10 justify-center rounded-[var(--r-chip)] bg-[var(--cobalto)] px-2.5 py-1 font-bold text-slate-950 shadow-sm">
+                        {row.points}
+                      </span>
+                    </td>
+                    {stage.type === 'swiss' && <td className="text-[var(--hueso)]">{row.medianBuchholz}</td>}
+                    {showDirectResult && <td>{row.directWins ?? '—'}</td>}
+                    <td>
+                      <span className={`font-semibold ${row.pointDiff > 0 ? 'text-emerald-300' : row.pointDiff < 0 ? 'text-rose-300' : 'text-[var(--acero)]'}`}>
+                        {row.pointDiff > 0 ? '+' : ''}{row.pointDiff}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
