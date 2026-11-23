@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Match } from '../../types/tournament';
+import { matchAvailability } from '../../lib/engine/matchAvailability';
 
 export type QueueFilter = 'ready' | 'live' | 'completed' | 'unassigned' | 'no-station' | 'no-referee' | 'all';
 
@@ -30,8 +31,9 @@ export function MatchQueue({ matches, canManage, label, playerName, onLocate, on
   const matching = matches.filter(match => [label(match), playerName(match.participant1Id), playerName(match.participant2Id), match.station]
     .some(value => value?.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) || !query.trim());
   const playable = matching.filter(match => match.participant1Id && match.participant2Id && !match.isBye);
+  const waitingReason = matchAvailability(matches);
   const byStatus = {
-    ready: playable.filter(match => match.status === 'pending'),
+    ready: playable.filter(match => match.status === 'pending' && !waitingReason(match)),
     live: playable.filter(match => match.status === 'in_progress'),
     completed: playable.filter(match => match.status === 'completed'),
     all: matching,
@@ -75,6 +77,9 @@ export function MatchQueue({ matches, canManage, label, playerName, onLocate, on
               {entries.map(match => (
                 <li key={match.id} className="py-2 text-sm">
                   <p><span className="text-[var(--acero)]">{label(match)} · </span>{playerName(match.participant1Id) ?? "Por definir"} vs. {playerName(match.participant2Id) ?? "Por definir"}</p>
+                  {canManage && match.status !== 'completed' && !match.refereeId &&
+                    <span className="sr-only">Asignación pendiente</span>}
+                  {match.status === 'pending' && waitingReason(match) && <p>{waitingReason(match)}</p>}
                   {canManage && match.status !== 'completed' && !match.refereeId &&
                     <p className="text-xs font-semibold text-[var(--tarjeta-amarilla)]">Sin árbitro</p>}
                   <div className="flex flex-wrap gap-x-4 text-xs font-semibold text-[var(--cobalto-texto)]">

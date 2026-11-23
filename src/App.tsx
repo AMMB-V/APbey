@@ -267,9 +267,11 @@ function TournamentApp() {
     noReferee: readyMatches.filter(match => match.stageId === stage.id && !match.refereeId).length,
   })).filter(item => item.noStation || item.noReferee);
 
+  const waitingReason = matchAvailability(tournamentMatches);
+  const availableMatches = readyMatches.filter(match => match.status === 'in_progress' || !waitingReason(match));
   const featuredMatches = currentRole === 'referee'
-    ? readyMatches.filter(match => currentUser && match.refereeId === currentUser.id)
-    : readyMatches;
+    ? availableMatches.filter(match => currentUser && match.refereeId === currentUser.id)
+    : availableMatches;
   const featuredMatch = featuredMatches.find(match => match.status === 'in_progress') ??
     (canManageTournament ? featuredMatches.find(match => !match.refereeId || !match.station) : undefined) ??
     featuredMatches[0];
@@ -735,3 +737,4 @@ export default function App() {
     </TournamentProvider>
   );
 }
+import { matchAvailability } from './lib/engine/matchAvailability';
