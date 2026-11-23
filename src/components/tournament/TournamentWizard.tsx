@@ -1110,10 +1110,12 @@ export const TournamentWizard: React.FC<{
           </details>
 
           {/* 2. Fast Presets */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[var(--hueso)] flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+          <div className="space-y-3 rounded-xl border border-[var(--costura)] bg-[var(--grafito)]/45 p-3 sm:p-4">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-sm font-bold text-[var(--hueso)] flex items-center gap-2">
+                <span className="grid size-7 place-items-center rounded-full bg-amber-400/15 text-amber-300">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </span>
                 Plantillas de desempate
               </span>
               <span className="text-[11px] text-[var(--acero)]">
@@ -1121,16 +1123,20 @@ export const TournamentWizard: React.FC<{
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <button
                 type="button"
                 onClick={() => applyPreset('wbo')}
-                className="p-2.5 rounded-lg border border-[var(--costura)] hover:border-neutral-400 bg-[var(--grafito)] hover:bg-[var(--grafito)] text-left text-xs transition-colors group"
+                className="group relative min-h-28 overflow-hidden rounded-xl border border-[var(--costura)] bg-[var(--chasis)] p-3 text-left transition-all hover:-translate-y-0.5 hover:border-amber-400/60 hover:shadow-[0_8px_24px_rgb(251_191_36/0.08)] focus-visible:outline-2 focus-visible:outline-amber-300"
               >
-                <div className="font-bold text-[var(--hueso)]">
+                <span className="absolute inset-x-0 top-0 h-1 bg-amber-400" />
+                <span className="mb-2 grid size-8 place-items-center rounded-lg bg-amber-400/15 text-amber-300 transition-transform group-hover:scale-105" aria-hidden="true">
+                  <Trophy className="size-4" />
+                </span>
+                <div className="font-bold text-[var(--hueso)] group-hover:text-amber-200">
                   Estándar WBO
                 </div>
-                <div className="text-sm text-[var(--acero)] mt-1">
+                <div className="text-xs leading-relaxed text-[var(--acero)] mt-1">
                   Puntos, Buchholz medio y directo
                 </div>
               </button>
@@ -1138,12 +1144,16 @@ export const TournamentWizard: React.FC<{
               <button
                 type="button"
                 onClick={() => applyPreset('average')}
-                className="p-2.5 rounded-lg border border-[var(--costura)] hover:border-neutral-400 bg-[var(--grafito)] hover:bg-[var(--grafito)] text-left text-xs transition-colors group"
+                className="group relative min-h-28 overflow-hidden rounded-xl border border-[var(--costura)] bg-[var(--chasis)] p-3 text-left transition-all hover:-translate-y-0.5 hover:border-indigo-400/60 hover:shadow-[0_8px_24px_rgb(129_140_248/0.08)] focus-visible:outline-2 focus-visible:outline-indigo-300"
               >
-                <div className="font-bold text-[var(--hueso)]">
+                <span className="absolute inset-x-0 top-0 h-1 bg-indigo-400" />
+                <span className="mb-2 grid size-8 place-items-center rounded-lg bg-indigo-400/15 text-indigo-300 transition-transform group-hover:scale-105" aria-hidden="true">
+                  <Sliders className="size-4" />
+                </span>
+                <div className="font-bold text-[var(--hueso)] group-hover:text-indigo-200">
                   Puntos Promedio
                 </div>
-                <div className="text-sm text-[var(--acero)] mt-1">
+                <div className="text-xs leading-relaxed text-[var(--acero)] mt-1">
                   Puntos, promedio y cociente
                 </div>
               </button>
@@ -1151,12 +1161,16 @@ export const TournamentWizard: React.FC<{
               <button
                 type="button"
                 onClick={() => applyPreset('offensive')}
-                className="p-2.5 rounded-lg border border-[var(--costura)] hover:border-neutral-400 bg-[var(--grafito)] hover:bg-[var(--grafito)] text-left text-xs transition-colors group"
+                className="group relative min-h-28 overflow-hidden rounded-xl border border-[var(--costura)] bg-[var(--chasis)] p-3 text-left transition-all hover:-translate-y-0.5 hover:border-cyan-400/60 hover:shadow-[0_8px_24px_rgb(34_211_238/0.08)] focus-visible:outline-2 focus-visible:outline-cyan-300"
               >
-                <div className="font-bold text-[var(--hueso)]">
+                <span className="absolute inset-x-0 top-0 h-1 bg-cyan-400" />
+                <span className="mb-2 grid size-8 place-items-center rounded-lg bg-cyan-400/15 text-cyan-300 transition-transform group-hover:scale-105" aria-hidden="true">
+                  <Layers className="size-4" />
+                </span>
+                <div className="font-bold text-[var(--hueso)] group-hover:text-cyan-200">
                   Puntos Totales
                 </div>
-                <div className="text-sm text-[var(--acero)] mt-1">
+                <div className="text-xs leading-relaxed text-[var(--acero)] mt-1">
                   Tabla → Totales → Dif. → Directo
                 </div>
               </button>
@@ -1164,12 +1178,16 @@ export const TournamentWizard: React.FC<{
               <button
                 type="button"
                 onClick={() => applyPreset('swiss')}
-                className="p-2.5 rounded-lg border border-[var(--costura)] hover:border-neutral-400 bg-[var(--grafito)] hover:bg-[var(--grafito)] text-left text-xs transition-colors group"
+                className="group relative min-h-28 overflow-hidden rounded-xl border border-[var(--costura)] bg-[var(--chasis)] p-3 text-left transition-all hover:-translate-y-0.5 hover:border-rose-400/60 hover:shadow-[0_8px_24px_rgb(251_113_133/0.08)] focus-visible:outline-2 focus-visible:outline-rose-300"
               >
-                <div className="font-bold text-[var(--hueso)]">
+                <span className="absolute inset-x-0 top-0 h-1 bg-rose-400" />
+                <span className="mb-2 grid size-8 place-items-center rounded-lg bg-rose-400/15 text-rose-300 transition-transform group-hover:scale-105" aria-hidden="true">
+                  <Scale className="size-4" />
+                </span>
+                <div className="font-bold text-[var(--hueso)] group-hover:text-rose-200">
                   Challonge / Suizo
                 </div>
-                <div className="text-sm text-[var(--acero)] mt-1">
+                <div className="text-xs leading-relaxed text-[var(--acero)] mt-1">
                   Puntos, Buchholz medio y directo
                 </div>
               </button>
@@ -1178,12 +1196,14 @@ export const TournamentWizard: React.FC<{
 
           {/* 3. Active Pipeline of Tiebreaker Criteria */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[var(--hueso)] flex items-center gap-1.5">
-                <ListOrdered className="w-4 h-4 text-[var(--acero)]" />
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-sm font-bold text-[var(--hueso)] flex items-center gap-2">
+                <span className="grid size-7 place-items-center rounded-full bg-[var(--cobalto)]/15 text-[var(--cobalto-texto)]">
+                  <ListOrdered className="w-4 h-4" />
+                </span>
                 Orden de prioridad · {activeStage?.name}
               </span>
-              <span className="text-[11px] text-[var(--acero)] font-mono">
+              <span className="w-fit rounded-full border border-[var(--costura)] bg-[var(--grafito)] px-2.5 py-1 text-[11px] text-[var(--acero)] font-mono">
                 {stageTiebreakers.length} criterios activos
               </span>
             </div>
@@ -1203,29 +1223,32 @@ export const TournamentWizard: React.FC<{
                 return (
                   <div
                     key={critId}
-                    className="p-3.5 bg-[var(--grafito)]/70 hover:bg-[var(--grafito)] border border-[var(--costura)] hover:border-[var(--costura)] rounded-xl flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 transition-all shadow-2xs"
+                    className="group relative overflow-hidden rounded-xl border border-[var(--costura)] bg-[linear-gradient(100deg,var(--grafito),var(--chasis))] p-3.5 pl-4 shadow-2xs transition-all hover:-translate-y-0.5 hover:border-[var(--acero)]/60 hover:shadow-md sm:flex sm:items-center sm:justify-between"
                   >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="flex flex-col items-center shrink-0">
-                        <span className="w-6 h-6 rounded-full bg-[var(--acero)] text-[var(--grafito)] text-xs font-bold font-mono flex items-center justify-center shadow-xs">
+                    <span className={`absolute inset-y-0 left-0 w-1 ${meta.accent}`} aria-hidden="true" />
+                    <div className="flex min-w-0 items-start gap-3 pr-2">
+                      <div className="flex shrink-0 flex-col items-center">
+                        <span className={`flex size-8 items-center justify-center rounded-full text-xs font-bold font-mono shadow-sm ${meta.accent}`}>
                           {idx + 1}
                         </span>
-
                       </div>
 
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-base font-bold text-[var(--hueso)]">
+                          <span className="text-sm font-bold text-[var(--hueso)] sm:text-base">
                             {meta.label}
                           </span>
+                          <span className="rounded-full border border-[var(--costura)] bg-[var(--grafito)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--acero)]">
+                            {meta.tag}
+                          </span>
                         </div>
-                        <p className="text-sm text-[var(--acero)] mt-1">
+                        <p className="mt-1 text-xs leading-relaxed text-[var(--acero)] sm:text-sm">
                           {critId === 'median_buchholz' ? meta.description : meta.subtitle}
                         </p>
                       </div>
                     </div>
 
-                    <div className="ml-auto flex items-center gap-1 shrink-0">
+                    <div className="mt-3 flex shrink-0 items-center justify-end gap-1 border-t border-[var(--costura)] pt-3 sm:ml-3 sm:mt-0 sm:border-0 sm:pt-0">
                       <button
                         type="button"
                         onClick={() => moveTiebreaker(idx, 'up')}
