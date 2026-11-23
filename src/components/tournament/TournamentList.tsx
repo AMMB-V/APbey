@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, LazyMotion, domAnimation, m, useReducedMotion } from 'motion/react';
 import { useTournament } from '../../context/TournamentContext';
 import { StageConfig, StageStructure, StageType, TiebreakerCriteria, TournamentStatus } from '../../types/tournament';
 import { AceroIcon } from '../common/AceroIcon';
@@ -25,6 +26,14 @@ import {
 interface TournamentListProps {
   onSelectTournament: (tournamentId: string, targetTab?: 'overview' | 'bracket' | 'referee' | 'wizard' | 'participants') => void;
 }
+
+type CreationStep = 1 | 2 | 3;
+
+const CREATION_STEPS: Array<{ step: CreationStep; label: string; title: string; description: string }> = [
+  { step: 1, label: 'Básico', title: 'Información básica', description: 'Identifica el torneo y define su capacidad.' },
+  { step: 2, label: 'Formato', title: 'Formato y etapas', description: 'Elige cómo avanzarán los bladers.' },
+  { step: 3, label: 'Reglas y resumen', title: 'Reglas y resumen', description: 'Revisa las metas antes de crear el torneo.' },
+];
 
 export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTournament }) => {
   const {
@@ -61,7 +70,12 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
   const [newPointsFinal, setNewPointsFinal] = useState<number>(7);
   const [newSwissRounds, setNewSwissRounds] = useState<number>(3);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
-  const [creationStep, setCreationStep] = useState<1 | 2 | 3>(1);
+  const [creationStep, setCreationStep] = useState<CreationStep>(1);
+  const [stepDirection, setStepDirection] = useState<1 | -1>(1);
+  const [isStepTransitioning, setIsStepTransitioning] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+  const reduceMotion = useReducedMotion();
 
   const canManage = currentRole === 'organizer' || currentRole === 'admin';
 
@@ -70,9 +84,25 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
     setNewName('');
     setSelectedTemplateId('');
     setCreationStep(1);
+    setStepDirection(1);
+    setIsStepTransitioning(false);
+    setIsCreating(false);
     setFormError(null);
     resetCreationDefaults();
   };
+
+  const goToCreationStep = (nextStep: CreationStep) => {
+    if (isStepTransitioning || nextStep === creationStep) return;
+    setStepDirection(nextStep > creationStep ? 1 : -1);
+    setIsStepTransitioning(!reduceMotion);
+    setCreationStep(nextStep);
+  };
+
+  useEffect(() => {
+    if (!showCreateModal) return;
+    const frame = requestAnimationFrame(() => stepHeadingRef.current?.focus({ preventScroll: true }));
+    return () => cancelAnimationFrame(frame);
+  }, [creationStep, showCreateModal]);
 
   const openCreateModal = () => {
     closeCreateModal();
@@ -131,6 +161,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
 
   const handleCreateSubmit = (e: React.FormEvent, targetView: 'participants' | 'bracket' = 'participants') => {
     e.preventDefault();
+    if (isCreating) return;
     setFormError(null);
     if (newName.trim().length < 3) {
       setFormError('El nombre del torneo debe tener al menos 3 caracteres.');
@@ -148,6 +179,8 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
       setFormError('El Sistema Suizo debe tener entre 1 y 20 rondas.');
       return;
     }
+
+    setIsCreating(true);
 
     const templateSource = selectedTemplateId ? tournaments.find(t => t.id === selectedTemplateId) : undefined;
     const templateStage = selectedTemplateId ? stages.find(s => s.tournamentId === selectedTemplateId) : undefined;
@@ -174,8 +207,10 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
       tiebreakers: isSwiss ? swissTiebreakers : (stageConfig.tiebreakers || standardTiebreakers),
     };
 
-    const created = createTournament(
-      {
+    let created: ReturnType<typeof createTournament>;
+    try {
+      created = createTournament(
+        {
         name: newName.trim(),
         venueName: newVenue.trim(),
         country: newCountry.trim().toUpperCase(),
@@ -187,11 +222,11 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
         foulPoints: templateSource?.foulPoints ?? 1,
         foulsPerPoint: templateSource?.foulsPerPoint ?? 3,
         finishPoints: templateSource?.finishPoints,
-      },
-      newFormat,
-      configuredStageConfig,
-      newStageStructure === 'two_stage'
-        ? {
+        },
+        newFormat,
+        configuredStageConfig,
+        newStageStructure === 'two_stage'
+          ? {
             type: newSecondFormat,
             name: newSecondFormat === 'single_elimination' ? 'Playoffs' : undefined,
             config: {
@@ -201,9 +236,15 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
               ...(newSecondFormat === 'swiss' && { pointsPerMatchWin: 1, pointsPerMatchDraw: 0, pointsPerBye: 1 }),
               tiebreakers: newSecondFormat === 'swiss' ? swissTiebreakers : standardTiebreakers,
             },
-          }
-        : undefined
-    );
+            }
+          : undefined
+      );
+    } catch (error) {
+      console.error('[TournamentList] Tournament creation failed:', error);
+      setIsCreating(false);
+      setFormError('No se pudo crear el torneo. Revisa la configuración e inténtalo nuevamente.');
+      return;
+    }
 
     closeCreateModal();
     setSuccessMsg(`¡Torneo "${created.name}" creado con éxito! Redirigiendo a Bladers & Siembra...`);
@@ -539,9 +580,27 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
       )}
 
       {/* Modal: Crear Nuevo Torneo */}
+      <LazyMotion features={domAnimation} strict>
+      <AnimatePresence>
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in" role="dialog" aria-modal="true" aria-labelledby="create-tournament-title">
-          <div className="w-full max-w-xl bg-[var(--chasis)] border border-[var(--costura)] rounded-[var(--r-card)] shadow-2xl overflow-hidden flex flex-col text-[var(--hueso)] max-h-[90vh] overflow-y-auto">
+        <m.div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-tournament-title"
+          initial={reduceMotion ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={reduceMotion ? { opacity: 0 } : { opacity: 0 }}
+          transition={{ duration: reduceMotion ? 0 : 0.18 }}
+        >
+          <m.div
+            layout={!reduceMotion}
+            className="w-full max-w-xl bg-[var(--chasis)] border border-[var(--costura)] rounded-[var(--r-card)] shadow-2xl overflow-hidden flex flex-col text-[var(--hueso)] max-h-[90vh] overflow-y-auto"
+            initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.99 }}
+            transition={{ duration: reduceMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}
+          >
             {/* Header */}
             <div className="p-5 border-b border-[var(--costura)] flex items-center justify-between bg-[var(--grafito)] sticky top-0 z-10">
               <div className="flex items-center gap-2.5">
@@ -566,26 +625,34 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-1 px-6 pt-4">
-              {[
-                ['1', 'Básico'],
-                ['2', 'Formato'],
-                ['3', 'Reglas y resumen'],
-              ].map(([step, label]) => (
+            <div className="px-6 pt-4" aria-label={`Progreso de creación: paso ${creationStep} de 3`}>
+              <div className="h-1 overflow-hidden rounded-full bg-[var(--grafito)]" aria-hidden="true">
+                <m.div
+                  className="h-full rounded-full bg-[var(--cobalto)]"
+                  initial={false}
+                  animate={{ width: `${(creationStep / CREATION_STEPS.length) * 100}%` }}
+                  transition={{ duration: reduceMotion ? 0 : 0.24, ease: 'easeOut' }}
+                />
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-1">
+              {CREATION_STEPS.map(({ step, label }) => (
                 <button
                   key={step}
                   type="button"
-                  onClick={() => setCreationStep(Number(step) as 1 | 2 | 3)}
-                  className={`rounded-lg border px-2 py-2 text-left transition-colors ${
-                    creationStep === Number(step)
+                  onClick={() => goToCreationStep(step)}
+                  disabled={isStepTransitioning}
+                  aria-current={creationStep === step ? 'step' : undefined}
+                  className={`relative overflow-hidden rounded-lg border px-2 py-2 text-left transition-colors disabled:cursor-wait ${
+                    creationStep === step
                       ? 'border-[var(--cobalto)] bg-[var(--cobalto)]/15 text-[var(--hueso)]'
                       : 'border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)]'
                   }`}
                 >
-                  <span className="block text-[10px] font-black">{step}</span>
+                  <span className="block text-[10px] font-black">0{step}</span>
                   <span className="block text-[10px] font-semibold">{label}</span>
                 </button>
               ))}
+              </div>
             </div>
 
             {formError && (
@@ -595,7 +662,29 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
             )}
 
             {/* Form */}
-            <form onSubmit={(e) => handleCreateSubmit(e, 'participants')} className="p-6 space-y-4">
+            <AnimatePresence mode="wait" initial={false} custom={stepDirection}>
+            <m.form
+              key={creationStep}
+              custom={stepDirection}
+              onSubmit={(e) => handleCreateSubmit(e, 'participants')}
+              className="p-6 space-y-4"
+              initial={reduceMotion ? false : { opacity: 0, x: stepDirection * 28 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: stepDirection * -20 }}
+              transition={{ duration: reduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+              onAnimationComplete={() => setIsStepTransitioning(false)}
+            >
+              <div className="space-y-0.5">
+                <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--cobalto)]">
+                  Paso {creationStep} de {CREATION_STEPS.length}
+                </div>
+                <h3 ref={stepHeadingRef} tabIndex={-1} className="text-base font-bold text-[var(--hueso)] outline-none">
+                  {CREATION_STEPS[creationStep - 1].title}
+                </h3>
+                <p className="text-xs text-[var(--acero)]">
+                  {CREATION_STEPS[creationStep - 1].description}
+                </p>
+              </div>
               {/* Plantilla de Configuración */}
               <div className={`space-y-1 ${creationStep === 1 ? '' : 'hidden'}`}>
                 <label className="text-xs font-semibold text-[var(--acero)] block">
@@ -915,8 +1004,9 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                   {creationStep > 1 ? (
                     <button
                       type="button"
-                      onClick={() => setCreationStep((prev) => (prev > 1 ? (prev - 1 as 1 | 2 | 3) : 1))}
-                      className="px-3.5 py-1.5 text-xs font-semibold rounded-[var(--r-control)] border border-[var(--costura)] text-[var(--acero)] hover:text-white hover:bg-[var(--grafito)] transition-colors"
+                      onClick={() => goToCreationStep((creationStep - 1) as CreationStep)}
+                      disabled={isStepTransitioning}
+                      className="px-3.5 py-1.5 text-xs font-semibold rounded-[var(--r-control)] border border-[var(--costura)] text-[var(--acero)] hover:text-white hover:bg-[var(--grafito)] transition-colors disabled:cursor-wait disabled:opacity-60"
                     >
                       ← Paso Anterior
                     </button>
@@ -941,9 +1031,10 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                           return;
                         }
                         setFormError(null);
-                        setCreationStep((prev) => (prev < 3 ? (prev + 1 as 1 | 2 | 3) : 3));
+                        goToCreationStep((creationStep + 1) as CreationStep);
                       }}
-                      className="px-4 py-2 text-xs font-bold rounded-[var(--r-control)] bg-[var(--cobalto)] text-[var(--tinta)] hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm"
+                      disabled={isStepTransitioning}
+                      className="px-4 py-2 text-xs font-bold rounded-[var(--r-control)] bg-[var(--cobalto)] text-[var(--tinta)] hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm disabled:cursor-wait disabled:opacity-60"
                     >
                       <span>Siguiente Paso →</span>
                     </button>
@@ -952,25 +1043,30 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                       <button
                         type="button"
                         onClick={(e) => handleCreateSubmit(e, 'bracket')}
-                        className="px-3.5 py-1.5 text-xs font-semibold rounded-[var(--r-control)] border border-[var(--costura)] hover:bg-[var(--grafito)] text-[var(--hueso)] transition-colors"
+                        disabled={isCreating}
+                        className="px-3.5 py-1.5 text-xs font-semibold rounded-[var(--r-control)] border border-[var(--costura)] hover:bg-[var(--grafito)] text-[var(--hueso)] transition-colors disabled:cursor-wait disabled:opacity-60"
                       >
                         Guardar Borrador
                       </button>
                       <button
                         type="submit"
-                        className="px-4 py-2 text-xs font-bold rounded-[var(--r-control)] bg-[var(--hueso)] text-[var(--tinta)] hover:bg-white transition-all shadow-sm flex items-center gap-1.5"
+                        disabled={isCreating}
+                        className="px-4 py-2 text-xs font-bold rounded-[var(--r-control)] bg-[var(--hueso)] text-[var(--tinta)] hover:bg-white transition-all shadow-sm flex items-center gap-1.5 disabled:cursor-wait disabled:opacity-60"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>Crear y Registrar Bladers →</span>
+                        <span>{isCreating ? 'Creando torneo…' : 'Crear y Registrar Bladers →'}</span>
                       </button>
                     </>
                   )}
                 </div>
               </div>
-            </form>
-          </div>
-        </div>
+            </m.form>
+            </AnimatePresence>
+          </m.div>
+        </m.div>
       )}
+      </AnimatePresence>
+      </LazyMotion>
     </div>
   );
 };
