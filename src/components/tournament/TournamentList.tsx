@@ -241,7 +241,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
   const getFormatLabel = (type?: StageType): string => {
     switch (type) {
       case 'group_stage':
-        return 'Grupos + Playoffs';
+        return 'Fase de grupos';
       case 'single_elimination':
         return 'Eliminación Directa';
       case 'double_elimination':
@@ -251,7 +251,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
       case 'swiss':
         return 'Sistema Suizo';
       default:
-        return 'Grupos + Playoffs';
+        return 'Fase de grupos';
     }
   };
 
@@ -662,74 +662,15 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
 
               {/* Formato del Torneo */}
               <div className={`border-t border-[var(--costura)] pt-3 ${creationStep === 2 ? '' : 'hidden'}`}>
-                <div className="text-[10px] font-black uppercase tracking-wide text-[var(--acero)]">Paso 2 · Formato y etapas</div>
+                <div className="text-sm font-black uppercase tracking-wide text-[var(--acero)]">Paso 2 · Formato y etapas</div>
               </div>
-              <div className={`space-y-1 ${creationStep === 2 ? '' : 'hidden'}`}>
-                <label className="text-xs font-semibold text-[var(--acero)] block">
-                  Formato de Competición *
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setNewFormat('group_stage')}
-                    className={`p-3 rounded-[var(--r-control)] border text-left transition-all ${
-                      newFormat === 'group_stage'
-                        ? 'bg-[var(--cobalto)]/20 border-[var(--cobalto)] text-[var(--hueso)]'
-                        : 'bg-[var(--grafito)] border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)]'
-                    }`}
-                  >
-                    <div className="text-xs font-bold text-[var(--hueso)]">Fase de Grupos + Playoffs</div>
-                    <div className="text-[10px] text-[var(--acero)] mt-0.5">Estándar oficial WBO. Grupos en serpentina y llaves finales.</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setNewFormat('single_elimination')}
-                    className={`p-3 rounded-[var(--r-control)] border text-left transition-all ${
-                      newFormat === 'single_elimination'
-                        ? 'bg-[var(--cobalto)]/20 border-[var(--cobalto)] text-[var(--hueso)]'
-                        : 'bg-[var(--grafito)] border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)]'
-                    }`}
-                  >
-                    <div className="text-xs font-bold text-[var(--hueso)]">Eliminación Directa</div>
-                    <div className="text-[10px] text-[var(--acero)] mt-0.5">Cuadro tradicional tipo bracket. Quien pierde queda eliminado.</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setNewFormat('double_elimination')}
-                    className={`p-3 rounded-[var(--r-control)] border text-left transition-all ${
-                      newFormat === 'double_elimination'
-                        ? 'bg-[var(--cobalto)]/20 border-[var(--cobalto)] text-[var(--hueso)]'
-                        : 'bg-[var(--grafito)] border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)]'
-                    }`}
-                  >
-                    <div className="text-xs font-bold text-[var(--hueso)]">Doble Eliminación</div>
-                    <div className="text-[10px] text-[var(--acero)] mt-0.5">Cuadro de Ganadores y Perdedores con Gran Final.</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setNewFormat('swiss')}
-                    className={`p-3 rounded-[var(--r-control)] border text-left transition-all ${
-                      newFormat === 'swiss'
-                        ? 'bg-[var(--cobalto)]/20 border-[var(--cobalto)] text-[var(--hueso)]'
-                        : 'bg-[var(--grafito)] border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)]'
-                    }`}
-                  >
-                    <div className="text-xs font-bold text-[var(--hueso)]">Sistema Suizo</div>
-                    <div className="text-[10px] text-[var(--acero)] mt-0.5">Rondas contra rivales de igual puntaje. Sin eliminación temprana.</div>
-                  </button>
-                </div>
-              </div>
-
               {/* Cantidad de etapas */}
               <fieldset className={`space-y-2 ${creationStep === 2 ? '' : 'hidden'}`}>
-                <legend className="text-xs font-semibold text-[var(--acero)]">
-                  Tipo de Torneo *
+                <legend className="text-sm font-semibold text-[var(--acero)]">
+                  ¿Cuántas etapas tendrá el torneo?
                 </legend>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <label className={`p-3 rounded-[var(--r-control)] border cursor-pointer transition-all ${
+                  <label className={`p-3 rounded-[var(--r-control)] border focus-within:outline-2 focus-within:outline-[var(--focus)] cursor-pointer transition-all ${
                     newStageStructure === 'single_stage'
                       ? 'bg-[var(--cobalto)]/20 border-[var(--cobalto)] text-[var(--hueso)]'
                       : 'bg-[var(--grafito)] border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)]'
@@ -742,13 +683,13 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                       onChange={() => setNewStageStructure('single_stage')}
                       className="sr-only"
                     />
-                    <span className="text-xs font-bold block">Torneo de una etapa</span>
-                    <span className="text-[10px] mt-0.5 block">
+                    <span className="text-base font-bold block">Torneo de una etapa</span>
+                    <span className="text-sm mt-0.5 block">
                       Una sola fase de competición.
                     </span>
                   </label>
 
-                  <label className={`p-3 rounded-[var(--r-control)] border cursor-pointer transition-all ${
+                  <label className={`p-3 rounded-[var(--r-control)] border focus-within:outline-2 focus-within:outline-[var(--focus)] cursor-pointer transition-all ${
                     newStageStructure === 'two_stage'
                       ? 'bg-[var(--cobalto)]/20 border-[var(--cobalto)] text-[var(--hueso)]'
                       : 'bg-[var(--grafito)] border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)]'
@@ -761,21 +702,82 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                       onChange={() => setNewStageStructure('two_stage')}
                       className="sr-only"
                     />
-                    <span className="text-xs font-bold block">Torneo de dos etapas</span>
-                    <span className="text-[10px] mt-0.5 block">
-                      Grupos por separado y una etapa final para los clasificados.
+                    <span className="text-base font-bold block">Torneo de dos etapas</span>
+                    <span className="text-sm mt-0.5 block">
+                      Los clasificados pasan a una fase final.
                     </span>
                   </label>
                 </div>
-                <p className="text-[10px] text-[var(--acero)]">
-                  Formato estándar recomendado: <strong className="text-[var(--hueso)]">dos etapas</strong>.
-                </p>
+
               </fieldset>
+
+              <div className={`space-y-1 ${creationStep === 2 ? '' : 'hidden'}`}>
+                <label className="text-sm font-semibold text-[var(--acero)] block">
+                  Formato de la primera etapa
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    aria-pressed={newFormat === 'group_stage'}
+                    onClick={() => setNewFormat('group_stage')}
+                    className={`p-3 rounded-[var(--r-control)] border text-left transition-all ${
+                      newFormat === 'group_stage'
+                        ? 'bg-[var(--cobalto)]/20 border-[var(--cobalto)] text-[var(--hueso)]'
+                        : 'bg-[var(--grafito)] border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)]'
+                    }`}
+                  >
+                    <div className="text-base font-bold text-[var(--hueso)]">Fase de grupos</div>
+                    <div className="text-sm text-[var(--acero)] mt-0.5">Cada jugador se enfrenta a los demás de su grupo.</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    aria-pressed={newFormat === 'single_elimination'}
+                    onClick={() => setNewFormat('single_elimination')}
+                    className={`p-3 rounded-[var(--r-control)] border text-left transition-all ${
+                      newFormat === 'single_elimination'
+                        ? 'bg-[var(--cobalto)]/20 border-[var(--cobalto)] text-[var(--hueso)]'
+                        : 'bg-[var(--grafito)] border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)]'
+                    }`}
+                  >
+                    <div className="text-base font-bold text-[var(--hueso)]">Eliminación Directa</div>
+                    <div className="text-sm text-[var(--acero)] mt-0.5">Una derrota elimina al jugador del cuadro.</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    aria-pressed={newFormat === 'double_elimination'}
+                    onClick={() => setNewFormat('double_elimination')}
+                    className={`p-3 rounded-[var(--r-control)] border text-left transition-all ${
+                      newFormat === 'double_elimination'
+                        ? 'bg-[var(--cobalto)]/20 border-[var(--cobalto)] text-[var(--hueso)]'
+                        : 'bg-[var(--grafito)] border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)]'
+                    }`}
+                  >
+                    <div className="text-base font-bold text-[var(--hueso)]">Doble Eliminación</div>
+                    <div className="text-sm text-[var(--acero)] mt-0.5">Cuadro de Ganadores y Perdedores con Gran Final.</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    aria-pressed={newFormat === 'swiss'}
+                    onClick={() => setNewFormat('swiss')}
+                    className={`p-3 rounded-[var(--r-control)] border text-left transition-all ${
+                      newFormat === 'swiss'
+                        ? 'bg-[var(--cobalto)]/20 border-[var(--cobalto)] text-[var(--hueso)]'
+                        : 'bg-[var(--grafito)] border-[var(--costura)] text-[var(--acero)] hover:text-[var(--hueso)]'
+                    }`}
+                  >
+                    <div className="text-base font-bold text-[var(--hueso)]">Sistema Suizo</div>
+                    <div className="text-sm text-[var(--acero)] mt-0.5">Cada ronda prioriza rivales con puntuación similar.</div>
+                  </button>
+                </div>
+              </div>
 
               {newStageStructure === 'two_stage' && creationStep === 2 && (
                 <fieldset className="space-y-2 rounded-xl border border-[var(--cobalto)]/40 bg-[var(--cobalto)]/10 p-3">
-                  <legend className="text-xs font-bold text-[var(--hueso)]">Formato de la segunda etapa</legend>
-                  <p className="text-[10px] text-[var(--acero)]">
+                  <legend className="text-base font-bold text-[var(--hueso)]">Formato de la segunda etapa</legend>
+                  <p className="text-sm text-[var(--acero)]">
                     Define la fase posterior a la etapa inicial.
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -788,8 +790,9 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                       <button
                         key={type}
                         type="button"
+                        aria-pressed={newSecondFormat === type}
                         onClick={() => setNewSecondFormat(type)}
-                        className={`rounded-lg border p-3 text-left text-xs font-bold ${
+                        className={`rounded-lg border p-3 text-left text-base font-bold ${
                           newSecondFormat === type
                             ? 'border-[var(--cobalto)] bg-[var(--cobalto)]/20 text-[var(--hueso)]'
                             : 'border-[var(--costura)] bg-[var(--grafito)] text-[var(--acero)]'

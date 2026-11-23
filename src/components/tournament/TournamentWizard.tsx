@@ -98,7 +98,7 @@ export const ALL_TIEBREAKER_OPTIONS: TiebreakerMeta[] = [
   },
   {
     id: 'median_buchholz',
-    label: 'Median-Buchholz',
+    label: 'Buchholz medio',
     subtitle: 'Fuerza de rivales descartando el valor más alto y más bajo',
     description: 'Suma los puntos de los rivales y descarta el mayor y el menor cuando hay al menos tres rivales. Los BYEs no cuentan.',
     tag: 'Challonge',
@@ -304,11 +304,13 @@ export const TournamentWizard: React.FC<{
     try {
       const result = await updateStageTiebreakers(activeStage.id, stageTiebreakers);
 
+      if (!result.success) throw new Error(result.message);
       if (applyToAllStages) {
         // Also update any other group or round robin stages in this tournament
-        const otherStages = tournamentStages.filter((s) => s.id !== activeStage.id);
+        const otherStages = tournamentStages.filter((s) => s.id !== activeStage.id && ['group_stage', 'round_robin', 'swiss'].includes(s.type));
         for (const s of otherStages) {
-          await updateStageTiebreakers(s.id, stageTiebreakers);
+          const saved = await updateStageTiebreakers(s.id, stageTiebreakers);
+          if (!saved.success) throw new Error(`${s.name}: ${saved.message}`);
         }
       }
 
@@ -406,7 +408,7 @@ export const TournamentWizard: React.FC<{
             Configuración del Torneo
           </h2>
           <p className="text-xs text-[var(--acero)] mt-1">
-            Configuración exacta estilo Challonge adaptada a las reglas de arbitraje de Beyblade X.
+            {activeTournament?.name}
           </p>
         </div>
 
@@ -423,7 +425,7 @@ export const TournamentWizard: React.FC<{
           <button
             onClick={handleDuplicate}
             className="px-3 py-1.5 text-xs font-semibold rounded-md bg-neutral-900 hover:bg-neutral-800 text-white transition-colors flex items-center gap-1.5 shadow-xs"
-            title="RF-07: Duplicar torneo como plantilla"
+            title="Duplicar torneo como plantilla"
           >
             <Copy className="w-3.5 h-3.5" />
             Duplicar Plantilla
@@ -584,7 +586,7 @@ export const TournamentWizard: React.FC<{
       {activeTab === 'arbitration' && (
         <form onSubmit={handleSaveArbitration} className="bg-[var(--chasis)] rounded-xl border border-[var(--costura)] p-6 shadow-sm space-y-6">
           <div>
-            <h3 className="text-sm font-bold text-[var(--hueso)]">RF-03: Puntos por Tipo de Finish</h3>
+            <h3 className="text-sm font-bold text-[var(--hueso)]">Puntos por finish</h3>
             <p className="text-xs text-[var(--acero)] mt-0.5">
               Valores reglamentarios de Beyblade X por defecto: Spin 1, Burst 2, Over 2, Xtreme 3.
             </p>
@@ -592,8 +594,8 @@ export const TournamentWizard: React.FC<{
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="p-4 bg-[var(--grafito)] rounded-lg border border-[var(--costura)] space-y-2">
-              <label className="text-xs font-bold text-emerald-800 block mb-1">Spin Finish</label>
-              <input
+              <label htmlFor="finish-spin" className="flex items-center gap-2 text-sm font-bold text-[var(--finish-spin)]"><AceroIcon id="i-spin" size="sm" />Spin Finish</label>
+              <input id="finish-spin"
                 type="number"
                 min={0}
                 max={10}
@@ -604,29 +606,10 @@ export const TournamentWizard: React.FC<{
               <span className="text-[10px] text-[var(--acero)] block text-center mt-1">Por defecto: 1 pt</span>
             </div>
 
-            {activeStage?.type === 'swiss' && (
-              <div className="p-4 bg-[var(--grafito)] rounded-lg border border-[var(--costura)] space-y-2">
-                <label htmlFor="wizard-swiss-rounds" className="text-xs font-bold text-[var(--hueso)]">
-                  Rondas del Sistema Suizo
-                </label>
-                <input
-                  id="wizard-swiss-rounds"
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={swissRounds}
-                  onChange={(e) => setSwissRounds(Number(e.target.value))}
-                  className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded-lg p-2 bg-[var(--grafito)] text-[var(--hueso)]"
-                />
-                <p className="text-[11px] text-[var(--acero)]">
-                  Se habilita una ronda nueva sólo después de cerrar todos los matches anteriores.
-                </p>
-              </div>
-            )}
 
             <div className="p-4 bg-[var(--grafito)] rounded-lg border border-[var(--costura)] space-y-2">
-              <label className="text-xs font-bold text-sky-800 block mb-1">Over Finish</label>
-              <input
+              <label htmlFor="finish-over" className="flex items-center gap-2 text-sm font-bold text-[var(--finish-over)]"><AceroIcon id="i-over" size="sm" />Over Finish</label>
+              <input id="finish-over"
                 type="number"
                 min={0}
                 max={10}
@@ -638,8 +621,8 @@ export const TournamentWizard: React.FC<{
             </div>
 
             <div className="p-4 bg-[var(--grafito)] rounded-lg border border-[var(--costura)] space-y-2">
-              <label className="text-xs font-bold text-amber-800 block mb-1">Burst Finish</label>
-              <input
+              <label htmlFor="finish-burst" className="flex items-center gap-2 text-sm font-bold text-[var(--finish-burst)]"><AceroIcon id="i-burst" size="sm" />Burst Finish</label>
+              <input id="finish-burst"
                 type="number"
                 min={0}
                 max={10}
@@ -651,8 +634,8 @@ export const TournamentWizard: React.FC<{
             </div>
 
             <div className="p-4 bg-[var(--grafito)] rounded-lg border border-[var(--costura)] space-y-2">
-              <label className="text-xs font-bold text-rose-800 block mb-1">Xtreme Finish</label>
-              <input
+              <label htmlFor="finish-xtreme" className="flex items-center gap-2 text-sm font-bold text-[var(--finish-xtreme)]"><AceroIcon id="i-xtreme" size="sm" />Xtreme Finish</label>
+              <input id="finish-xtreme"
                 type="number"
                 min={0}
                 max={10}
@@ -684,7 +667,7 @@ export const TournamentWizard: React.FC<{
 
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-[var(--acero)]">
-                  Frecuencia de falta por punto (Fouls per point):
+                  Frecuencia de falta por punto (faltas por punto):
                 </label>
                 <input
                   type="number"
@@ -698,47 +681,7 @@ export const TournamentWizard: React.FC<{
               </div>
             </div>
 
-            <div className="pt-4 border-t border-[var(--costura)] space-y-3">
-              <div>
-                <h4 className="text-xs font-bold uppercase text-[var(--acero)]">Reglas de puntuación de la etapa</h4>
-                <p className="text-[11px] text-[var(--acero)] mt-0.5">
-                  Define los valores usados en la clasificación de grupos y en los BYEs.
-                </p>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                {[
-                  ['Victoria de partido', pointsPerMatchWin, setPointsPerMatchWin],
-                  ['Empate de partido', pointsPerMatchDraw, setPointsPerMatchDraw],
-                  ['Victoria de set', pointsPerSetWin, setPointsPerSetWin],
-                  ['Empate de set', pointsPerSetDraw, setPointsPerSetDraw],
-                  ['BYE', pointsPerBye, setPointsPerBye],
-                ].map(([label, value, setter]) => (
-                  <label key={label as string} className="p-3 bg-[var(--grafito)] rounded-lg border border-[var(--costura)] space-y-1">
-                    <span className="text-[10px] font-bold text-[var(--hueso)] block">{label as string}</span>
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.5"
-                      value={value as number}
-                      onChange={(event) => (setter as (value: number) => void)(Number(event.target.value))}
-                      className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded p-1.5 bg-[var(--grafito)] text-[var(--hueso)]"
-                    />
-                  </label>
-                ))}
-              </div>
-              <label className="block max-w-sm">
-                <span className="text-[10px] font-bold text-[var(--hueso)] block mb-1">Gran Final (Doble Eliminación)</span>
-                <select
-                  value={grandFinalType}
-                  onChange={(event) => setGrandFinalType(event.target.value as typeof grandFinalType)}
-                  className="w-full text-xs border border-[var(--costura)] rounded p-2 bg-[var(--grafito)] text-[var(--hueso)]"
-                >
-                  <option value="one_or_two_matches">1-2 combates — el finalista de winners debe perder dos veces</option>
-                  <option value="one_match">1 combate</option>
-                  <option value="none">Sin gran final</option>
-                </select>
-              </label>
-            </div>
+
           </div>
 
           <div className="flex justify-end pt-3 border-t border-[var(--costura)]">
@@ -746,22 +689,80 @@ export const TournamentWizard: React.FC<{
               type="submit"
               className="px-4 py-2 text-xs font-bold text-white bg-neutral-900 hover:bg-neutral-800 rounded-lg transition-colors"
             >
-              Guardar Parámetros de Arbitraje
+              Guardar reglas de arbitraje
             </button>
           </div>
         </form>
       )}
 
       {/* Tab 3: Stages & Advancement */}
+      {(activeTab === 'stages' || activeTab === 'tiebreakers') && (
+          <div className="p-4 bg-[var(--grafito)] rounded-xl border border-[var(--costura)] space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <label className="text-xs font-bold text-[var(--hueso)] flex items-center gap-1.5">
+                <Filter className="w-4 h-4 text-[var(--acero)]" />
+                Etapa que vas a configurar
+              </label>
+              <span className="text-[11px] text-[var(--acero)]">
+                Elige la etapa cuyas reglas quieres consultar o editar.
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              {tournamentStages.map((stg) => {
+                const isSelected = stg.id === selectedStageId;
+                const isGroupOrSwiss =
+                  stg.type === 'group_stage' || stg.type === 'round_robin' || stg.type === 'swiss';
+
+                return (
+                  <button
+                    key={stg.id}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => setSelectedStageId(stg.id)}
+                    className={`p-3 text-left rounded-lg border transition-all text-xs flex flex-col justify-between ${
+                      isSelected
+                        ? 'border-[var(--cobalto)] bg-[var(--cobalto)]/15 ring-1 ring-[var(--cobalto)] shadow-xs'
+                        : 'border-[var(--costura)] bg-[var(--grafito)] hover:border-[var(--costura)] hover:bg-[var(--grafito)]/50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-1 mb-1">
+                      <span className="font-bold text-[var(--hueso)] truncate">
+                        {stg.position}. {stg.name}
+                      </span>
+                      {isSelected && (
+                        <span className="text-[var(--cobalto-texto)]">✓ Seleccionada</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--chasis)] text-[var(--acero)] font-mono">
+                        {{group_stage:'Fase de grupos', swiss:'Sistema suizo', single_elimination:'Eliminación directa', double_elimination:'Doble eliminación', round_robin:'Todos contra todos'}[stg.type]}
+                      </span>
+                      <span className="text-[10px] text-[var(--acero)]">
+                        {stg.config.tiebreakers?.length || 5} reglas
+                      </span>
+                      {isGroupOrSwiss && (
+                        <span className="text-[10px] text-[var(--acero)] font-medium">
+                          Tabla de posiciones
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+          </div>
+      )}
       {activeTab === 'stages' && (
         <fieldset
           disabled={stageConfigurationLocked}
           className="bg-[var(--chasis)] rounded-xl border border-[var(--costura)] p-6 shadow-sm space-y-6 disabled:opacity-75"
         >
           <div>
-            <h3 className="text-sm font-bold text-[var(--hueso)]">RF-04 & RF-18: Etapas y Transición de Torneo</h3>
+            <h3 className="text-sm font-bold text-[var(--hueso)]">Configuración de {activeStage?.name || 'la etapa'}</h3>
             <p className="text-xs text-[var(--acero)] mt-0.5">
-              Control multietapa: Define cómo avanzan los clasificados de la fase de grupos a las llaves de playoffs.
+              Ajusta el formato, las condiciones de avance y la puntuación.
             </p>
             {stageConfigurationLocked && (
               <p className="mt-2 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2 text-[11px] font-semibold text-amber-300">
@@ -934,6 +935,67 @@ export const TournamentWizard: React.FC<{
             </div>
           </div>
 
+            {activeStage?.type === 'swiss' && (
+              <div className="p-4 bg-[var(--grafito)] rounded-lg border border-[var(--costura)] space-y-2">
+                <label htmlFor="wizard-swiss-rounds" className="text-xs font-bold text-[var(--hueso)]">
+                  Rondas del Sistema Suizo
+                </label>
+                <input
+                  id="wizard-swiss-rounds"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={swissRounds}
+                  onChange={(e) => setSwissRounds(Number(e.target.value))}
+                  className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded-lg p-2 bg-[var(--grafito)] text-[var(--hueso)]"
+                />
+                <p className="text-[11px] text-[var(--acero)]">
+                  Cierra los combates de una ronda para abrir la siguiente.
+                </p>
+              </div>
+            )}
+
+            <div className="pt-4 border-t border-[var(--costura)] space-y-3">
+              <div>
+                <h4 className="text-xs font-bold uppercase text-[var(--acero)]">Reglas de puntuación de la etapa</h4>
+                <p className="text-[11px] text-[var(--acero)] mt-0.5">
+                  Define los valores usados en la clasificación de grupos y en los BYEs.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                {[
+                  ['Victoria de partido', pointsPerMatchWin, setPointsPerMatchWin],
+                  ['Empate de partido', pointsPerMatchDraw, setPointsPerMatchDraw],
+                  ['Victoria de set', pointsPerSetWin, setPointsPerSetWin],
+                  ['Empate de set', pointsPerSetDraw, setPointsPerSetDraw],
+                  ['BYE', pointsPerBye, setPointsPerBye],
+                ].map(([label, value, setter]) => (
+                  <label key={label as string} className="p-3 bg-[var(--grafito)] rounded-lg border border-[var(--costura)] space-y-1">
+                    <span className="text-[10px] font-bold text-[var(--hueso)] block">{label as string}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.5"
+                      value={value as number}
+                      onChange={(event) => (setter as (value: number) => void)(Number(event.target.value))}
+                      className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded p-1.5 bg-[var(--grafito)] text-[var(--hueso)]"
+                    />
+                  </label>
+                ))}
+              </div>
+              {activeStage?.type === 'double_elimination' && <label className="block max-w-sm">
+                <span className="text-[10px] font-bold text-[var(--hueso)] block mb-1">Gran Final (Doble Eliminación)</span>
+                <select
+                  value={grandFinalType}
+                  onChange={(event) => setGrandFinalType(event.target.value as typeof grandFinalType)}
+                  className="w-full text-xs border border-[var(--costura)] rounded p-2 bg-[var(--grafito)] text-[var(--hueso)]"
+                >
+                  <option value="one_or_two_matches">Hasta dos combates (con reinicio)</option>
+                  <option value="one_match">1 combate</option>
+                  <option value="none">Sin gran final</option>
+                </select>
+              </label>}
+            </div>
           <div className="flex justify-end pt-3 border-t border-[var(--costura)]">
             <button
               onClick={async () => {
@@ -967,7 +1029,7 @@ export const TournamentWizard: React.FC<{
               }}
               className="px-4 py-2 text-xs font-bold text-white bg-neutral-900 hover:bg-neutral-800 rounded-lg transition-colors"
             >
-              Guardar Configuración de Etapas y Puntos
+              Guardar configuración de la etapa
             </button>
           </div>
         </fieldset>
@@ -982,83 +1044,18 @@ export const TournamentWizard: React.FC<{
               <div>
                 <h3 className="text-base font-bold text-[var(--hueso)] tracking-tight flex items-center gap-2">
                   <Scale className="w-5 h-5 text-[var(--acero)]" />
-                  Módulo Avanzado: Reglas de Desempate por Etapa
+                  Reglas de desempate
                 </h3>
                 <p className="text-xs text-[var(--acero)] mt-1">
-                  Define criterios específicos por etapa (Enfrentamiento directo, Puntos promedio, Puntos totales o Diferencial) con persistencia en backend.
+                  Se aplica el primer criterio de la lista. Si persiste el empate, se compara el siguiente.
                 </p>
               </div>
 
-              {/* Backend Status Indicator */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-semibold shrink-0">
-                <Database className="w-4 h-4 text-emerald-600" />
-                <span>
-                  Backend REST API: <strong className="font-mono">Sincronizado</strong>
-                </span>
-                {lastSyncInfo && (
-                  <span className="text-[10px] text-emerald-700 border-l border-emerald-300 pl-2">
-                    {lastSyncInfo.timestamp}
-                  </span>
-                )}
-              </div>
+              {lastSyncInfo && lastSyncInfo.stageId === activeStage?.id && <span className="text-sm text-[var(--acero)]">Último guardado · {lastSyncInfo.timestamp}</span>}
             </div>
           </div>
 
-          {/* 1. Stage Selector */}
-          <div className="p-4 bg-[var(--grafito)] rounded-xl border border-[var(--costura)] space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <label className="text-xs font-bold text-[var(--hueso)] flex items-center gap-1.5">
-                <Filter className="w-4 h-4 text-[var(--acero)]" />
-                Selecciona la Etapa a Configurar:
-              </label>
-              <span className="text-[11px] text-[var(--acero)]">
-                Cada etapa del torneo puede poseer su propia jerarquía de desempate independiente.
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-              {tournamentStages.map((stg) => {
-                const isSelected = stg.id === selectedStageId;
-                const isGroupOrSwiss =
-                  stg.type === 'group_stage' || stg.type === 'round_robin' || stg.type === 'swiss';
-
-                return (
-                  <button
-                    key={stg.id}
-                    type="button"
-                    onClick={() => setSelectedStageId(stg.id)}
-                    className={`p-3 text-left rounded-lg border transition-all text-xs flex flex-col justify-between ${
-                      isSelected
-                        ? 'border-neutral-900 bg-[var(--grafito)] ring-2 ring-neutral-900 shadow-xs'
-                        : 'border-[var(--costura)] bg-[var(--grafito)] hover:border-[var(--costura)] hover:bg-[var(--grafito)]/50'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-1 mb-1">
-                      <span className="font-bold text-[var(--hueso)] truncate">
-                        {stg.position}. {stg.name}
-                      </span>
-                      {isSelected && (
-                        <span className="w-2 h-2 rounded-full bg-neutral-900 shrink-0 mt-1" />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--chasis)] text-[var(--acero)] font-mono">
-                        {stg.type}
-                      </span>
-                      <span className="text-[10px] text-[var(--acero)]">
-                        {stg.config.tiebreakers?.length || 5} reglas
-                      </span>
-                      {isGroupOrSwiss && (
-                        <span className="text-[10px] text-emerald-700 font-medium">
-                          ✓ Clasificación activa
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
+          <details className="rounded-xl border border-[var(--costura)] p-3"><summary className="cursor-pointer font-semibold">Gestionar etapas</summary>
             {activeTournament && (
               <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-[var(--costura)]">
                 <input
@@ -1110,17 +1107,17 @@ export const TournamentWizard: React.FC<{
               </div>
             )}
 
-          </div>
+          </details>
 
           {/* 2. Fast Presets */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[var(--hueso)] flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                Plantillas Reglamentarias Rápidas:
+                Plantillas de desempate
               </span>
               <span className="text-[11px] text-[var(--acero)]">
-                Aplica combinaciones predefinidas con 1 clic:
+                Elige una para cargar sus criterios.
               </span>
             </div>
 
@@ -1130,11 +1127,11 @@ export const TournamentWizard: React.FC<{
                 onClick={() => applyPreset('wbo')}
                 className="p-2.5 rounded-lg border border-[var(--costura)] hover:border-neutral-400 bg-[var(--grafito)] hover:bg-[var(--grafito)] text-left text-xs transition-colors group"
               >
-                <div className="font-bold text-[var(--hueso)] group-hover:text-neutral-950">
+                <div className="font-bold text-[var(--hueso)]">
                   Estándar WBO
                 </div>
-                <div className="text-[10px] text-[var(--acero)] truncate mt-0.5">
-                  Tabla → Directo → Dif. → Totales
+                <div className="text-sm text-[var(--acero)] mt-1">
+                  Puntos, Buchholz medio y directo
                 </div>
               </button>
 
@@ -1143,11 +1140,11 @@ export const TournamentWizard: React.FC<{
                 onClick={() => applyPreset('average')}
                 className="p-2.5 rounded-lg border border-[var(--costura)] hover:border-neutral-400 bg-[var(--grafito)] hover:bg-[var(--grafito)] text-left text-xs transition-colors group"
               >
-                <div className="font-bold text-indigo-900 group-hover:text-indigo-950">
+                <div className="font-bold text-[var(--hueso)]">
                   Puntos Promedio
                 </div>
-                <div className="text-[10px] text-[var(--acero)] truncate mt-0.5">
-                  Tabla → Promedio → Ratio → Directo
+                <div className="text-sm text-[var(--acero)] mt-1">
+                  Puntos, promedio y cociente
                 </div>
               </button>
 
@@ -1156,10 +1153,10 @@ export const TournamentWizard: React.FC<{
                 onClick={() => applyPreset('offensive')}
                 className="p-2.5 rounded-lg border border-[var(--costura)] hover:border-neutral-400 bg-[var(--grafito)] hover:bg-[var(--grafito)] text-left text-xs transition-colors group"
               >
-                <div className="font-bold text-amber-900 group-hover:text-amber-950">
+                <div className="font-bold text-[var(--hueso)]">
                   Puntos Totales
                 </div>
-                <div className="text-[10px] text-[var(--acero)] truncate mt-0.5">
+                <div className="text-sm text-[var(--acero)] mt-1">
                   Tabla → Totales → Dif. → Directo
                 </div>
               </button>
@@ -1169,11 +1166,11 @@ export const TournamentWizard: React.FC<{
                 onClick={() => applyPreset('swiss')}
                 className="p-2.5 rounded-lg border border-[var(--costura)] hover:border-neutral-400 bg-[var(--grafito)] hover:bg-[var(--grafito)] text-left text-xs transition-colors group"
               >
-                <div className="font-bold text-rose-900 group-hover:text-rose-950">
+                <div className="font-bold text-[var(--hueso)]">
                   Challonge / Suizo
                 </div>
-                <div className="text-[10px] text-[var(--acero)] truncate mt-0.5">
-                  Tabla → Buchholz → Dif. → Directo
+                <div className="text-sm text-[var(--acero)] mt-1">
+                  Puntos, Buchholz medio y directo
                 </div>
               </button>
             </div>
@@ -1184,7 +1181,7 @@ export const TournamentWizard: React.FC<{
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[var(--hueso)] flex items-center gap-1.5">
                 <ListOrdered className="w-4 h-4 text-[var(--acero)]" />
-                Jerarquía Activa de Desempate para "{activeStage?.name || 'Etapa actual'}":
+                Orden de prioridad · {activeStage?.name}
               </span>
               <span className="text-[11px] text-[var(--acero)] font-mono">
                 {stageTiebreakers.length} criterios activos
@@ -1206,47 +1203,39 @@ export const TournamentWizard: React.FC<{
                 return (
                   <div
                     key={critId}
-                    className="p-3.5 bg-[var(--grafito)]/70 hover:bg-[var(--grafito)] border border-[var(--costura)] hover:border-[var(--costura)] rounded-xl flex items-center justify-between gap-3 transition-all shadow-2xs"
+                    className="p-3.5 bg-[var(--grafito)]/70 hover:bg-[var(--grafito)] border border-[var(--costura)] hover:border-[var(--costura)] rounded-xl flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 transition-all shadow-2xs"
                   >
                     <div className="flex items-start gap-3 min-w-0">
                       <div className="flex flex-col items-center shrink-0">
                         <span className="w-6 h-6 rounded-full bg-[var(--acero)] text-[var(--grafito)] text-xs font-bold font-mono flex items-center justify-center shadow-xs">
                           {idx + 1}
                         </span>
-                        <span className="text-[9px] text-neutral-400 font-mono uppercase mt-1">
-                          {idx === 0 ? 'Base' : `#${idx + 1}`}
-                        </span>
+
                       </div>
 
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-bold text-[var(--hueso)]">
+                          <span className="text-base font-bold text-[var(--hueso)]">
                             {meta.label}
                           </span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${meta.accent}`}>
-                            {meta.tag}
-                          </span>
                         </div>
-                        <p className="text-[11px] text-[var(--acero)] mt-0.5">
-                          {meta.subtitle}
-                        </p>
-                        <p className="text-[11px] text-neutral-400 italic mt-0.5">
-                          {meta.description}
+                        <p className="text-sm text-[var(--acero)] mt-1">
+                          {critId === 'median_buchholz' ? meta.description : meta.subtitle}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="ml-auto flex items-center gap-1 shrink-0">
                       <button
                         type="button"
                         onClick={() => moveTiebreaker(idx, 'up')}
                         disabled={idx === 0}
-                        className={`p-1.5 rounded-lg border border-[var(--costura)] transition-colors ${
+                        className={`min-h-11 min-w-11 grid place-items-center rounded-lg border border-[var(--costura)] transition-colors ${
                           idx === 0
                             ? 'opacity-20 cursor-not-allowed bg-[var(--grafito)]'
                             : 'text-[var(--acero)] bg-[var(--grafito)] hover:bg-[var(--chasis)] hover:border-[var(--costura)]'
                         }`}
-                        title="Subir prioridad en la jerarquía"
+                        aria-label={`Subir prioridad de ${meta.label}`} title="Subir prioridad"
                       >
                         <ArrowUp className="w-4 h-4" />
                       </button>
@@ -1254,12 +1243,12 @@ export const TournamentWizard: React.FC<{
                         type="button"
                         onClick={() => moveTiebreaker(idx, 'down')}
                         disabled={idx === stageTiebreakers.length - 1}
-                        className={`p-1.5 rounded-lg border border-[var(--costura)] transition-colors ${
+                        className={`min-h-11 min-w-11 grid place-items-center rounded-lg border border-[var(--costura)] transition-colors ${
                           idx === stageTiebreakers.length - 1
                             ? 'opacity-20 cursor-not-allowed bg-[var(--grafito)]'
                             : 'text-[var(--acero)] bg-[var(--grafito)] hover:bg-[var(--chasis)] hover:border-[var(--costura)]'
                         }`}
-                        title="Bajar prioridad en la jerarquía"
+                        aria-label={`Bajar prioridad de ${meta.label}`} title="Bajar prioridad"
                       >
                         <ArrowDown className="w-4 h-4" />
                       </button>
@@ -1267,12 +1256,12 @@ export const TournamentWizard: React.FC<{
                         type="button"
                         onClick={() => removeTiebreaker(critId)}
                         disabled={stageTiebreakers.length <= 1}
-                        className={`p-1.5 rounded-lg border border-[var(--costura)] transition-colors ${
+                        className={`min-h-11 min-w-11 grid place-items-center rounded-lg border border-[var(--costura)] transition-colors ${
                           stageTiebreakers.length <= 1
                             ? 'opacity-20 cursor-not-allowed bg-[var(--grafito)]'
                             : 'text-rose-400 bg-[var(--grafito)] hover:bg-rose-900/30 hover:border-rose-700'
                         }`}
-                        title="Remover de la jerarquía activa"
+                        aria-label={`Quitar ${meta.label}`} title="Quitar criterio"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1287,7 +1276,7 @@ export const TournamentWizard: React.FC<{
           {ALL_TIEBREAKER_OPTIONS.some((c) => !stageTiebreakers.includes(c.id)) && (
             <div className="p-4 bg-[var(--grafito)] rounded-xl border border-dashed border-[var(--costura)] space-y-2">
               <span className="text-xs font-bold text-[var(--acero)] block">
-                Criterios Adicionales Disponibles para Incorporar:
+                Añadir otro criterio
               </span>
               <div className="flex flex-wrap gap-2">
                 {ALL_TIEBREAKER_OPTIONS.filter((c) => !stageTiebreakers.includes(c.id)).map((c) => (
@@ -1304,34 +1293,6 @@ export const TournamentWizard: React.FC<{
               </div>
             </div>
           )}
-
-          {/* 5. Live Simulation / Resolution Preview */}
-          <div className="p-4 bg-sky-900/20 border border-sky-800/50 rounded-xl space-y-2">
-            <div className="flex items-center gap-2">
-              <HelpCircle className="w-4 h-4 text-sky-400" />
-              <h4 className="text-xs font-bold text-sky-200">
-                Simulador de Resolución de Desempates ({activeStage?.name || 'Etapa'}):
-              </h4>
-            </div>
-            <p className="text-xs text-sky-300 leading-relaxed">
-              En caso de igualdad de puntos de tabla entre 2 o más bladers, el sistema evaluará:
-            </p>
-            <div className="flex items-center gap-1.5 flex-wrap text-xs font-mono">
-              {stageTiebreakers.map((crit, idx) => {
-                const opt = ALL_TIEBREAKER_OPTIONS.find((c) => c.id === crit);
-                return (
-                  <React.Fragment key={crit}>
-                    <span className="px-2 py-1 rounded bg-sky-900/40 text-sky-200 font-semibold border border-sky-700">
-                      {idx + 1}. {opt ? opt.tag : crit}
-                    </span>
-                    {idx < stageTiebreakers.length - 1 && (
-                      <span className="text-sky-400 font-bold">→</span>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </div>
-          </div>
 
           {/* 6. Multi-stage scope toggle & Save Button */}
           <div className="pt-4 border-t border-[var(--costura)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1354,12 +1315,12 @@ export const TournamentWizard: React.FC<{
               {isSavingTiebreakers ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Persistiendo en Backend...</span>
+                  <span>Guardando…</span>
                 </>
               ) : (
                 <>
                   <Database className="w-4 h-4" />
-                  <span>Guardar Reglas de Desempate en Backend</span>
+                  <span>Guardar reglas de desempate</span>
                 </>
               )}
             </button>
