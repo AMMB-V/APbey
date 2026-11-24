@@ -131,15 +131,16 @@ export const AdminPanel: React.FC = () => {
     setTimeout(() => setSuccessMsg(null), 5000);
   };
 
+  const [rankingSeason, setRankingSeason] = useState<1 | 2 | null>(null);
   const handleRankingWorkbook = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file) return;
+    if (!file || rankingSeason === null) return;
     setErrorMsg(null);
     setIsImportingRankings(true);
     try {
-      const imported = await importRankingWorkbook(file);
-      setSuccessMsg(`Rankings actualizados: ${imported.rankings} bladers y ${imported.hallOfFame} torneos del Salón de la Fama.`);
+      const imported = await importRankingWorkbook(file, rankingSeason);
+      setSuccessMsg(`Temporada ${rankingSeason} actualizada con ${imported.rankings} bladers y ${imported.hallOfFame} torneos del Salón de la Fama.`);
       setTimeout(() => setSuccessMsg(null), 5000);
     } catch (error) {
       setErrorMsg(error instanceof Error ? error.message : 'No se pudo importar el archivo Excel.');
@@ -583,10 +584,18 @@ export const AdminPanel: React.FC = () => {
             <h3 className="text-sm font-bold text-[var(--hueso)]">Fuente oficial de Rankings</h3>
             <p className="text-xs text-[var(--acero)] mt-1">
               Carga un libro .xlsx. Usa una hoja <strong>Rankings</strong> y, opcionalmente, otra hoja <strong>HallOfFame</strong>.
-              La importación reemplaza la publicación anterior y elimina datos de prueba.
+              La importación reemplaza los rankings y el Salón de la Fama de la temporada elegida.
             </p>
           </div>
         </div>
+        <label className="mt-4 block text-sm">Temporada de destino
+          <select className="ml-2 rounded border border-[var(--costura)] bg-[var(--grafito)] p-2" value={rankingSeason ?? ''}
+            disabled={isImportingRankings} onChange={event => setRankingSeason(event.target.value === '2' ? 2 : event.target.value === '1' ? 1 : null)}>
+            <option value="">Seleccionar</option>
+            <option value="1">Temporada 1</option>
+            <option value="2">Temporada 2</option>
+          </select>
+        </label>
         <label className="mt-5 flex min-h-[48px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-purple-700/70 bg-purple-950/30 px-4 py-3 text-xs font-bold text-purple-200 hover:bg-purple-950/60">
           <UploadCloud className="w-4 h-4" />
           {isImportingRankings ? 'Procesando archivo...' : 'Adjuntar archivo Excel'}
@@ -595,7 +604,7 @@ export const AdminPanel: React.FC = () => {
             accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             className="sr-only"
             onChange={handleRankingWorkbook}
-            disabled={isImportingRankings}
+            disabled={isImportingRankings || rankingSeason === null}
           />
         </label>
         <p className="mt-3 text-[11px] text-[var(--acero)]">

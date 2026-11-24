@@ -87,7 +87,7 @@ import {
 import { parseRankingWorkbook } from '../../lib/storage/rankingWorkbook';
 import { createEntityId } from '../../lib/storage/entityIds';
 import { migratePersistedTournamentData } from '../../lib/storage/localDataMigration';
-import { BladerRanking, HallOfFameEntry } from '../../types/rankings';
+import { BladerRanking, HallOfFameEntry, RankingSeason } from '../../types/rankings';
 
 export interface SupabaseSyncInfo {
   isConfigured: boolean;
@@ -192,7 +192,7 @@ interface TournamentContextType {
   changeUserRole: (userId: string, newRole: UserRole) => Promise<{ success: boolean; message: string }>;
   rankings: BladerRanking[];
   hallOfFame: HallOfFameEntry[];
-  importRankingWorkbook: (file: File) => Promise<{ rankings: number; hallOfFame: number }>;
+  importRankingWorkbook: (file: File, season: RankingSeason) => Promise<{ rankings: number; hallOfFame: number }>;
 
   // Reset
   resetAllData: () => { success: boolean; message: string };
@@ -946,17 +946,21 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, []);
 
-  const importRankingWorkbook = async (file: File) => {
+  const importRankingWorkbook = async (file: File, season: RankingSeason) => {
     if (currentRole !== 'admin') {
       throw new Error('Solo un administrador puede importar rankings.');
     }
     const data = await parseRankingWorkbook(file);
-    const syncResult = await syncRankingsToSupabase(data);
+    const syncResult = await syncRankingsToSupabase(data, season);
     if (!syncResult.success) throw new Error(syncResult.message);
-    setRankings(data.rankings);
-    setHallOfFame(data.hallOfFame);
+    const merged = {
+      rankings: [...rankings.filter(row => (row.season ?? 1) !== season), ...data.rankings.map(row => ({...row, season}))],
+      hallOfFame: [...hallOfFame.filter(row => (row.season ?? 1) !== season), ...data.hallOfFame.map(row => ({...row, season}))],
+    };
+    setRankings(merged.rankings);
+    setHallOfFame(merged.hallOfFame);
     if (!getSupabaseClient()) {
-      localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(merged));
     }
     logAudit(
       'ranking_entries',

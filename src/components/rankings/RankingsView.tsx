@@ -11,13 +11,19 @@ export const RankingsView: React.FC = () => {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const { currentUser, rankings, hallOfFame, tournaments, stages, rounds, matches, participants, battles, penalties } = useTournament();
-  const history = useMemo(() => competitiveHistory(tournaments, stages, rounds, matches, participants, battles, penalties),
-    [tournaments, stages, rounds, matches, participants, battles, penalties]);
+  const [selectedSeason, setSelectedSeason] = useState<1 | 2 | null>(null);
+  const season = selectedSeason ?? (rankings.some(row => row.season === 2) || hallOfFame.some(row => row.season === 2) ? 2 : 1);
+  const seasonRankings = rankings.filter(row => (row.season ?? 1) === season);
+  const history = useMemo(() => competitiveHistory(tournaments.filter(event => {
+    const date = event.startsAt.slice(0, 10);
+    return season === 1 ? date >= '2025-12-27' && date <= '2026-06-30' : date >= '2026-07-01';
+  }), stages, rounds, matches, participants, battles, penalties),
+    [season, tournaments, stages, rounds, matches, participants, battles, penalties]);
   const hasCalculatedElo = history.ratings.length > 0;
   const leaderboard = activeSubTab === 'elo'
-    ? (hasCalculatedElo ? history.ratings : rankings.filter(blader => blader.elo > 0))
-    : rankings;
-  const awards = [...history.awards, ...hallOfFame.filter(entry => !history.awards.some(award =>
+    ? (hasCalculatedElo ? history.ratings : seasonRankings.filter(blader => blader.elo > 0))
+    : seasonRankings;
+  const awards = [...history.awards, ...hallOfFame.filter(entry => (entry.season ?? 1) === season && !history.awards.some(award =>
     award.tournamentTitle.trim().toLowerCase() === entry.tournamentTitle.trim().toLowerCase() && award.date === entry.date))];
 
   useEffect(() => {
@@ -55,6 +61,13 @@ export const RankingsView: React.FC = () => {
         </p>
       </div>
 
+      <label className="flex items-center gap-3 text-sm font-semibold">Temporada
+        <select value={season} onChange={event => setSelectedSeason(event.target.value === '2' ? 2 : 1)}
+          className="min-h-11 rounded-xl border border-[var(--costura)] bg-[var(--chasis)] px-3">
+          <option value="1">Temporada 1</option>
+          <option value="2">Temporada 2</option>
+        </select>
+      </label>
       <div role="tablist" aria-label="Modalidad de ranking" className="grid grid-cols-3 p-1 bg-[var(--chasis)] border border-[var(--costura)] rounded-2xl">
         {([
           ['points', <Trophy className="w-4 h-4" />, 'Por Puntos'],
