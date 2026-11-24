@@ -593,7 +593,7 @@ grant execute on function claim_invitation(text, text, text) to authenticated;
 create table if not exists ranking_entries (
   id text primary key,
   name text not null,
-  points integer not null default 0 check (points >= 0),
+  points integer not null default 0,
   elo integer not null default 0 check (elo >= 0),
   wins integer not null default 0 check (wins >= 0),
   losses integer not null default 0 check (losses >= 0),

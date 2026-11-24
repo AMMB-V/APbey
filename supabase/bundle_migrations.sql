@@ -1,6 +1,6 @@
 -- =====================================================================
 -- APbey Arena - Consolidated Migration Bundle
--- Total Migrations: 40
+-- Total Migrations: 41
 -- Generated automatically for Supabase SQL Editor execution
 -- =====================================================================
 
@@ -5892,5 +5892,17 @@ create trigger guard_operational_transition
 before update of status on public.stages for each row execute function apbey_private.guard_operational_transition();
 create trigger guard_operational_transition
 before update of status on public.tournaments for each row execute function apbey_private.guard_operational_transition();
+
+
+
+
+-- ---------------------------------------------------------------------
+
+-- Migration: 20261124043609_ranking_signed_points.sql
+
+-- ---------------------------------------------------------------------
+
+-- Ranking totals can be negative after penalties and point differentials.
+alter table public.ranking_entries drop constraint if exists ranking_entries_points_check;
 
 

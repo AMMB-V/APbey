@@ -20,7 +20,7 @@ const number = (row: Record<string, unknown>, rowNumber: number, label: string, 
   const raw = value(row, ...keys);
   if (raw === undefined || raw === null || String(raw).trim() === '') return 0;
   const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed < 0) {
+  if (!Number.isFinite(parsed) || (label !== 'points' && parsed < 0)) {
     throw new Error(`Valor inválido en ${label}, fila ${rowNumber}.`);
   }
   return parsed;
@@ -68,7 +68,7 @@ export async function parseRankingWorkbook(file: File): Promise<RankingWorkbookD
       return {
         id: text(row, 'id') || `ranking-${index + 1}`,
         name,
-        points: number(row, index + 2, 'points', 'points', 'puntos'),
+        points: number(row, index + 2, 'points', 'points', 'puntos', 'total'),
         elo: number(row, index + 2, 'elo', 'elo', 'rating elo', 'rating'),
         wins: number(row, index + 2, 'wins', 'wins', 'victorias', 'v'),
         losses: number(row, index + 2, 'losses', 'losses', 'derrotas', 'd'),
