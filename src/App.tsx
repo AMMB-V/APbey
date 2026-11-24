@@ -128,6 +128,15 @@ function TournamentApp() {
   } = useTournament();
   const hasAppliedTournamentDeepLink = useRef(false);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('forgot-password') !== '1') return;
+    openAuthModal('login');
+    const url = new URL(window.location.href);
+    url.searchParams.delete('forgot-password');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }, [openAuthModal]);
+
   // Stages of active tournament
   const tournamentStages = activeTournament
     ? stages.filter((s) => s.tournamentId === activeTournament.id).sort((a, b) => a.position - b.position)

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTournament } from '../../context/TournamentContext';
 import { AceroIcon } from '../common/AceroIcon';
 import { getSupabaseClient } from '../../lib/supabase/client';
+import { getPasswordRecoveryRedirectUrl } from './PasswordRecovery';
 import { KeyRound, UserCheck, Shield, AlertCircle, CheckCircle2, X } from 'lucide-react';
 
 interface AuthModalProps {
@@ -60,7 +61,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     try {
       const client = getSupabaseClient();
       if (!client) throw new Error('El servicio de acceso no está disponible.');
-      const redirectTo = new URL('/?recovery=1', window.location.origin).href;
+      const redirectTo = getPasswordRecoveryRedirectUrl(new URL(window.location.href));
       const { error } = await client.auth.resetPasswordForEmail(email.trim(), { redirectTo });
       if (error && error.status !== 404 && error.code !== 'user_not_found') {
         throw new Error('No se pudo solicitar el enlace ahora. Intenta de nuevo en unos minutos.');
