@@ -1,4 +1,7 @@
+export type RankingSeason = 1 | 2;
+
 export interface BladerRanking {
+  season?: RankingSeason;
   id: string;
   name: string;
   points: number;
@@ -10,6 +13,7 @@ export interface BladerRanking {
 }
 
 export interface HallOfFameEntry {
+  season?: RankingSeason;
   id: string;
   tournamentTitle: string;
   champion: string;

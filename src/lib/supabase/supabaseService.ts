@@ -145,11 +145,12 @@ async function getAuthenticatedSupabaseUser(): Promise<
   return { userId: userData.user.id, role: profile.role };
 }
 
-export async function syncRankingsToSupabase(data: RankingData): Promise<{ success: boolean; message: string }> {
+export async function syncRankingsToSupabase(data: RankingData, season: import('../../types/rankings').RankingSeason): Promise<{ success: boolean; message: string }> {
   const supabase = getSupabaseClient();
   if (!supabase) return { success: true, message: 'Rankings guardados localmente; Supabase no está configurado.' };
 
-  const { error } = await supabase.rpc('publish_rankings', {
+  const { error } = await supabase.rpc('publish_season_rankings', {
+    p_season: season,
     p_rankings: data.rankings.map((entry) => ({
       id: entry.id,
       name: entry.name,
@@ -187,6 +188,7 @@ export async function loadRankingsFromSupabase(): Promise<RankingData | null> {
   if (rankingsError || hallError) return null;
   return {
     rankings: (rankingRows || []).map((row) => ({
+      season: row.season === 2 ? 2 : 1,
       id: String(row.id),
       name: String(row.name),
       points: Number(row.points) || 0,
@@ -197,6 +199,7 @@ export async function loadRankingsFromSupabase(): Promise<RankingData | null> {
       favoriteCombo: row.favorite_combo ? String(row.favorite_combo) : undefined,
     })),
     hallOfFame: (hallRows || []).map((row) => ({
+      season: row.season === 2 ? 2 : 1,
       id: String(row.id),
       tournamentTitle: String(row.tournament_title || ''),
       champion: String(row.champion || ''),
