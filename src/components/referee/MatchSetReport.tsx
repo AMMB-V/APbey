@@ -19,6 +19,18 @@ export function MatchSetReport({ match, stage, players, target, currentScores, c
   const [rows, setRows] = useState([{ id: 0, scores: ['', ''] as [string, string] }]);
   const [version, setVersion] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const submitting = useRef(false);
+  const [queued, setQueued] = useState<{version: number; scores: SetScore[]; partial: boolean} | null>(null);
+  const [online, setOnline] = useState(() => navigator.onLine);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }, []);
   const [draftMessage, setDraftMessage] = useState('');
   const draftKey = 'apbey:set-draft:' + match.id;
   useEffect(() => {
@@ -59,20 +71,44 @@ export function MatchSetReport({ match, stage, players, target, currentScores, c
     setVersion(match.version);
   }
 
-  async function submit(partial = false) {
-    if ((partial ? partialResult.error !== undefined : !winner) || version === null || changed || saving) return;
+  async function send(report: {version: number; scores: SetScore[]; partial: boolean}) {
+    if (submitting.current || report.version !== match.version || !canReport) return;
+    submitting.current = true;
     setSaving(true);
     setError('');
     try {
-      await onReport(match.id, version, scores, partial);
+      await onReport(match.id, report.version, report.scores, report.partial);
       try { sessionStorage.removeItem(draftKey); } catch { /* The server already confirmed the report. */ }
-      if (!partial) setSavedVersion(version);
+      if (!report.partial) setSavedVersion(report.version);
       dialog.current?.close();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No se pudo guardar el resultado.');
     } finally {
+      submitting.current = false;
       setSaving(false);
     }
+  }
+
+  useEffect(() => {
+    if (!queued) return;
+    if (changed || version === null) {
+      setQueued(null);
+      return;
+    }
+    if (online) {
+      setQueued(null);
+      void send(queued);
+    }
+  }, [queued, online, changed, version, send]);
+
+  function submit(partial = false) {
+    if ((partial ? partialResult.error !== undefined : !winner) || version === null || changed || saving) return;
+    const report = {version, scores, partial};
+    if (!navigator.onLine) {
+      setQueued(report);
+      return;
+    }
+    void send(report);
   }
 
   return (
@@ -101,12 +137,13 @@ export function MatchSetReport({ match, stage, players, target, currentScores, c
             <div>
               <h2 id={titleId} className="text-lg font-bold">Reportar resultado por sets</h2>
               <p role="status" className="text-xs text-[var(--acero)]">{saving ? 'Enviando marcador…' : draftMessage}</p>
+              {queued && <p role="status">Sin conexión. Se enviará el marcador confirmado al reconectar si mantienes abierto este reporte. <button type="button" className="underline" onClick={() => setQueued(null)}>Cancelar envío pendiente</button></p>}
               <p className="mt-1 text-xs text-[var(--acero)]">
                 Al mejor de {stage.bestOf} · {getSetsNeeded(stage)} para ganar · {target} puntos por set. Si empatan, añade otro set.
               </p>
             </div>
 
-            <fieldset disabled={saving} className="space-y-3">
+            <fieldset disabled={saving || Boolean(queued)} className="space-y-3">
               {rows.map((row, rowIndex) => (
                 <div key={row.id} className="rounded-xl border border-[var(--costura)] p-3 space-y-2">
                   <div className="flex items-center justify-between gap-2">
