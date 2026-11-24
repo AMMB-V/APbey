@@ -22,6 +22,7 @@ import {
   Scale,
   X,
 } from 'lucide-react';
+import { isPublicTournamentVisible } from '../../lib/publicAccess';
 
 interface TournamentListProps {
   onSelectTournament: (tournamentId: string, targetTab?: 'overview' | 'bracket' | 'referee' | 'wizard' | 'participants') => void;
@@ -84,6 +85,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
   const reduceMotion = useReducedMotion();
 
   const canManage = currentRole === 'organizer' || currentRole === 'admin';
+  const isPublicVisitor = currentRole === 'public';
 
   const closeCreateModal = () => {
     setShowCreateModal(false);
@@ -163,8 +165,9 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
       (t.venueName && t.venueName.toLowerCase().includes(searchQuery.toLowerCase())) ||
       t.slug.toLowerCase().includes(searchQuery.toLowerCase());
 
+    const isPubliclyActive = isPublicTournamentVisible(t);
     const matchesStatus = statusFilter === 'all' || t.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus && (!isPublicVisitor || isPubliclyActive);
   });
 
   const handleCreateSubmit = (e: React.FormEvent, targetView: 'participants' | 'bracket' = 'participants') => {
@@ -368,7 +371,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {!isPublicVisitor && <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
             onClick={() => setStatusFilter('all')}
             className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--r-chip)] transition-colors whitespace-nowrap ${
@@ -409,7 +412,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
           >
             Finalizados
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* Tournaments Grid */}
@@ -423,7 +426,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
           return (
             <div
               key={tourney.id}
-              onClick={() => onSelectTournament(tourney.id, 'overview')}
+              onClick={() => onSelectTournament(tourney.id, isPublicVisitor ? 'bracket' : 'overview')}
               className={`p-5 rounded-[var(--r-card)] border transition-all cursor-pointer flex flex-col justify-between group ${
                 isActive
                   ? 'bg-[var(--chasis)] border-[var(--cobalto)] shadow-md ring-1 ring-[var(--cobalto)]'
@@ -562,7 +565,9 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
           <div className="space-y-1">
             <h3 className="text-sm font-bold text-[var(--hueso)]">No se encontraron torneos</h3>
             <p className="text-xs text-[var(--acero)] max-w-sm mx-auto">
-              Prueba ajustando los filtros de búsqueda o crea un nuevo torneo para comenzar la competencia.
+              {isPublicVisitor
+                ? 'No hay torneos públicos en registro o en vivo en este momento.'
+                : 'Prueba ajustando los filtros de búsqueda o crea un nuevo torneo para comenzar la competencia.'}
             </p>
           </div>
           <div>

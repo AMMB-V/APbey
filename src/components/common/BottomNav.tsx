@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trophy, TrendingUp, Radio, GitBranch } from 'lucide-react';
+import { Trophy, TrendingUp, Radio, GitBranch, Users, Tv } from 'lucide-react';
 import { ToolsMenu } from './ToolsMenu';
 import type { MainTabType } from './Header';
 
@@ -7,12 +7,16 @@ interface BottomNavProps {
   activeTab: MainTabType;
   setActiveTab: (tab: MainTabType) => void;
   onOpenStadium?: () => void;
+  isPublic?: boolean;
+  canPresent?: boolean;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   activeTab,
   setActiveTab,
   onOpenStadium,
+  isPublic = false,
+  canPresent = true,
 }) => {
   return (
     <>
@@ -52,7 +56,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         </button>
 
         {/* 3. Marcador (Centrado y prominente - Ley de Fitts: zona del pulgar) */}
-        <button
+        {!isPublic ? <button
           type="button"
           onClick={() => setActiveTab('marcador')}
           aria-current={activeTab === 'marcador' || activeTab === 'referee' ? 'page' : undefined}
@@ -69,7 +73,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             <Radio className="w-6 h-6 animate-pulse" aria-hidden="true" />
           </div>
           <span className="text-[10px] font-bold text-[var(--hueso)] mt-0.5">Marcador</span>
-        </button>
+        </button> : <button type="button" onClick={() => setActiveTab('participants')}
+          aria-current={activeTab === 'participants' ? 'page' : undefined}
+          className={`flex min-w-[56px] min-h-[50px] flex-col items-center justify-center rounded-xl py-1 ${activeTab === 'participants' ? 'text-cyan-300 font-bold' : 'text-[var(--acero)]'}`}>
+          <Users className="mb-0.5 h-5 w-5" aria-hidden="true" />
+          <span className="text-[10px] tracking-tight">Participantes</span>
+        </button>}
 
         {/* 4. Brackets */}
         <button
@@ -86,7 +95,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           <span className="text-[10px] tracking-tight">Cuadro</span>
         </button>
 
-        <ToolsMenu activeTab={activeTab} navigate={setActiveTab} openStadium={onOpenStadium} />
+        {isPublic ? <button type="button" onClick={onOpenStadium} disabled={!canPresent}
+          className="flex min-w-[56px] min-h-[50px] flex-col items-center justify-center rounded-xl py-1 text-[var(--acero)] disabled:cursor-not-allowed disabled:opacity-40">
+          <Tv className="mb-0.5 h-5 w-5" aria-hidden="true" />
+          <span className="text-[10px] tracking-tight">Presentar</span>
+        </button> : <ToolsMenu activeTab={activeTab} navigate={setActiveTab} openStadium={onOpenStadium} />}
       </nav>
     </>
   );

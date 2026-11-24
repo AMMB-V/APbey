@@ -5,7 +5,6 @@ import { TournamentProvider, useTournament } from './context/TournamentContext';
 import { Header, MainTabType } from './components/common/Header';
 import { BracketViewer } from './components/bracket/BracketViewer';
 import { GroupStageViewer } from './components/bracket/GroupStageViewer';
-import { RefereeConsole } from './components/referee/RefereeConsole';
 import { ParticipantManager } from './components/participants/ParticipantManager';
 import { TournamentWizard } from './components/tournament/TournamentWizard';
 import { TournamentList } from './components/tournament/TournamentList';
@@ -20,6 +19,7 @@ import { DeckBuilder } from './components/deck/DeckBuilder';
 import { TierListView } from './components/deck/TierListView';
 import { RankingsView } from './components/rankings/RankingsView';
 import { UserProfileView } from './components/profile/UserProfileView';
+import { isPublicTournamentVisible, PUBLIC_TABS, publicTab } from './lib/publicAccess';
 import {
   Layers,
   Volume2,
@@ -94,12 +94,6 @@ function TournamentApp() {
   const [selectedRefereeMatchId, setSelectedRefereeMatchId] = useState<string | undefined>(
     () => new URLSearchParams(window.location.search).get('match') ?? undefined
   );
-  const setActiveTab = (tab: MainTabType) => {
-    if (tab === activeTab) return;
-    pushNavigation.current = true;
-    if (tab !== 'marcador' && tab !== 'referee') setSelectedRefereeMatchId(undefined);
-    updateActiveTab(tab);
-  };
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [wizardInitialTab, setWizardInitialTab] = useState<
     'general' | 'arbitration' | 'stages' | 'tiebreakers' | 'permissions'
@@ -126,7 +120,21 @@ function TournamentApp() {
     inviteCodePrefill,
     openAuthModal,
   } = useTournament();
+  const isPublicVisitor = !currentUser || currentRole === 'public';
+  const setActiveTab = (requestedTab: MainTabType) => {
+    const tab = isPublicVisitor ? publicTab(requestedTab) : requestedTab;
+    if (tab === activeTab) return;
+    pushNavigation.current = true;
+    if (tab !== 'marcador' && tab !== 'referee') setSelectedRefereeMatchId(undefined);
+    updateActiveTab(tab);
+  };
   const hasAppliedTournamentDeepLink = useRef(false);
+
+  useEffect(() => {
+    if (!isPublicVisitor || PUBLIC_TABS.includes(activeTab)) return;
+    setSelectedRefereeMatchId(undefined);
+    updateActiveTab('torneos');
+  }, [activeTab, isPublicVisitor]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -169,6 +177,7 @@ function TournamentApp() {
   }, [activeStageId, activeTournament?.id, tournamentStages, initialRoute]);
 
   const currentStage = tournamentStages.find((s) => s.id === activeStageId) || tournamentStages[0];
+  const canViewActiveTournament = !isPublicVisitor || isPublicTournamentVisible(activeTournament);
 
   // Restore a tournament deep link once the remote snapshot is available.
   useEffect(() => {
@@ -181,10 +190,18 @@ function TournamentApp() {
     if (tournaments.length === 0) return;
 
     hasAppliedTournamentDeepLink.current = true;
-    if (tournaments.some((tournament) => tournament.id === requestedTournamentId)) {
+    if (tournaments.some((tournament) => tournament.id === requestedTournamentId &&
+      (!isPublicVisitor || isPublicTournamentVisible(tournament)))) {
       setActiveTournamentId(requestedTournamentId);
     }
-  }, [tournaments, setActiveTournamentId, initialRoute]);
+  }, [tournaments, setActiveTournamentId, initialRoute, isPublicVisitor]);
+
+  useEffect(() => {
+    if (!isPublicVisitor || !activeTournament) return;
+    if (isPublicTournamentVisible(activeTournament)) return;
+    const firstVisible = tournaments.find(isPublicTournamentVisible);
+    setActiveTournamentId(firstVisible?.id || '');
+  }, [activeTournament, isPublicVisitor, setActiveTournamentId, tournaments]);
 
   // Sync title and URL search param
   useEffect(() => {
@@ -235,10 +252,12 @@ function TournamentApp() {
       setSelectedRefereeMatchId(params.get('match') ?? undefined);
       const requestedView = params.get('view');
       if (requestedView && VALID_TABS.includes(requestedView as MainTabType)) {
-        updateActiveTab(requestedView as MainTabType);
+        const requestedTab = requestedView as MainTabType;
+        updateActiveTab(isPublicVisitor ? publicTab(requestedTab) : requestedTab);
       }
       const requestedTournamentId = params.get('tournament');
-      if (requestedTournamentId && tournaments.some((tournament) => tournament.id === requestedTournamentId)) {
+      if (requestedTournamentId && tournaments.some((tournament) => tournament.id === requestedTournamentId &&
+        (!isPublicVisitor || isPublicTournamentVisible(tournament)))) {
         setActiveTournamentId(requestedTournamentId);
       }
       const requestedStageId = params.get('stage');
@@ -249,12 +268,12 @@ function TournamentApp() {
 
     window.addEventListener('popstate', handleBrowserNavigation);
     return () => window.removeEventListener('popstate', handleBrowserNavigation);
-  }, [setActiveTournamentId, stages, tournaments]);
+  }, [isPublicVisitor, setActiveTournamentId, stages, tournaments]);
 
   // Global Ctrl+K / Cmd+K listener for CommandPalette
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      if (!isPublicVisitor && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setIsCommandPaletteOpen((prev) => !prev);
       }
@@ -262,9 +281,10 @@ function TournamentApp() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isPublicVisitor]);
 
   const handleOpenMatchInReferee = (matchId: string) => {
+    if (isPublicVisitor) return;
     if (selectedRefereeMatchId !== matchId) pushNavigation.current = true;
     setSelectedRefereeMatchId(matchId);
     setActiveTab('marcador');
@@ -317,11 +337,11 @@ function TournamentApp() {
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onOpenCommandPalette={isPublicVisitor ? undefined : () => setIsCommandPaletteOpen(true)}
       />
 
       {/* Persistent Stadium Summon Banner */}
-      {activeStationAlert && (
+      {!isPublicVisitor && activeStationAlert && (
         <aside
           aria-label="Convocatoria Activa"
           className="bg-[var(--tarjeta-amarilla)] text-[var(--tinta)] px-3 sm:px-4 py-2.5 shadow-md border-b border-amber-600 flex items-start sm:items-center justify-between text-xs font-bold"
@@ -385,7 +405,7 @@ function TournamentApp() {
             )}
           </div>
 
-          {activeTournament && (
+          {activeTournament && canViewActiveTournament && (
             <nav
               aria-label="Navegación del torneo"
               className="mb-5 flex w-full items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-1.5"
@@ -395,7 +415,9 @@ function TournamentApp() {
                 { id: 'participants' as const, label: 'Participantes', icon: Users },
                 { id: 'bracket' as const, label: 'Cuadro', icon: Trophy },
                 { id: 'wizard' as const, label: 'Configuración', icon: Settings },
-              ].filter(item => canManageTournament || item.id !== 'wizard').map((item) => {
+              ].filter(item => isPublicVisitor
+                ? item.id === 'participants' || item.id === 'bracket'
+                : canManageTournament || item.id !== 'wizard').map((item) => {
                 const isSelected = activeTab === item.id;
                 const Icon = item.icon;
                 return (
@@ -631,14 +653,14 @@ function TournamentApp() {
             onSelectTournament={(tourneyId, targetTab) => {
               if (tourneyId !== activeTournament?.id) pushNavigation.current = true;
               setActiveTournamentId(tourneyId);
-              setActiveTab((targetTab as MainTabType) || 'overview');
+              setActiveTab(isPublicVisitor ? 'bracket' : (targetTab as MainTabType) || 'overview');
             }}
           />
         )}
 
         {/* View 1: Brackets & Groups */}
         {showBracketDemo && <BracketDemo />}
-        {activeTab === 'bracket' && !showBracketDemo && (
+        {activeTab === 'bracket' && !showBracketDemo && canViewActiveTournament && (
           <div className="space-y-6">
             {tournamentStages.length > 1 && (
               <div className="bg-[var(--chasis)] rounded-2xl border border-[var(--costura)] p-3 shadow-xs flex items-center justify-between overflow-x-auto gap-4">
@@ -692,14 +714,14 @@ function TournamentApp() {
                 {currentStage.type === 'group_stage' ? (
                   <GroupStageViewer
                     stage={currentStage}
-                    onOpenMatchInReferee={handleOpenMatchInReferee}
+                    onOpenMatchInReferee={isPublicVisitor ? undefined : handleOpenMatchInReferee}
                   />
                 ) : (
                   <BracketViewer
                     key={`${currentStage.id}-${queueFilter ?? ""}`}
                     stage={currentStage}
                     queueFilter={queueFilter}
-                    onOpenMatchInReferee={handleOpenMatchInReferee}
+                    onOpenMatchInReferee={isPublicVisitor ? undefined : handleOpenMatchInReferee}
                   />
                 )}
               </div>
@@ -734,7 +756,7 @@ function TournamentApp() {
         )}
 
         {/* View 2: Marcador Unificado (Modo Libre + Oficial) */}
-        {(activeTab === 'marcador' || activeTab === 'referee') && (
+        {!isPublicVisitor && (activeTab === 'marcador' || activeTab === 'referee') && (
           <ScoreboardView
             initialMatchId={selectedRefereeMatchId}
             onNavigateTab={(tab) => setActiveTab(tab)}
@@ -745,22 +767,31 @@ function TournamentApp() {
         {activeTab === 'rankings' && <RankingsView />}
 
         {/* View 4: Deck 3on3 Builder */}
-        {activeTab === 'deck' && <DeckBuilder />}
+        {!isPublicVisitor && activeTab === 'deck' && <DeckBuilder />}
 
         {/* View 5: Tier List Competitiva */}
-        {activeTab === 'tierlist' && <TierListView />}
+        {!isPublicVisitor && activeTab === 'tierlist' && <TierListView />}
 
         {/* View 6: Perfil de Blader */}
-        {activeTab === 'profile' && <UserProfileView />}
+        {!isPublicVisitor && activeTab === 'profile' && <UserProfileView />}
 
         {/* View 7: Participantes Torneo */}
-        {activeTab === 'participants' && <ParticipantManager />}
+        {activeTab === 'participants' && canViewActiveTournament && <ParticipantManager />}
+
+        {(activeTab === 'bracket' || activeTab === 'participants') && !canViewActiveTournament && (
+          <section className="mx-auto max-w-xl rounded-3xl border border-[var(--costura)] bg-[var(--chasis)] p-8 text-center">
+            <Trophy className="mx-auto h-10 w-10 text-[var(--acero)]" aria-hidden="true" />
+            <h2 className="mt-3 text-lg font-bold">Selecciona un torneo activo</h2>
+            <p className="mt-1 text-sm text-[var(--acero)]">Los cuadros, clasificaciones y participantes se publican dentro de cada torneo en registro o en vivo.</p>
+            <button type="button" className="acero-btn acero-btn--primary mt-4" onClick={() => setActiveTab('torneos')}>Ver torneos activos</button>
+          </section>
+        )}
 
         {/* View 8: Diseñador de Torneos (Staff) */}
-        {activeTab === 'wizard' && <TournamentWizard initialTab={wizardInitialTab} />}
+        {!isPublicVisitor && activeTab === 'wizard' && <TournamentWizard initialTab={wizardInitialTab} />}
 
         {/* View 9: Admin Panel (Personal & Accesos) */}
-        {activeTab === 'admin' && <AdminPanel />}
+        {!isPublicVisitor && activeTab === 'admin' && <AdminPanel />}
 
         </div>
 
@@ -771,17 +802,19 @@ function TournamentApp() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenStadium={() => setShowStadiumModal(true)}
+        isPublic={isPublicVisitor}
+        canPresent={canViewActiveTournament && Boolean(activeTournament)}
       />
 
       {/* Global Command Palette (Ctrl+K) */}
-      <CommandPalette
+      {!isPublicVisitor && <CommandPalette
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
         onNavigate={(tab) => setActiveTab(tab as MainTabType)}
-      />
+      />}
 
       {/* Stadium Projector Display Modal */}
-      {showStadiumModal && (
+      {showStadiumModal && canViewActiveTournament && activeTournament && (
         <StadiumDisplay onClose={() => setShowStadiumModal(false)} />
       )}
 

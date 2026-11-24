@@ -17,6 +17,7 @@ import { ToolsMenu } from './ToolsMenu';
 import { AceroIcon } from './AceroIcon';
 import { SyncBadge } from './SyncBadge';
 import { ProfileModal } from '../auth/ProfileModal';
+import { isPublicTournamentVisible } from '../../lib/publicAccess';
 
 export type MainTabType =
   | 'torneos'
@@ -55,6 +56,9 @@ export const Header: React.FC<HeaderProps> = ({
 
   const [showProfile, setShowProfile] = useState(false);
   const isStaff = currentRole === 'referee' || currentRole === 'organizer' || currentRole === 'admin';
+  const isPublic = currentRole === 'public' || !currentUser;
+  const hasPublicTournament = isPublicTournamentVisible(activeTournament);
+  const canOpenTournamentViews = !isPublic || hasPublicTournament;
 
   const roleLabels: Record<string, { label: string; color: string }> = {
     admin: { label: 'Admin', color: 'bg-rose-900/60 text-rose-300 border-rose-700/80' },
@@ -108,7 +112,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {/* 2. Brackets */}
-          {!activeTournament && <button
+          {activeTournament && canOpenTournamentViews && <button
             type="button"
             onClick={() => setActiveTab('bracket')}
             aria-current={activeTab === 'bracket' ? 'page' : undefined}
@@ -123,7 +127,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>}
 
           {/* 3. Marcador (Unified Free & Official) */}
-          <button
+          {!isPublic && <button
             type="button"
             onClick={() => setActiveTab('marcador')}
             aria-current={activeTab === 'marcador' || activeTab === 'referee' ? 'page' : undefined}
@@ -135,7 +139,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Radio className="w-3.5 h-3.5 text-emerald-400" />
             <span>Marcador</span>
-          </button>
+          </button>}
 
           {/* 4. Rankings & Hall of Fame */}
           <button
@@ -152,10 +156,19 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Rankings</span>
           </button>
 
-          <div className="lg:hidden">
+          {isPublic && hasPublicTournament && <button
+            type="button"
+            onClick={() => setActiveTab('participants')}
+            aria-current={activeTab === 'participants' ? 'page' : undefined}
+            className="flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-xl px-2 text-xs font-bold text-[var(--acero)] hover:bg-[var(--grafito)] hover:text-[var(--hueso)] aria-current:bg-[var(--hueso)] aria-current:text-[var(--tinta)]"
+          >
+            <span>Participantes</span>
+          </button>}
+
+          {!isPublic && <div className="lg:hidden">
             <ToolsMenu activeTab={activeTab} navigate={setActiveTab} openStadium={() => setShowStadiumModal(true)} />
-          </div>
-          <div className="hidden shrink-0 items-center gap-1 lg:flex">
+          </div>}
+          {!isPublic && <div className="hidden shrink-0 items-center gap-1 lg:flex">
             {([
               { tab: 'deck', label: 'Deck', Icon: Layers },
               { tab: 'tierlist', label: 'Tier List', Icon: Shield },
@@ -172,7 +185,12 @@ export const Header: React.FC<HeaderProps> = ({
               <Tv aria-hidden="true" className="size-3.5" />
               Estadio
             </button>
-          </div>
+          </div>}
+          {isPublic && hasPublicTournament && <button type="button" onClick={() => setShowStadiumModal(true)} aria-haspopup="dialog"
+            className="flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-xl px-2 text-xs font-bold text-[var(--acero)] hover:bg-[var(--grafito)] hover:text-[var(--hueso)]">
+            <Tv aria-hidden="true" className="size-3.5" />
+            Presentación
+          </button>}
 
         </nav>
 

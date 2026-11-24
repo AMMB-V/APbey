@@ -141,7 +141,7 @@ export const ParticipantManager: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-[var(--hueso)] tracking-tight font-display">
-              Gestión de Bladers, Decks 3on3 & Siembra (Seeding)
+              {currentRole === 'public' ? 'Participantes del torneo' : 'Gestión de Bladers, Decks 3on3 & Siembra (Seeding)'}
             </h2>
             {activeTournament && (
               <p className="mt-1 text-xs text-[var(--acero)] truncate max-w-[32rem]" title={activeTournament.name}>
@@ -279,7 +279,9 @@ export const ParticipantManager: React.FC = () => {
               {tParticipants.length === 0 ? (
                 <tr>
                   <td colSpan={currentRole !== 'public' ? 6 : 5} className="py-8 text-center text-xs text-[var(--acero)]">
-                    No hay bladers registrados en este torneo. Añade participantes arriba o impórtalos en bloque.
+                    {currentRole === 'public'
+                      ? 'Todavía no hay participantes publicados para este torneo.'
+                      : 'No hay bladers registrados en este torneo. Añade participantes arriba o impórtalos en bloque.'}
                   </td>
                 </tr>
               ) : (
