@@ -13,7 +13,10 @@ export const RankingsView: React.FC = () => {
   const { currentUser, rankings, hallOfFame, tournaments, stages, rounds, matches, participants, battles, penalties } = useTournament();
   const history = useMemo(() => competitiveHistory(tournaments, stages, rounds, matches, participants, battles, penalties),
     [tournaments, stages, rounds, matches, participants, battles, penalties]);
-  const leaderboard = activeSubTab === 'elo' ? history.ratings : rankings;
+  const hasCalculatedElo = history.ratings.length > 0;
+  const leaderboard = activeSubTab === 'elo'
+    ? (hasCalculatedElo ? history.ratings : rankings.filter(blader => blader.elo > 0))
+    : rankings;
   const awards = [...history.awards, ...hallOfFame.filter(entry => !history.awards.some(award =>
     award.tournamentTitle.trim().toLowerCase() === entry.tournamentTitle.trim().toLowerCase() && award.date === entry.date))];
 
@@ -46,7 +49,8 @@ export const RankingsView: React.FC = () => {
         </h1>
         <p className="text-xs text-[var(--acero)] mt-0.5">
           {activeSubTab === 'points' ? 'Puntos publicados por la administración de la liga' :
-            activeSubTab === 'elo' ? 'Calculado con combates de torneos públicos finalizados. Elo inicial de 1500.' :
+            activeSubTab === 'elo' ? (hasCalculatedElo ? 'Calculado con combates de torneos públicos finalizados. Elo inicial de 1500.' :
+              'El Elo automático se genera con resultados individuales de torneos públicos finalizados.') :
             'Resultados de torneos públicos finalizados y campeonatos importados.'}
         </p>
       </div>
@@ -89,7 +93,8 @@ export const RankingsView: React.FC = () => {
 
       {activeSubTab !== 'hof' && (
         leaderboard.length === 0 ? (
-          <EmptyState message="Los rankings todavía no tienen datos publicados." />
+          <EmptyState message={activeSubTab === 'elo' ? 'Todavía no hay resultados para calcular el Elo.' : 'Los rankings todavía no tienen datos publicados.'}
+            detail={activeSubTab === 'elo' ? 'Los totales de victorias y derrotas del Excel se consultan en Por Puntos. El Elo requiere saber quién se enfrentó a quién y el resultado de cada combate.' : undefined} />
         ) : (
           <div className="bg-[var(--chasis)] border border-[var(--costura)] rounded-3xl overflow-hidden shadow-xl">
             <div className="overflow-x-auto">
@@ -136,7 +141,8 @@ export const RankingsView: React.FC = () => {
 
       {activeSubTab === 'hof' && (
         awards.length === 0 ? (
-          <EmptyState message="El Salón de la Fama todavía no tiene torneos publicados." />
+          <EmptyState message="Todavía no hay campeonatos en el Salón de la Fama."
+            detail="Se completa con campeones y subcampeones de torneos públicos finalizados o con la hoja HallOfFame de un Excel." />
         ) : (
           <div className="flex flex-col gap-4">
             {awards.map((entry) => (
@@ -167,9 +173,9 @@ export const RankingsView: React.FC = () => {
   );
 };
 
-const EmptyState: React.FC<{ message: string }> = ({ message }) => (
+const EmptyState: React.FC<{ message: string; detail?: string }> = ({ message, detail }) => (
   <div className="bg-[var(--chasis)] border border-dashed border-[var(--costura)] rounded-3xl p-8 text-center">
     <p className="text-sm font-semibold text-[var(--hueso)]">{message}</p>
-    <p className="text-xs text-[var(--acero)] mt-2">Un administrador puede cargar la información oficial desde Gestionar.</p>
+    <p className="text-xs text-[var(--acero)] mt-2">{detail ?? 'Un administrador puede cargar la información oficial desde Gestionar.'}</p>
   </div>
 );
