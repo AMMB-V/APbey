@@ -1,5 +1,6 @@
 import readXlsxFile, { type Sheet } from 'read-excel-file/browser';
 import { BladerRanking, HallOfFameEntry } from '../../types/rankings';
+import { IMPORTED_ELO_ID_PREFIX } from '../../types/rankings';
 
 export interface RankingWorkbookData {
   rankings: BladerRanking[];
@@ -109,6 +110,20 @@ export async function parseRankingWorkbook(file: File): Promise<RankingWorkbookD
     })
     .filter((entry) => entry !== null) as HallOfFameEntry[];
 
+  if (sheetNames.some(name => name.trim().toLowerCase() === 'elo')) {
+    for (const [index, row] of sheetRows(sheets, ['elo']).entries()) {
+      const name = text(row, 'blader', 'nombre', 'name');
+      if (!name) continue;
+      const elo = number(row, index + 2, 'elo', 'elo');
+      if (!elo) throw new Error(`Falta el Elo de "${name}" en la fila ${index + 2}.`);
+      rankings.push({
+        id: `${IMPORTED_ELO_ID_PREFIX}${index + 1}`,
+        name, elo, points: 0, tournamentsWon: 0,
+        wins: number(row, index + 2, 'wins', 'victorias', 'wins'),
+        losses: number(row, index + 2, 'losses', 'derrotas', 'losses'),
+      });
+    }
+  }
   if (rankings.length === 0 && hallOfFame.length === 0) {
     throw new Error('El archivo no contiene filas válidas de Rankings ni Salón de la Fama.');
   }

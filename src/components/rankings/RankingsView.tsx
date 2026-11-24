@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Award, Search, Sparkles, Star, TrendingUp, Trophy } from 'lucide-react';
 import { useTournament } from '../../context/TournamentContext';
 import { competitiveHistory } from '../../lib/engine/competitiveHistory';
+import { IMPORTED_ELO_ID_PREFIX } from '../../types/rankings';
 
 export const RankingsView: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'points' | 'elo' | 'hof'>(() => {
@@ -20,9 +21,10 @@ export const RankingsView: React.FC = () => {
   }), stages, rounds, matches, participants, battles, penalties),
     [season, tournaments, stages, rounds, matches, participants, battles, penalties]);
   const hasCalculatedElo = history.ratings.length > 0;
+  const importedElo = seasonRankings.filter(blader => blader.id.startsWith(IMPORTED_ELO_ID_PREFIX));
   const leaderboard = activeSubTab === 'elo'
-    ? (hasCalculatedElo ? history.ratings : seasonRankings.filter(blader => blader.elo > 0))
-    : seasonRankings;
+    ? (importedElo.length ? importedElo : hasCalculatedElo ? history.ratings : seasonRankings.filter(blader => blader.elo > 0))
+    : seasonRankings.filter(blader => !blader.id.startsWith(IMPORTED_ELO_ID_PREFIX));
   const awards = [...history.awards, ...hallOfFame.filter(entry => (entry.season ?? 1) === season && !history.awards.some(award =>
     award.tournamentTitle.trim().toLowerCase() === entry.tournamentTitle.trim().toLowerCase() && award.date === entry.date))];
 
@@ -55,7 +57,7 @@ export const RankingsView: React.FC = () => {
         </h1>
         <p className="text-xs text-[var(--acero)] mt-0.5">
           {activeSubTab === 'points' ? 'Puntos publicados por la administración de la liga' :
-            activeSubTab === 'elo' ? (hasCalculatedElo ? 'Calculado con combates de torneos públicos finalizados. Elo inicial de 1500.' :
+            activeSubTab === 'elo' ? (importedElo.length ? 'Clasificación Elo publicada por la liga.' : hasCalculatedElo ? 'Calculado con combates de torneos públicos finalizados. Elo inicial de 1500.' :
               'El Elo automático se genera con resultados individuales de torneos públicos finalizados.') :
             'Resultados de torneos públicos finalizados y campeonatos importados.'}
         </p>
