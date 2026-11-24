@@ -3222,6 +3222,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       organizerId: currentUser?.id || 'user_admin',
       status: 'draft',
       isPublic: data.isPublic !== false,
+      category: data.category || 'clash',
       maxParticipants: data.maxParticipants || 16,
       checkInRequired: data.checkInRequired || false,
       entryFee: data.entryFee || 0,

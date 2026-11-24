@@ -262,6 +262,7 @@ export async function syncTournamentToSupabase(
       organizer_id: existingTournament?.organizer_id || sessionUserId,
       status: tournament.status,
       is_public: tournament.isPublic,
+      category: tournament.category || 'clash',
       max_participants: tournament.maxParticipants || null,
       check_in_required: tournament.checkInRequired,
       entry_fee: tournament.entryFee || 0,
@@ -291,6 +292,7 @@ export async function syncTournamentToSupabase(
     const participantsPayload = tourneyParticipants.map(p => ({
       id: p.id,
       tournament_id: p.tournamentId,
+      profile_id: p.profileId || null,
       display_name: p.displayName,
       seed: p.seed,
       checked_in: p.checkedIn,
@@ -572,6 +574,7 @@ export async function loadTournamentsFromSupabase(): Promise<{
       organizerId: t.organizer_id,
       status: t.status,
       isPublic: t.is_public,
+      category: t.category || 'clash',
       maxParticipants: t.max_participants || undefined,
       checkInRequired: t.check_in_required,
       entryFee: Number(t.entry_fee) || 0,

@@ -1,12 +1,12 @@
 import { IMPORTED_ELO_ID_PREFIX, type BladerRanking } from '../../types/rankings';
-import type { Battle, Match, Participant, Penalty } from '../../types/tournament';
-import { matchPointTotals } from './tiebreakers';
+import type { Battle, Match, Participant, Penalty, Round, Stage, Tournament } from '../../types/tournament';
+import { tournamentRankingPlacements } from './tournamentRankingPoints';
 
 export const rankingNameKey = (name: string) => name.trim().normalize('NFC').toLowerCase();
 export const SEASON_TWO_BASELINE = '2026-11-15';
 
 export function liveSeasonRanking(base: BladerRanking[], games: Match[], roster: Participant[],
-  battles: Battle[], penalties: Penalty[]) {
+  battles: Battle[], penalties: Penalty[], tournaments: Tournament[] = [], stages: Stage[] = [], rounds: Round[] = []) {
   const points = new Map<string, BladerRanking>();
   const elo = new Map<string, BladerRanking>();
   for (const row of base) {
@@ -18,7 +18,6 @@ export function liveSeasonRanking(base: BladerRanking[], games: Match[], roster:
   const completed = [...new Map(games.filter(game => game.status === 'completed' && !game.isBye &&
     (!game.outcome || game.outcome === 'normal' || game.outcome === 'third_place')).map(game => [game.id, game])).values()]
     .sort((a,b) => (a.finishedAt ?? '').localeCompare(b.finishedAt ?? '') || a.id.localeCompare(b.id));
-  const totals = matchPointTotals(completed, battles, penalties);
   const get = (map: Map<string, BladerRanking>, player: Participant) => {
     const key = rankingNameKey(player.displayName);
     let row = map.get(key);
@@ -33,9 +32,8 @@ export function liveSeasonRanking(base: BladerRanking[], games: Match[], roster:
     if (!a || !b || a.tournamentId !== game.tournamentId || b.tournamentId !== game.tournamentId ||
       rankingNameKey(a.displayName) === rankingNameKey(b.displayName)) continue;
     if (!game.isDraw && game.winnerId !== a.id && game.winnerId !== b.id) continue;
-    const [scoreA, scoreB] = totals(game);
-    get(points, a).points += scoreA - scoreB;
-    get(points, b).points += scoreB - scoreA;
+    get(points, a);
+    get(points, b);
     if (game.isDraw) continue;
     const winner = game.winnerId === a.id ? a : b, loser = winner === a ? b : a;
     get(points, winner).wins++;
@@ -46,6 +44,11 @@ export function liveSeasonRanking(base: BladerRanking[], games: Match[], roster:
     losingRating.elo -= gain;
     winningRating.wins++;
     losingRating.losses++;
+  }
+  for (const tournament of tournaments) {
+    for (const placement of tournamentRankingPlacements(tournament, stages, rounds, games, roster, battles, penalties)) {
+      get(points, placement.participant).points += placement.points;
+    }
   }
   return { points: [...points.values()], elo: [...elo.values()].map(row => ({...row, elo: Math.round(row.elo)})) };
 }

@@ -29,9 +29,11 @@ export const RankingsView: React.FC = () => {
     const eligible = new Set(tournaments.filter(event => event.isPublic &&
       ['in_progress', 'completed'].includes(event.status) && event.startsAt.slice(0, 10) > SEASON_TWO_BASELINE)
       .map(event => event.id));
+    const eligibleTournaments = tournaments.filter(event => eligible.has(event.id));
     return liveSeasonRanking(rankings.filter(row => row.season === 2),
-      matches.filter(game => eligible.has(game.tournamentId)), participants, battles, penalties);
-  }, [season, tournaments, rankings, matches, participants, battles, penalties]);
+      matches.filter(game => eligible.has(game.tournamentId)), participants, battles, penalties,
+      eligibleTournaments, stages.filter(stage => eligible.has(stage.tournamentId)), rounds);
+  }, [season, tournaments, rankings, matches, participants, battles, penalties, stages, rounds]);
   const importedElo = seasonRankings.filter(blader => blader.id.startsWith(IMPORTED_ELO_ID_PREFIX));
   const leaderboard = live ? (activeSubTab === 'elo' ? live.elo : live.points) : activeSubTab === 'elo'
     ? (importedElo.length ? importedElo : hasCalculatedElo ? history.ratings : seasonRankings.filter(blader => blader.elo > 0))
@@ -67,7 +69,7 @@ export const RankingsView: React.FC = () => {
           <span>Rankings WBO y Salón de la Fama</span>
         </h1>
         <p className="text-xs text-[var(--acero)] mt-0.5">
-          {live && activeSubTab === 'points' ? 'Temporada 2 · Vista provisional: total publicado más diferencia de puntos de nuevos combates. Bonos pendientes de validación.' :
+          {live && activeSubTab === 'points' ? 'Temporada 2 · Puntos oficiales por posición en torneos finalizados. Swiss King añade 5 puntos.' :
             live && activeSubTab === 'elo' ? 'Temporada 2 · Elo actualizado con resultados confirmados. Base oficial al 15 de noviembre de 2026.' :
             activeSubTab === 'points' ? 'Puntos publicados por la administración de la liga' :
             activeSubTab === 'elo' ? (importedElo.length ? 'Clasificación Elo publicada por la liga.' : hasCalculatedElo ? 'Calculado con combates de torneos públicos finalizados. Elo inicial de 1500.' :

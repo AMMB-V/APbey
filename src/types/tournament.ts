@@ -10,6 +10,7 @@ export interface UserProfile {
 }
 
 export type TournamentStatus = 'draft' | 'registration' | 'in_progress' | 'completed' | 'cancelled';
+export type TournamentCategory = 'super' | 'grand' | 'clash' | 'twisted';
 export type StageType = 'single_elimination' | 'double_elimination' | 'round_robin' | 'swiss' | 'group_stage';
 export type StageStructure = 'single_stage' | 'two_stage' | 'multi_stage';
 export type StageStatus = 'pending' | 'in_progress' | 'completed';
@@ -48,6 +49,7 @@ export interface Tournament {
   organizerId: string;
   status: TournamentStatus;
   isPublic: boolean;
+  category?: TournamentCategory; // Legacy snapshots default to Clash when omitted.
   maxParticipants?: number;
   checkInRequired: boolean;
   entryFee: number;
