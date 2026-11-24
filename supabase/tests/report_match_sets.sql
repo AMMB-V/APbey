@@ -1,5 +1,5 @@
 begin;
-select plan(13);
+select plan(17);
 
 create temp table set_report_fixture as
 select gen_random_uuid() as organizer, gen_random_uuid() as referee, gen_random_uuid() as other_user,
@@ -39,6 +39,15 @@ union all select p2, tournament, 'Orange', 2 from set_report_fixture;
 
 insert into public.matches (id, tournament_id, stage_id, round_id, position, version)
 select next_match, tournament, stage, next_round, 1, 1 from set_report_fixture;
+
+select throws_ok($sql$update public.matches set version = 0 where id = (select next_match from set_report_fixture)$sql$,
+  'P0001', 'version_conflict', 'Reject a stale match write');
+select throws_ok($sql$update public.matches set score1 = 2 where id = (select next_match from set_report_fixture)$sql$,
+  'P0001', 'version_conflict', 'Reject a competing score with the same revision');
+select throws_ok($sql$update public.stages set status = 'pending' where id = (select stage from set_report_fixture)$sql$,
+  'P0001', 'invalid_stage_transition', 'Reject moving a running stage to pending');
+select throws_ok($sql$update public.tournaments set status = 'draft' where id = (select tournament from set_report_fixture)$sql$,
+  'P0001', 'invalid_tournament_transition', 'Reject moving a running tournament to draft');
 insert into public.matches (
   id, tournament_id, stage_id, round_id, position, participant1_id, participant2_id, referee_id, next_match_winner_id, version
 )

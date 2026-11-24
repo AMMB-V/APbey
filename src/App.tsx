@@ -108,6 +108,7 @@ function TournamentApp() {
     currentUser,
     currentRole,
     auditLogs,
+    supabaseSyncInfo,
     tournaments,
     activeTournament,
     setActiveTournamentId,
@@ -463,6 +464,21 @@ function TournamentApp() {
                   </>
                 )}
               </div>
+              {canManageTournament && supabaseSyncInfo.isConfigured && !supabaseSyncInfo.isConnected && (
+                <p role="alert" className="rounded-xl border border-amber-500/50 p-3 text-amber-300">
+                  Sin sincronización con el servidor. {supabaseSyncInfo.message}
+                </p>
+              )}
+              {canManageTournament && activeTournament.status === 'in_progress' &&
+                !readyMatches.length && tournamentStages.some(stage => stage.status === 'in_progress') && (
+                <section className="rounded-xl border border-amber-500/50 p-3">
+                  <h3 className="font-bold">Etapa en curso sin combates disponibles</h3>
+                  <button type="button" className="acero-btn" onClick={() => {
+                    setActiveStageId(tournamentStages.find(stage => stage.status === 'in_progress')!.id);
+                    setActiveTab('bracket');
+                  }}>Revisar avance y próxima ronda</button>
+                </section>
+              )}
               {canManageTournament && pendingByStage.length > 0 && (
                 <section aria-label="Pendientes de asignación" className="rounded-2xl border border-[var(--costura)] bg-[var(--chasis)] p-4">
                   <h3 className="font-bold">Pendientes de asignación</h3>
