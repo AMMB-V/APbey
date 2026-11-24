@@ -12,6 +12,7 @@ import { TournamentList } from './components/tournament/TournamentList';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { StadiumDisplay } from './components/stadium/StadiumDisplay';
 import { AuthModal } from './components/auth/AuthModal';
+import { isPasswordRecovery, PasswordRecovery } from './components/auth/PasswordRecovery';
 import { BottomNav } from './components/common/BottomNav';
 import { CommandPalette } from './components/common/CommandPalette';
 import { ScoreboardView } from './components/scoreboard/ScoreboardView';
@@ -787,6 +788,8 @@ function TournamentApp() {
 }
 
 export default function App() {
+  const [recovering] = useState(() => isPasswordRecovery(new URL(window.location.href)));
+  if (recovering) return <PasswordRecovery />;
   return (
     <TournamentProvider>
       <TournamentApp />
