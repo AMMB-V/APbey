@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { rankingNameKey } from '../../lib/engine/liveSeasonRanking';
 import { csvRows, rosterNames } from '../../lib/rosterImport';
 import { useTournament } from '../../context/TournamentContext';
 import { AceroIcon } from '../common/AceroIcon';
@@ -20,6 +21,7 @@ import {
 export const ParticipantManager: React.FC = () => {
   const {
     activeTournament,
+    rankings,
     participants,
     addParticipant,
     addBulkParticipants,
@@ -45,6 +47,8 @@ export const ParticipantManager: React.FC = () => {
     : [];
 
   const checkedInCount = tParticipants.filter((p) => p.checkedIn).length;
+  const rankedNames = [...new Map(rankings.filter(row => row.season === 2)
+    .map(row => [rankingNameKey(row.name), row.name])).values()].sort((a,b) => a.localeCompare(b));
   const seen = new Set(tParticipants.map(p => p.displayName.trim().toLocaleLowerCase()));
   const importNames = bulkText.split('\n').map(name => name.trim()).filter(Boolean);
   const uniqueNames = importNames.filter(name => {
@@ -58,6 +62,10 @@ export const ParticipantManager: React.FC = () => {
   const handleAddSingle = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeTournament || !newName.trim()) return;
+    if (tParticipants.some(player => rankingNameKey(player.displayName) === rankingNameKey(newName))) {
+      setActionError('Este blader ya está inscrito en el torneo.');
+      return;
+    }
     try {
       const combos = newCombos
         .split(',')
@@ -219,11 +227,16 @@ export const ParticipantManager: React.FC = () => {
             <input
               type="text"
               placeholder="Nombre del Blader"
+              aria-label="Nombre del blader nuevo o del ranking"
+              list="season-two-ranked-bladers"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               required
               className="w-full text-xs font-medium border border-[var(--costura)] rounded-[var(--r-control)] px-3 py-2 bg-[var(--grafito)] text-[var(--hueso)] focus:outline-hidden focus:border-[var(--cobalto)]"
             />
+            <datalist id="season-two-ranked-bladers">
+              {rankedNames.map(name => <option key={name} value={name} />)}
+            </datalist>
           </div>
 
           <div className="grow w-full sm:w-auto">

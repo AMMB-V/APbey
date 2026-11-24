@@ -3,6 +3,7 @@ import { Award, Search, Sparkles, Star, TrendingUp, Trophy } from 'lucide-react'
 import { useTournament } from '../../context/TournamentContext';
 import { competitiveHistory } from '../../lib/engine/competitiveHistory';
 import { IMPORTED_ELO_ID_PREFIX } from '../../types/rankings';
+import { liveSeasonRanking, SEASON_TWO_BASELINE } from '../../lib/engine/liveSeasonRanking';
 
 export const RankingsView: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'points' | 'elo' | 'hof'>(() => {
@@ -13,16 +14,26 @@ export const RankingsView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const { currentUser, rankings, hallOfFame, tournaments, stages, rounds, matches, participants, battles, penalties } = useTournament();
   const [selectedSeason, setSelectedSeason] = useState<1 | 2 | null>(null);
-  const season = selectedSeason ?? (rankings.some(row => row.season === 2) || hallOfFame.some(row => row.season === 2) ? 2 : 1);
+  const season = selectedSeason ?? (rankings.some(row => row.season === 2) || hallOfFame.some(row => row.season === 2) ||
+    tournaments.some(event => event.isPublic && event.startsAt.slice(0, 10) > SEASON_TWO_BASELINE &&
+      (event.status === 'in_progress' || event.status === 'completed')) ? 2 : 1);
   const seasonRankings = rankings.filter(row => (row.season ?? 1) === season);
   const history = useMemo(() => competitiveHistory(tournaments.filter(event => {
     const date = event.startsAt.slice(0, 10);
-    return season === 1 ? date >= '2025-12-27' && date <= '2026-06-30' : date >= '2026-07-01';
+    return season === 1 ? date >= '2025-12-27' && date <= '2026-06-30' : date > SEASON_TWO_BASELINE;
   }), stages, rounds, matches, participants, battles, penalties),
     [season, tournaments, stages, rounds, matches, participants, battles, penalties]);
   const hasCalculatedElo = history.ratings.length > 0;
+  const live = useMemo(() => {
+    if (season !== 2) return null;
+    const eligible = new Set(tournaments.filter(event => event.isPublic &&
+      ['in_progress', 'completed'].includes(event.status) && event.startsAt.slice(0, 10) > SEASON_TWO_BASELINE)
+      .map(event => event.id));
+    return liveSeasonRanking(rankings.filter(row => row.season === 2),
+      matches.filter(game => eligible.has(game.tournamentId)), participants, battles, penalties);
+  }, [season, tournaments, rankings, matches, participants, battles, penalties]);
   const importedElo = seasonRankings.filter(blader => blader.id.startsWith(IMPORTED_ELO_ID_PREFIX));
-  const leaderboard = activeSubTab === 'elo'
+  const leaderboard = live ? (activeSubTab === 'elo' ? live.elo : live.points) : activeSubTab === 'elo'
     ? (importedElo.length ? importedElo : hasCalculatedElo ? history.ratings : seasonRankings.filter(blader => blader.elo > 0))
     : seasonRankings.filter(blader => !blader.id.startsWith(IMPORTED_ELO_ID_PREFIX));
   const awards = [...history.awards, ...hallOfFame.filter(entry => (entry.season ?? 1) === season && !history.awards.some(award =>
@@ -56,7 +67,9 @@ export const RankingsView: React.FC = () => {
           <span>Rankings WBO y Salón de la Fama</span>
         </h1>
         <p className="text-xs text-[var(--acero)] mt-0.5">
-          {activeSubTab === 'points' ? 'Puntos publicados por la administración de la liga' :
+          {live && activeSubTab === 'points' ? 'Temporada 2 · Vista provisional: total publicado más diferencia de puntos de nuevos combates. Bonos pendientes de validación.' :
+            live && activeSubTab === 'elo' ? 'Temporada 2 · Elo actualizado con resultados confirmados. Base oficial al 15 de noviembre de 2026.' :
+            activeSubTab === 'points' ? 'Puntos publicados por la administración de la liga' :
             activeSubTab === 'elo' ? (importedElo.length ? 'Clasificación Elo publicada por la liga.' : hasCalculatedElo ? 'Calculado con combates de torneos públicos finalizados. Elo inicial de 1500.' :
               'El Elo automático se genera con resultados individuales de torneos públicos finalizados.') :
             'Resultados de torneos públicos finalizados y campeonatos importados.'}
