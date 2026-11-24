@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTournament } from '../../context/TournamentContext';
 import { AceroIcon } from '../common/AceroIcon';
+import { getSupabaseClient } from '../../lib/supabase/client';
 import { KeyRound, UserCheck, Shield, AlertCircle, CheckCircle2, X } from 'lucide-react';
 
 interface AuthModalProps {
@@ -28,9 +29,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [forgotPassword, setForgotPassword] = useState(false);
 
   useEffect(() => {
     setActiveTab(initialTab);
+    setForgotPassword(false);
     if (initialCode) {
       setInviteCode(initialCode);
     }
@@ -48,6 +51,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
+
+  const requestRecovery = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setIsLoading(true);
+    try {
+      const client = getSupabaseClient();
+      if (!client) throw new Error('El servicio de acceso no está disponible.');
+      const redirectTo = new URL('/?recovery=1', window.location.origin).href;
+      const { error } = await client.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+      if (error && error.status !== 404 && error.code !== 'user_not_found') {
+        throw new Error('No se pudo solicitar el enlace ahora. Intenta de nuevo en unos minutos.');
+      }
+      setSuccessMsg('Si existe una cuenta con ese correo, recibirás un enlace para cambiar tu contraseña.');
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'No se pudo solicitar el enlace.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -208,7 +232,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Tab 1: Direct Login */}
         {activeTab === 'login' && (
-          <form onSubmit={handleLogin} className="p-5 space-y-4">
+          <form onSubmit={forgotPassword ? requestRecovery : handleLogin} className="p-5 space-y-4">
             <div className="space-y-1">
               <label className="text-xs font-semibold text-[var(--acero)] block">
                 Correo Electrónico
@@ -225,7 +249,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             </div>
 
-            <div className="space-y-1">
+            {!forgotPassword && <div className="space-y-1">
               <label className="text-xs font-semibold text-[var(--acero)] block">
                 Contraseña
               </label>
@@ -236,7 +260,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 placeholder="••••••••"
                 className="w-full text-xs font-medium border border-[var(--costura)] rounded-[var(--r-control)] px-3 py-2 bg-[var(--grafito)] text-[var(--hueso)] placeholder-[var(--costura)] focus:outline-hidden focus:border-[var(--acero)]"
               />
-            </div>
+            </div>}
 
             <div className="pt-2">
               <button
@@ -244,9 +268,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 disabled={isLoading}
                 className="w-full py-2.5 rounded-[var(--r-control)] bg-[var(--hueso)] hover:bg-white text-[var(--tinta)] text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
               >
-                {isLoading ? 'Comprobando credenciales...' : 'Entrar a la Plataforma'}
+                {isLoading ? 'Procesando…' : forgotPassword ? 'Enviar enlace de recuperación' : 'Entrar a la Plataforma'}
               </button>
             </div>
+            <button type="button" disabled={isLoading} className="min-h-11 text-sm underline" onClick={() => {
+              setForgotPassword(value => !value);
+              setPassword('');
+              setErrorMsg(null);
+              setSuccessMsg(null);
+            }}>{forgotPassword ? 'Volver al inicio de sesión' : 'Olvidé mi contraseña'}</button>
 
           </form>
         )}
