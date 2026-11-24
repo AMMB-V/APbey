@@ -6,6 +6,7 @@ import {
   StageType,
   TiebreakerCriteria,
   Tournament,
+  TournamentCategory,
 } from '../../types/tournament';
 import {
   Settings,
@@ -153,6 +154,7 @@ export const TournamentWizard: React.FC<{
   const [country, setCountry] = useState(activeTournament?.country || 'PA');
   const [entryFee, setEntryFee] = useState<number>(activeTournament?.entryFee || 0);
   const [maxParticipants, setMaxParticipants] = useState<number>(activeTournament?.maxParticipants || 16);
+  const [category, setCategory] = useState<TournamentCategory>(activeTournament?.category || 'clash');
 
   // Arbitration points
   const [spinPts, setSpinPts] = useState<number>(activeTournament?.finishPoints.spin ?? 1);
@@ -179,6 +181,7 @@ export const TournamentWizard: React.FC<{
     setCountry(activeTournament?.country || 'PA');
     setEntryFee(activeTournament?.entryFee || 0);
     setMaxParticipants(activeTournament?.maxParticipants || 16);
+    setCategory(activeTournament?.category || 'clash');
     setSpinPts(activeTournament?.finishPoints.spin ?? 1);
     setOverPts(activeTournament?.finishPoints.over ?? 2);
     setBurstPts(activeTournament?.finishPoints.burst ?? 2);
@@ -345,6 +348,7 @@ export const TournamentWizard: React.FC<{
       country,
       entryFee,
       maxParticipants,
+      category,
     });
     showSuccess('Datos generales del evento guardados exitosamente.');
   };
@@ -556,6 +560,19 @@ export const TournamentWizard: React.FC<{
                 onChange={(e) => setMaxParticipants(Number(e.target.value))}
                 className="w-full text-xs font-mono border border-[var(--costura)] rounded-lg p-2.5 bg-[var(--grafito)] focus:bg-[var(--chasis)] focus:outline-none focus:ring-1 focus:ring-[var(--acero)] text-[var(--hueso)]"
               />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-[var(--acero)]">Categoría para ranking:</label>
+              <select value={category} onChange={(event) => setCategory(event.target.value as TournamentCategory)}
+                disabled={activeTournament?.status === 'completed'}
+                className="w-full min-h-11 text-xs font-medium border border-[var(--costura)] rounded-lg p-2.5 bg-[var(--grafito)] text-[var(--hueso)] disabled:opacity-60">
+                <option value="super">Super · tabla mayor</option>
+                <option value="grand">Grand · tabla mayor</option>
+                <option value="clash">Clash · tabla estándar</option>
+                <option value="twisted">Twisted · tabla estándar</option>
+              </select>
+              <span className="text-[10px] text-[var(--acero)]">Se bloquea al finalizar para conservar la clasificación oficial.</span>
             </div>
 
             <div className="space-y-1">

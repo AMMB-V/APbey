@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, LazyMotion, domAnimation, m, useReducedMotion } from 'motion/react';
 import { useTournament } from '../../context/TournamentContext';
-import { StageConfig, StageStructure, StageType, TiebreakerCriteria, TournamentStatus } from '../../types/tournament';
+import { StageConfig, StageStructure, StageType, TiebreakerCriteria, TournamentCategory, TournamentStatus } from '../../types/tournament';
 import { AceroIcon } from '../common/AceroIcon';
 import {
   Trophy,
@@ -70,6 +70,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
   const swissMinutes = roundsSuggested * Math.ceil(Math.floor(newMaxParticipants / 2) / Math.max(1, planningTables)) * 8;
   const suggestSwiss = swissMinutes <= planningMinutes;
   const [newEntryFee, setNewEntryFee] = useState<number>(0);
+  const [newCategory, setNewCategory] = useState<TournamentCategory>('clash');
   const [newPointsGroup, setNewPointsGroup] = useState<number>(4);
   const [newPointsPlayoffs, setNewPointsPlayoffs] = useState<number>(5);
   const [newPointsFinal, setNewPointsFinal] = useState<number>(7);
@@ -119,6 +120,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
     setNewCountry('PA');
     setNewMaxParticipants(16);
     setNewEntryFee(0);
+    setNewCategory('clash');
     setNewPointsGroup(4);
     setNewPointsPlayoffs(5);
     setNewPointsFinal(7);
@@ -141,6 +143,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
       setNewCountry(template.country || 'PA');
       setNewMaxParticipants(template.maxParticipants || 16);
       setNewEntryFee(template.entryFee || 0);
+      setNewCategory(template.category || 'clash');
       setNewPointsGroup(template.pointsToWinGroup || 4);
       setNewPointsPlayoffs(template.pointsToWinPlayoffs || 5);
       setNewPointsFinal(template.pointsToWinFinal || 7);
@@ -221,6 +224,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
         country: newCountry.trim().toUpperCase(),
         maxParticipants: newMaxParticipants,
         entryFee: newEntryFee,
+        category: newCategory,
         pointsToWinGroup: newPointsGroup,
         pointsToWinPlayoffs: newPointsPlayoffs,
         pointsToWinFinal: newPointsFinal,
@@ -726,6 +730,18 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                 />
               </div>
 
+              <div className={`space-y-1 ${creationStep === 1 ? '' : 'hidden'}`}>
+                <label className="text-xs font-semibold text-[var(--acero)] block">Categoría oficial del torneo</label>
+                <select value={newCategory} onChange={(event) => setNewCategory(event.target.value as TournamentCategory)}
+                  className="w-full min-h-11 text-xs font-medium border border-[var(--costura)] rounded-[var(--r-control)] px-3 py-2 bg-[var(--grafito)] text-[var(--hueso)]">
+                  <option value="super">Super · tabla mayor</option>
+                  <option value="grand">Grand · tabla mayor</option>
+                  <option value="clash">Clash · tabla estándar</option>
+                  <option value="twisted">Twisted · tabla estándar</option>
+                </select>
+                <p className="text-[10px] text-[var(--acero)]">Define los puntos oficiales que se otorgarán al finalizar el torneo.</p>
+              </div>
+
               <div className={`rounded-xl border border-[var(--cobalto)]/40 bg-[var(--cobalto)]/10 p-3 ${creationStep === 3 ? '' : 'hidden'}`}>
                 <div className="text-[10px] font-black uppercase tracking-wide text-[var(--cobalto)]">
                   Resumen de creación
@@ -734,6 +750,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                   <span>Formato: <strong>{getFormatLabel(newFormat)}</strong></span>
                   <span>Etapas: <strong>{newStageStructure === 'two_stage' ? '2' : '1'}</strong></span>
                   <span>Cupo: <strong>{newMaxParticipants} bladers</strong></span>
+                  <span>Categoría: <strong>{newCategory[0].toUpperCase() + newCategory.slice(1)}</strong></span>
                   <span>Meta final: <strong>{newPointsFinal} pts</strong></span>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
