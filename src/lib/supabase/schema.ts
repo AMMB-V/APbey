@@ -634,8 +634,8 @@ begin
     raise exception 'forbidden';
   end if;
 
-  delete from ranking_entries;
-  delete from hall_of_fame_entries;
+  delete from ranking_entries where id is not null;
+  delete from hall_of_fame_entries where id is not null;
 
   insert into ranking_entries (
     id, name, points, elo, wins, losses, tournaments_won, favorite_combo
