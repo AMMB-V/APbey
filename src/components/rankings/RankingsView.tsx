@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Award, Search, Sparkles, Star, TrendingUp, Trophy } from 'lucide-react';
 import { useTournament } from '../../context/TournamentContext';
+import { competitiveHistory } from '../../lib/engine/competitiveHistory';
 
 export const RankingsView: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'points' | 'elo' | 'hof'>(() => {
@@ -9,7 +10,12 @@ export const RankingsView: React.FC = () => {
     return requested === 'elo' || requested === 'hof' ? requested : 'points';
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const { currentUser, rankings, hallOfFame } = useTournament();
+  const { currentUser, rankings, hallOfFame, tournaments, stages, rounds, matches, participants, battles, penalties } = useTournament();
+  const history = useMemo(() => competitiveHistory(tournaments, stages, rounds, matches, participants, battles, penalties),
+    [tournaments, stages, rounds, matches, participants, battles, penalties]);
+  const leaderboard = activeSubTab === 'elo' ? history.ratings : rankings;
+  const awards = [...history.awards, ...hallOfFame.filter(entry => !history.awards.some(award =>
+    award.tournamentTitle.trim().toLowerCase() === entry.tournamentTitle.trim().toLowerCase() && award.date === entry.date))];
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -27,7 +33,7 @@ export const RankingsView: React.FC = () => {
     return () => window.removeEventListener('popstate', handleNavigation);
   }, []);
 
-  const filteredBladers = rankings
+  const filteredBladers = leaderboard
     .filter((blader) => blader.name.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => (activeSubTab === 'elo' ? b.elo - a.elo : b.points - a.points));
 
@@ -39,7 +45,9 @@ export const RankingsView: React.FC = () => {
           <span>Rankings WBO y Salón de la Fama</span>
         </h1>
         <p className="text-xs text-[var(--acero)] mt-0.5">
-          Datos oficiales publicados por la administración de la liga
+          {activeSubTab === 'points' ? 'Puntos publicados por la administración de la liga' :
+            activeSubTab === 'elo' ? 'Calculado con combates de torneos públicos finalizados. Elo inicial de 1500.' :
+            'Resultados de torneos públicos finalizados y campeonatos importados.'}
         </p>
       </div>
 
@@ -65,7 +73,7 @@ export const RankingsView: React.FC = () => {
         ))}
       </div>
 
-      {activeSubTab !== 'hof' && rankings.length > 0 && (
+      {activeSubTab !== 'hof' && leaderboard.length > 0 && (
         <div className="relative">
           <Search className="w-4 h-4 text-[var(--acero)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
@@ -80,7 +88,7 @@ export const RankingsView: React.FC = () => {
       )}
 
       {activeSubTab !== 'hof' && (
-        rankings.length === 0 ? (
+        leaderboard.length === 0 ? (
           <EmptyState message="Los rankings todavía no tienen datos publicados." />
         ) : (
           <div className="bg-[var(--chasis)] border border-[var(--costura)] rounded-3xl overflow-hidden shadow-xl">
@@ -127,11 +135,11 @@ export const RankingsView: React.FC = () => {
       )}
 
       {activeSubTab === 'hof' && (
-        hallOfFame.length === 0 ? (
+        awards.length === 0 ? (
           <EmptyState message="El Salón de la Fama todavía no tiene torneos publicados." />
         ) : (
           <div className="flex flex-col gap-4">
-            {hallOfFame.map((entry) => (
+            {awards.map((entry) => (
               <article key={entry.id} className="bg-[var(--chasis)] border-2 border-amber-500/50 rounded-3xl p-5 shadow-2xl flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div>
@@ -147,6 +155,7 @@ export const RankingsView: React.FC = () => {
                 <div className="p-3.5 rounded-2xl bg-amber-950/30 border border-amber-600/50">
                   <div className="text-[10px] text-amber-300 uppercase tracking-wider font-bold">Campeón</div>
                   <div className="text-sm font-black text-amber-100">{entry.champion}</div>
+                  {entry.runnerUp && <div className="text-xs text-[var(--acero)]">Subcampeón · {entry.runnerUp}</div>}
                   {entry.winningCombo && <div className="text-xs text-amber-300/80 font-mono mt-0.5">{entry.winningCombo}</div>}
                 </div>
               </article>
