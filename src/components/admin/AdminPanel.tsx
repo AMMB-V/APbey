@@ -583,7 +583,7 @@ export const AdminPanel: React.FC = () => {
           <div>
             <h3 className="text-sm font-bold text-[var(--hueso)]">Fuente oficial de Rankings</h3>
             <p className="text-xs text-[var(--acero)] mt-1">
-              Carga un libro .xlsx. Usa una hoja <strong>Rankings</strong> y, opcionalmente, otra hoja <strong>HallOfFame</strong>.
+              Carga un libro .xlsx con <strong>Rankings</strong> y las hojas opcionales <strong>Elo</strong> y <strong>HallOfFame</strong>.
               La importación reemplaza los rankings y el Salón de la Fama de la temporada elegida.
             </p>
           </div>

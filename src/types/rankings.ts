@@ -1,4 +1,5 @@
 export type RankingSeason = 1 | 2;
+export const IMPORTED_ELO_ID_PREFIX = 'imported-elo:';
 
 export interface BladerRanking {
   season?: RankingSeason;
