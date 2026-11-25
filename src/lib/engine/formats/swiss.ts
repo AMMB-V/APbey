@@ -13,6 +13,25 @@ export interface SwissRoundResult {
   matches: Match[];
 }
 
+export function assignSwissRoundResources(
+  matches: Match[],
+  stationCount = 1,
+  refereeIds: string[] = [],
+): Match[] {
+  const tables = Math.max(1, Math.floor(stationCount));
+  const officials = [...new Set(refereeIds.filter(Boolean))];
+  let scheduledIndex = 0;
+  return matches.map((match) => {
+    if (match.isBye) return match;
+    const index = scheduledIndex++;
+    return {
+      ...match,
+      station: `Mesa ${(index % tables) + 1}`,
+      refereeId: officials.length ? officials[index % officials.length] : null,
+    };
+  });
+}
+
 export function generateSwissRound(
   tournamentId: string,
   stageId: string,
@@ -24,6 +43,8 @@ export function generateSwissRound(
     scoring?: StandingsScoringConfig;
     getMatchPoints?: MatchPointTotals;
     randomFn?: () => number;
+    stationCount?: number;
+    refereeIds?: string[];
   } = {}
 ): SwissRoundResult {
   const roundId = createEntityId();
@@ -97,7 +118,7 @@ export function generateSwissRound(
       });
     }
 
-    return { round, matches };
+    return { round, matches: assignSwissRoundResources(matches, options.stationCount, options.refereeIds) };
   }
 
   // Find pairings that have already occurred
@@ -219,7 +240,7 @@ export function generateSwissRound(
       });
   }
 
-  return { round, matches };
+  return { round, matches: assignSwissRoundResources(matches, options.stationCount, options.refereeIds) };
 }
 
 export function generateSwiss(
@@ -231,6 +252,8 @@ export function generateSwiss(
     scoring?: StandingsScoringConfig;
     getMatchPoints?: MatchPointTotals;
     randomFn?: () => number;
+    stationCount?: number;
+    refereeIds?: string[];
   }
 ): { rounds: Round[]; matches: Match[] } {
   const round1 = generateSwissRound(tournamentId, stageId, 1, participants, [], options);
@@ -251,6 +274,8 @@ export function generateNextSwissRound(
     scoring?: StandingsScoringConfig;
     getMatchPoints?: MatchPointTotals;
     randomFn?: () => number;
+    stationCount?: number;
+    refereeIds?: string[];
   }
 ): SwissRoundResult {
   const nextRoundNumber = previousRounds

@@ -47,7 +47,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
     assignStationToMatch,
     callMatchToStation,
     startStage,
-    generateNextSwissRound, advanceCurrentStage, stages, battles, penalties,
+    generateNextSwissRound, configureSwissStations, advanceCurrentStage, stages, battles, penalties,
   } = useTournament();
 
   const { matches, rounds, participants } = demo ?? {
@@ -68,6 +68,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
   const board = useRef<HTMLDivElement>(null);
   const viewport = useRef<HTMLDivElement>(null);
   const [zoomLevel, setZoomLevel] = useState(restored?.zoom ?? 1);
+  const [swissStationCount, setSwissStationCount] = useState(stage.config.swissStations || 1);
   const [bracketFilter, setBracketFilter] = useState<BracketFilter>(restored?.filter ?? 'all');
   const [stationInput, setStationInput] = useState<string>('Estadio 1');
 
@@ -102,7 +103,9 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
   const canManage = !demo && (currentRole === 'admin' ||
     (currentRole === 'organizer' && Boolean(currentUser && activeTournament?.organizerId === currentUser.id)));
   const canScore = (match: Match) => stage.status === 'in_progress' && match.status !== 'completed' &&
-    (canManage || (currentRole === 'referee' && Boolean(currentUser && match.refereeId === currentUser.id)));
+    (canManage || (currentRole === 'organizer' && Boolean(currentUser &&
+      activeTournament?.assignedReferees.includes(currentUser.id))) ||
+      (currentRole === 'referee' && Boolean(currentUser && match.refereeId === currentUser.id)));
   const selectedMatch = stageMatches.find(match => match.id === selectedMatchId);
   const matchLabels = new Map(allStageRounds.flatMap((round, index) =>
     stageMatches.filter(match => match.roundId === round.id).map(match => [match.id, `R${index + 1}–C${match.position}`] as const)
@@ -170,9 +173,9 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
     window.print();
   };
 
-  const handleGenerateSwissRound = () => {
+  const handleGenerateSwissRound = async () => {
     try {
-      generateNextSwissRound(stage.id);
+      await generateNextSwissRound(stage.id);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : 'No se pudo generar la ronda Swiss.');
     }
@@ -221,6 +224,19 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
 
         {/* Right: Ergonomic Zoom Controls & Print Button */}
         <div className="flex items-center gap-2">
+          {canManage && stage.type === 'swiss' && stage.status === 'in_progress' && (
+            <div className="flex items-center gap-1 rounded-xl border border-[var(--costura)] bg-[var(--grafito)] p-1">
+              <label htmlFor={`swiss-stations-${stage.id}`} className="px-1 text-[10px] font-bold text-[var(--acero)]">Mesas</label>
+              <input id={`swiss-stations-${stage.id}`} type="number" min={1} max={64}
+                value={swissStationCount} onChange={(event) => setSwissStationCount(Number(event.target.value))}
+                className="w-14 rounded-lg border border-[var(--costura)] bg-[var(--chasis)] px-2 py-1 text-xs" />
+              <button type="button" className="acero-btn acero-btn--secondary text-xs"
+                onClick={async () => {
+                  try { await configureSwissStations(stage.id, swissStationCount); }
+                  catch (error) { window.alert(error instanceof Error ? error.message : 'No se pudieron distribuir las mesas.'); }
+                }}>Distribuir</button>
+            </div>
+          )}
           {canManage && roundsRemaining && stage.status === 'in_progress' && (
             <button
               type="button"

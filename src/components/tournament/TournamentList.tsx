@@ -209,6 +209,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
       ...stageConfig,
       stageStructure: newStageStructure,
       swissRounds: newSwissRounds,
+      swissStations: Math.max(1, planningTables),
       groupSize: isSwiss ? 1 : (stageConfig.groupSize || 4),
       pointsPerMatchWin: isSwiss ? 1 : (stageConfig.pointsPerMatchWin ?? 3),
       pointsPerMatchDraw: isSwiss ? 0 : (stageConfig.pointsPerMatchDraw ?? 1),
@@ -954,8 +955,20 @@ export const TournamentList: React.FC<TournamentListProps> = ({ onSelectTourname
                     onChange={(e) => setNewSwissRounds(Number(e.target.value))}
                     className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded p-2 bg-[var(--chasis)] text-[var(--hueso)]"
                   />
+                  <label htmlFor="new-swiss-stations" className="text-xs font-semibold text-[var(--hueso)] block">
+                    Mesas disponibles por ronda
+                  </label>
+                  <input
+                    id="new-swiss-stations"
+                    type="number"
+                    min={1}
+                    max={64}
+                    value={planningTables}
+                    onChange={(e) => setPlanningTables(Math.max(1, Number(e.target.value)))}
+                    className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded p-2 bg-[var(--chasis)] text-[var(--hueso)]"
+                  />
                   <p className="text-[10px] text-[var(--acero)]">
-                    Solo puede ser 1 grupo en formato Suizo. Emparejamientos por victorias y desempate por Buchholz Medio → Enfrentamiento Directo → Diferencia de Puntos.
+                    Los combates se distribuyen entre estas mesas y los árbitros asignados al torneo. Emparejamientos por victorias y desempate por Buchholz Medio → Enfrentamiento Directo → Diferencia de Puntos.
                   </p>
                 </div>
               )}

@@ -35,6 +35,9 @@ import {
   loadAdminAuditLogs,
   persistAuditLogToSupabase,
   reopenMatchInSupabase,
+  persistSwissRound,
+  persistSwissRoundResources,
+  persistMatchResources,
 } from '../../lib/supabase/supabaseService';
 import {
   getSupabaseClient,
@@ -157,7 +160,8 @@ interface TournamentContextType {
   generateBracketForStage: (stageId: string) => void;
   startStage: (stageId: string) => void;
   advanceCurrentStage: (stageId: string) => void;
-  generateNextSwissRound: (stageId: string) => void;
+  generateNextSwissRound: (stageId: string) => Promise<void>;
+  configureSwissStations: (stageId: string, stationCount: number) => Promise<void>;
   addStage: (tournamentId: string, type: StageType, name?: string) => Stage;
   removeStage: (stageId: string) => Promise<void>;
   updateStage: (stageId: string, updates: Partial<Stage>) => Promise<void>;
@@ -1806,9 +1810,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return updated;
       });
     } else if (stage.type === 'swiss') {
+      const tournament = tournaments.find((item) => item.id === stage.tournamentId);
       const sw = generateSwiss(stage.tournamentId, stage.id, tParts, {
         tiebreakers: stage.config.tiebreakers,
         scoring: stage.config,
+        stationCount: stage.config.swissStations || 1,
+        refereeIds: tournament?.assignedReferees || [],
       });
 
       setRounds(prev => {
@@ -1885,7 +1892,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     logAudit('stages', stageId, 'update', 'Etapa iniciada. El arbitraje ya está activo.');
   };
 
-  const generateNextSwissRoundForStage = (stageId: string) => {
+  const generateNextSwissRoundForStage = async (stageId: string) => {
     assertWritablePersistence();
     const stage = stages.find((item) => item.id === stageId);
     if (!stage || stage.type !== 'swiss') {
@@ -1917,14 +1924,62 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         tiebreakers: stage.config.tiebreakers,
         scoring: stage.config,
         getMatchPoints: matchPointTotals(stageMatches, battles, penalties),
+        stationCount: stage.config.swissStations || 1,
+        refereeIds: tournament?.assignedReferees || [],
       }
     );
     const updatedRounds = [...rounds, next.round];
     const updatedMatches = [...matches, ...next.matches];
+    if (supabaseSyncInfo.isConfigured) {
+      const persistence = await persistSwissRound(stageId, stageRounds.length, next.round, next.matches);
+      setSupabaseSyncInfo((previous) => ({
+        ...previous,
+        isConnected: persistence.success,
+        lastSync: persistence.success ? new Date().toLocaleTimeString() : previous.lastSync,
+        message: persistence.message,
+      }));
+      if (!persistence.success) {
+        setRemoteRefreshVersion((version) => version + 1);
+        throw new Error(persistence.message);
+      }
+    }
     setRounds(updatedRounds);
     setMatches(updatedMatches);
     saveState({ rounds: updatedRounds, matches: updatedMatches });
     logAudit('rounds', next.round.id, 'insert', `Ronda Swiss ${next.round.number} generada.`);
+  };
+
+  const configureSwissStations = async (stageId: string, stationCount: number) => {
+    assertWritablePersistence();
+    const stage = stages.find((item) => item.id === stageId);
+    if (!stage || stage.type !== 'swiss') throw new Error('La etapa seleccionada no es Swiss.');
+    if (!Number.isInteger(stationCount) || stationCount < 1 || stationCount > 64) {
+      throw new Error('La cantidad de mesas debe estar entre 1 y 64.');
+    }
+    if (supabaseSyncInfo.isConfigured) {
+      const result = await persistSwissRoundResources(stageId, stationCount);
+      setSupabaseSyncInfo((previous) => ({
+        ...previous,
+        isConnected: result.success,
+        lastSync: result.success ? new Date().toLocaleTimeString() : previous.lastSync,
+        message: result.message,
+      }));
+      if (!result.success) throw new Error(result.message);
+      setRemoteRefreshVersion((version) => version + 1);
+    }
+    const latestRound = rounds.filter((round) => round.stageId === stageId && round.bracket === 'swiss')
+      .sort((left, right) => right.number - left.number)[0];
+    const refereeIds = tournaments.find((item) => item.id === stage.tournamentId)?.assignedReferees || [];
+    let resourceIndex = 0;
+    setMatches((current) => current.map((match) => {
+      if (match.roundId !== latestRound?.id || match.isBye || match.status === 'completed') return match;
+      const index = resourceIndex++;
+      return { ...match, station: `Mesa ${(index % stationCount) + 1}`,
+        refereeId: refereeIds.length ? refereeIds[index % refereeIds.length] : match.refereeId };
+    }));
+    setStages((current) => current.map((item) => item.id === stageId
+      ? { ...item, config: { ...item.config, swissStations: stationCount } }
+      : item));
   };
 
   // Advance stage to playoffs (from groups or swiss)
@@ -2277,7 +2332,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
     if (!currentUser || !['admin', 'organizer', 'referee'].includes(currentRole) ||
         (currentRole === 'referee' && match.refereeId !== currentUser.id) ||
-        (currentRole === 'organizer' && tournament.organizerId !== currentUser.id)) {
+        (currentRole === 'organizer' && tournament.organizerId !== currentUser.id &&
+          !tournament.assignedReferees.includes(currentUser.id))) {
       throw new Error('No tienes permiso para reportar este combate.');
     }
     if (match.version !== expectedVersion) {
@@ -3154,10 +3210,18 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const assignStationToMatch = (matchId: string, station: string | null) => {
     assertWritablePersistence();
+    const target = matches.find((match) => match.id === matchId);
+    if (!target) return;
+    const assigned = { ...target, station: station || undefined };
     setMatches(prev => {
-      const updated = prev.map(m => m.id === matchId ? { ...m, station: station || undefined } : m);
+      const updated = prev.map(m => m.id === matchId ? assigned : m);
       saveState({ matches: updated });
       return updated;
+    });
+    if (supabaseSyncInfo.isConfigured) void persistMatchResources([assigned]).then((result) => {
+      setSupabaseSyncInfo((previous) => ({ ...previous, isConnected: result.success,
+        lastSync: result.success ? new Date().toLocaleTimeString() : previous.lastSync, message: result.message }));
+      if (!result.success) setRemoteRefreshVersion((version) => version + 1);
     });
     logAudit('matches', matchId, 'update', `Mesa/Estadio ${station ? `"${station}" asignado` : 'desasignado'}.`);
   };
@@ -3169,12 +3233,14 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const p1 = participants.find(p => p.id === targetMatch.participant1Id)?.displayName || 'Blader 1';
     const p2 = participants.find(p => p.id === targetMatch.participant2Id)?.displayName || 'Blader 2';
     const stationLabel = (station ?? targetMatch.station) || 'Estadio Principal';
+    const calledMatch = { ...targetMatch, station: station ?? targetMatch.station, calledToStation: true };
 
     setMatches(prev => {
-      const updated = prev.map(m => m.id === matchId ? { ...m, calledToStation: true } : m);
+      const updated = prev.map(m => m.id === matchId ? calledMatch : m);
       saveState({ matches: updated });
       return updated;
     });
+    if (supabaseSyncInfo.isConfigured) void persistMatchResources([calledMatch]);
 
     setActiveStationAlert({
       matchId,
@@ -3186,11 +3252,14 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const dismissStationCall = (matchId: string) => {
+    const targetMatch = matches.find((match) => match.id === matchId);
+    const dismissedMatch = targetMatch ? { ...targetMatch, calledToStation: false } : null;
     setMatches(prev => {
-      const updated = prev.map(m => m.id === matchId ? { ...m, calledToStation: false } : m);
+      const updated = prev.map(m => m.id === matchId && dismissedMatch ? dismissedMatch : m);
       saveState({ matches: updated });
       return updated;
     });
+    if (supabaseSyncInfo.isConfigured && dismissedMatch) void persistMatchResources([dismissedMatch]);
     setActiveStationAlert(prev => prev?.matchId === matchId ? null : prev);
   };
 
@@ -3978,6 +4047,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         startStage,
         advanceCurrentStage,
         generateNextSwissRound: generateNextSwissRoundForStage,
+        configureSwissStations,
         addStage,
         removeStage,
         updateStage,

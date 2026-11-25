@@ -369,7 +369,8 @@ export const RefereeConsole: React.FC<RefereeConsoleProps> = ({
               canReport={Boolean(canArbitrate && currentUser && !isCompleted &&
                 stage.status === 'in_progress' && activeTournament.status === 'in_progress' &&
                 (currentRole === 'admin' ||
-                  (currentRole === 'organizer' && activeTournament.organizerId === currentUser.id) ||
+                  (currentRole === 'organizer' && (activeTournament.organizerId === currentUser.id ||
+                    activeTournament.assignedReferees.includes(currentUser.id))) ||
                   (currentRole === 'referee' && match.refereeId === currentUser.id)))}
               currentScores={liveSetScores(match, matchBattles, matchPenalties, targetPointsToWin)}
               onReport={reportMatchSets}

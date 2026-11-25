@@ -79,6 +79,7 @@ export interface StageConfig {
   advanceCount?: number;          // primeros N de cada grupo que pasan (default 2)
   groupSize?: number;             // tamaño de grupo (default 4)
   swissRounds?: number;           // rondas suizas (default 3-5)
+  swissStations?: number;         // mesas disponibles por ronda Swiss
   grandFinalReset?: boolean;      // reset en doble eliminación (default true)
   thirdPlaceMatch?: boolean;      // partido por 3er lugar (default true)
   tiebreakers: TiebreakerCriteria[];

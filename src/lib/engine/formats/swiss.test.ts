@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateNextSwissRound, generateSwiss } from './swiss';
+import { assignSwissRoundResources, generateNextSwissRound, generateSwiss } from './swiss';
 import { Match, Participant } from '../../../types/tournament';
 
 const participants: Participant[] = [1, 2, 3, 4].map((seed) => ({
@@ -13,6 +13,14 @@ const participants: Participant[] = [1, 2, 3, 4].map((seed) => ({
 }));
 
 describe('Swiss round generation', () => {
+  it('distributes matches across configured tables and available referees', () => {
+    const generated = generateSwiss('t1', 's1', participants, { randomFn: () => 0.5 });
+    const scheduled = assignSwissRoundResources(generated.matches, 2, ['ref-1', 'ref-2']);
+    const playable = scheduled.filter((match) => !match.isBye);
+    expect(playable.map((match) => match.station)).toEqual(['Mesa 1', 'Mesa 2']);
+    expect(playable.map((match) => match.refereeId)).toEqual(['ref-1', 'ref-2']);
+  });
+
   it('generates later rounds only after the previous round is complete', () => {
     const first = generateSwiss('t1', 's1', participants);
     expect(() => generateNextSwissRound('t1', 's1', first.rounds, participants, first.matches))

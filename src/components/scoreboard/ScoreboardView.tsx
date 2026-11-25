@@ -117,7 +117,8 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
   const activeStage = officialMatch ? stages.find((stage) => stage.id === officialMatch.stageId) : undefined;
   const canArbitrate = Boolean(currentUser && activeTournament?.status === 'in_progress' && activeStage?.status === 'in_progress' && (
     currentRole === 'admin' ||
-    (currentRole === 'organizer' && activeTournament.organizerId === currentUser.id) ||
+    (currentRole === 'organizer' && (activeTournament.organizerId === currentUser.id ||
+      activeTournament.assignedReferees.includes(currentUser.id))) ||
     (currentRole === 'referee' && officialMatch?.refereeId === currentUser.id)
   ));
   const activeRound = officialMatch ? rounds.find((round) => round.id === officialMatch.roundId) : undefined;

@@ -370,6 +370,8 @@ export async function syncTournamentToSupabase(
       reopen_reason: m.reopenReason || null,
       started_at: m.startedAt || null,
       finished_at: m.finishedAt || null,
+      station: m.station || null,
+      called_to_station: Boolean(m.calledToStation),
     }));
 
     const matchIds = new Set(tourneyMatches.map(m => m.id));
@@ -418,6 +420,14 @@ export async function syncTournamentToSupabase(
     if (snapshotError) {
       throw new Error(`Error al publicar el snapshot transaccional: ${snapshotError.message}`);
     }
+    const { error: resourceError } = await supabase.rpc('set_match_resources', {
+      p_resources: tourneyMatches.map((match) => ({
+        id: match.id,
+        station: match.station || null,
+        called_to_station: Boolean(match.calledToStation),
+      })),
+    });
+    if (resourceError) throw new Error(`Error al publicar mesas: ${resourceError.message}`);
 
     return {
       success: true,
@@ -672,6 +682,8 @@ export async function loadTournamentsFromSupabase(): Promise<{
       reopenReason: m.reopen_reason || null,
       startedAt: m.started_at || undefined,
       finishedAt: m.finished_at || undefined,
+      station: m.station || undefined,
+      calledToStation: Boolean(m.called_to_station),
     }));
 
     const battles: Battle[] = scopedBattleRows.map((b) => ({
@@ -761,6 +773,8 @@ export function subscribeToTournamentRealtime(
             status: m.status as Match['status'],
             winnerId: (m.winner_id as string) || undefined,
             refereeId: (m.referee_id as string) || undefined,
+            station: (m.station as string) || undefined,
+            calledToStation: Boolean(m.called_to_station),
             version: Number(m.version) || 0,
             outcome: (m.outcome as Match['outcome']) || null,
             outcomeNote: (m.outcome_note as string) || null,
@@ -905,6 +919,83 @@ export function subscribeToTournamentRealtime(
     if (retryTimer) clearTimeout(retryTimer);
     if (channel) supabase.removeChannel(channel);
   };
+}
+
+export async function persistSwissRound(
+  stageId: string,
+  expectedRoundCount: number,
+  round: Round,
+  matches: Match[],
+): Promise<{ success: boolean; message: string }> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { success: false, message: 'Supabase no está configurado.' };
+  const matchPayload = matches.map((match) => ({
+    id: match.id,
+    tournament_id: match.tournamentId,
+    stage_id: match.stageId,
+    round_id: match.roundId,
+    position: match.position,
+    participant1_id: match.participant1Id || null,
+    participant2_id: match.participant2Id || null,
+    winner_id: match.winnerId || null,
+    is_draw: match.isDraw,
+    is_bye: match.isBye,
+    score1: match.score1,
+    score2: match.score2,
+    sets1: match.sets1,
+    sets2: match.sets2,
+    status: match.status,
+    referee_id: match.refereeId || null,
+    station: match.station || null,
+    version: match.version,
+  }));
+  const { error } = await supabase.rpc('create_next_swiss_round', {
+    p_stage_id: stageId,
+    p_expected_round_count: expectedRoundCount,
+    p_round: {
+      id: round.id,
+      stage_id: round.stageId,
+      number: round.number,
+      bracket: round.bracket,
+      name: round.name || null,
+    },
+    p_matches: matchPayload,
+  });
+  if (error) {
+    const messages: Record<string, string> = {
+      round_conflict: 'Otro usuario ya generó esta ronda. Los datos se actualizarán automáticamente.',
+      previous_round_incomplete: 'Completa todos los combates de la ronda anterior.',
+      forbidden: 'No tienes permiso para generar rondas en este torneo.',
+    };
+    return { success: false, message: messages[error.message] || `No se pudo publicar la ronda Swiss: ${error.message}` };
+  }
+  return { success: true, message: `Ronda Swiss ${round.number} publicada para todos los usuarios.` };
+}
+
+export async function persistSwissRoundResources(stageId: string, stationCount: number) {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { success: false, message: 'Supabase no está configurado.' };
+  const { data, error } = await supabase.rpc('assign_swiss_round_resources', {
+    p_stage_id: stageId,
+    p_station_count: stationCount,
+  });
+  if (error) return { success: false, message: `No se pudieron distribuir las mesas: ${error.message}` };
+  return { success: true, message: `${Number(data) || 0} combates distribuidos entre ${stationCount} mesas.` };
+}
+
+export async function persistMatchResources(matches: Array<Pick<Match, 'id' | 'station' | 'calledToStation'>>) {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { success: false, message: 'Supabase no está configurado.' };
+  const { error } = await supabase.rpc('set_match_resources', {
+    p_resources: matches.map((match) => ({
+      id: match.id,
+      station: match.station || null,
+      called_to_station: Boolean(match.calledToStation),
+    })),
+  });
+  return error
+    ? { success: false, message: `No se pudo guardar la mesa: ${error.message}` }
+    : { success: true, message: 'Mesa actualizada para todos los usuarios.' };
 }
 
 /**

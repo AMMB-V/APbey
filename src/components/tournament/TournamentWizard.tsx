@@ -216,6 +216,7 @@ export const TournamentWizard: React.FC<{
   const [advanceCount, setAdvanceCount] = useState<number>(activeStage?.config.advanceCount ?? 2);
   const [groupSize, setGroupSize] = useState<number>(activeStage?.config.groupSize ?? 4);
   const [swissRounds, setSwissRounds] = useState<number>(activeStage?.config.swissRounds ?? 3);
+  const [swissStations, setSwissStations] = useState<number>(activeStage?.config.swissStations ?? 1);
   const [stageStructure, setStageStructure] = useState<StageStructure>(activeStage?.config.stageStructure ?? 'two_stage');
   const [pointsPerMatchWin, setPointsPerMatchWin] = useState<number>(activeStage?.config.pointsPerMatchWin ?? 1);
   const [pointsPerMatchDraw, setPointsPerMatchDraw] = useState<number>(activeStage?.config.pointsPerMatchDraw ?? 0);
@@ -240,6 +241,7 @@ export const TournamentWizard: React.FC<{
     setAdvanceCount(activeStage?.config.advanceCount ?? 2);
     setGroupSize(activeStage?.config.groupSize ?? 4);
     setSwissRounds(activeStage?.config.swissRounds ?? 3);
+    setSwissStations(activeStage?.config.swissStations ?? 1);
     setStageStructure(activeStage?.config.stageStructure ?? 'two_stage');
     setPointsPerMatchWin(activeStage?.config.pointsPerMatchWin ?? 1);
     setPointsPerMatchDraw(activeStage?.config.pointsPerMatchDraw ?? 0);
@@ -966,8 +968,20 @@ export const TournamentWizard: React.FC<{
                   onChange={(e) => setSwissRounds(Number(e.target.value))}
                   className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded-lg p-2 bg-[var(--grafito)] text-[var(--hueso)]"
                 />
+                <label htmlFor="wizard-swiss-stations" className="text-xs font-bold text-[var(--hueso)]">
+                  Mesas disponibles por ronda
+                </label>
+                <input
+                  id="wizard-swiss-stations"
+                  type="number"
+                  min={1}
+                  max={64}
+                  value={swissStations}
+                  onChange={(e) => setSwissStations(Math.max(1, Number(e.target.value)))}
+                  className="w-full text-xs font-mono font-bold border border-[var(--costura)] rounded-lg p-2 bg-[var(--grafito)] text-[var(--hueso)]"
+                />
                 <p className="text-[11px] text-[var(--acero)]">
-                  Cierra los combates de una ronda para abrir la siguiente.
+                  Cierra los combates de una ronda para abrir la siguiente. Cada ronda reparte automáticamente combates y árbitros entre estas mesas.
                 </p>
               </div>
             )}
@@ -1029,6 +1043,7 @@ export const TournamentWizard: React.FC<{
                     advanceCount,
                     groupSize,
                     swissRounds,
+                    swissStations,
                   });
                   await updateStage(activeStage.id, {
                     bestOf,
