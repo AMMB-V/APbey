@@ -12,6 +12,7 @@ export const RankingsView: React.FC = () => {
     return requested === 'elo' || requested === 'hof' ? requested : 'points';
   });
   const [searchQuery, setSearchQuery] = useState('');
+  const { rankingsState, retryRankings } = useTournament();
   const { currentUser, rankings, hallOfFame, tournaments, stages, rounds, matches, participants, battles, penalties } = useTournament();
   const [selectedSeason, setSelectedSeason] = useState<1 | 2 | null>(null);
   const season = selectedSeason ?? (rankings.some(row => row.season === 2) || hallOfFame.some(row => row.season === 2) ||
@@ -78,6 +79,8 @@ export const RankingsView: React.FC = () => {
         </p>
       </div>
 
+      {rankingsState === 'loading' && <p role="status">Cargando rankings publicados…</p>}
+      {rankingsState === 'error' && <div role="alert">No se pudieron cargar los rankings. <button className="underline" onClick={retryRankings}>Reintentar</button></div>}
       <label className="flex items-center gap-3 text-sm font-semibold">Temporada
         <select value={season} onChange={event => setSelectedSeason(event.target.value === '2' ? 2 : 1)}
           className="min-h-11 rounded-xl border border-[var(--costura)] bg-[var(--chasis)] px-3">
@@ -121,7 +124,7 @@ export const RankingsView: React.FC = () => {
         </div>
       )}
 
-      {activeSubTab !== 'hof' && (
+      {activeSubTab !== 'hof' && (rankingsState === 'ready' || leaderboard.length > 0) && (
         leaderboard.length === 0 ? (
           <EmptyState message={activeSubTab === 'elo' ? 'Todavía no hay resultados para calcular el Elo.' : 'Los rankings todavía no tienen datos publicados.'}
             detail={activeSubTab === 'elo' ? 'Los totales de victorias y derrotas del Excel se consultan en Por Puntos. El Elo requiere saber quién se enfrentó a quién y el resultado de cada combate.' : undefined} />

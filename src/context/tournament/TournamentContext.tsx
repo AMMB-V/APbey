@@ -194,6 +194,8 @@ interface TournamentContextType {
   revokeInvitation: (id: string) => Promise<void>;
   changeUserRole: (userId: string, newRole: UserRole) => Promise<{ success: boolean; message: string }>;
   rankings: BladerRanking[];
+  rankingsState: 'loading' | 'ready' | 'error';
+  retryRankings: () => void;
   hallOfFame: HallOfFameEntry[];
   importRankingWorkbook: (file: File, season: RankingSeason) => Promise<{ rankings: number; hallOfFame: number }>;
 
@@ -302,6 +304,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   });
   const [currentRole, setCurrentRole] = useState<UserRole>('public');
   const [rankings, setRankings] = useState<BladerRanking[]>([]);
+  const [rankingsState, setRankingsState] = useState<'loading' | 'ready' | 'error'>(getSupabaseClient() ? 'loading' : 'ready');
+  const [rankingsRequest, setRankingsRequest] = useState(0);
   const [hallOfFame, setHallOfFame] = useState<HallOfFameEntry[]>([]);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'invite'>('login');
@@ -331,15 +335,18 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     let active = true;
     if (!getSupabaseClient()) return;
-    void loadRankingsFromSupabase().then((remote) => {
-      if (!active || !remote || (remote.rankings.length === 0 && remote.hallOfFame.length === 0)) return;
+    setRankingsState('loading');
+    void loadRankingsFromSupabase().catch(() => null).then((remote) => {
+      if (!active) return;
+      setRankingsState(remote ? 'ready' : 'error');
+      if (!remote) return;
       setRankings(remote.rankings);
       setHallOfFame(remote.hallOfFame);
     });
     return () => {
       active = false;
     };
-  }, []);
+  }, [rankingsRequest]);
 
   useEffect(() => {
     let active = true;
@@ -495,6 +502,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const deletedTournamentIdsRef = useRef(new Set<string>());
   const remoteHydrationAvailableRef = useRef(!hasConfiguredSupabase);
   const autoSyncInFlightRef = useRef(false);
+  const localTournamentChangeRef = useRef(false);
   const autoSyncQueuedSnapshotRef = useRef<{
     tournaments: Tournament[];
     stages: Stage[];
@@ -1003,7 +1011,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     invitations: Invitation[];
     auditLogs: AuditLog[];
   }>) => {
-    if (supabaseSyncInfo.isConfigured) return;
+    if (supabaseSyncInfo.isConfigured) {
+      if (Object.keys(newData).some(key => key !== 'auditLogs' && key !== 'invitations')) localTournamentChangeRef.current = true;
+      return;
+    }
 
     try {
       let persisted: Partial<{
@@ -1117,8 +1128,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       .from('profiles')
       .select('id, display_name, role, created_at')
       .eq('id', authData.user.id)
-      .single();
-    if (profileError || !profile) {
+      .abortSignal(AbortSignal.timeout(10000))
+      .maybeSingle();
+    if (profileError) {
+      return { success: false, message: 'Tu sesión se autenticó, pero no se pudo cargar tu perfil. Vuelve a intentarlo en unos segundos.' };
+    }
+    if (!profile) {
       const pendingInvitation = getInvitationForAuthUser(authData.user);
       if (pendingInvitation) {
         const claimedProfile = await claimInvitationForUser(supabase, pendingInvitation);
@@ -1143,9 +1158,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       }
       await supabase.auth.signOut();
-      const detail = profileError
-        ? ` Detalle de Supabase: ${profileError.message}`
-        : ' No existe una fila en public.profiles con el mismo ID de auth.users.';
+      const detail = ' Contacta al organizador para habilitarlo.';
       return {
         success: false,
         message: `La cuenta no tiene un perfil de torneo habilitado.${detail}`,
@@ -1643,6 +1656,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   useEffect(() => {
     const completedTournamentIds = tournaments
+      .filter(t => !supabaseSyncInfo.isConfigured || currentRole === 'admin' || (currentRole === 'organizer' && t.organizerId === currentUser?.id))
       .filter((tournament) => tournament.status !== 'completed')
       .map((tournament) => ({
         tournament,
@@ -3828,16 +3842,6 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const snapshot = autoSyncQueuedSnapshotRef.current;
     if (!snapshot || !getSupabaseClient() || !navigator.onLine) return;
 
-    const supabase = getSupabaseClient();
-    const { data: userData, error: userError } = await supabase!.auth.getUser();
-    if (userError || !userData.user) {
-      setSupabaseSyncInfo((previous) => ({
-        ...previous,
-        isConnected: false,
-        message: 'Supabase configurado; inicia sesión para sincronizar los cambios pendientes.',
-      }));
-      return;
-    }
 
     autoSyncQueuedSnapshotRef.current = null;
     autoSyncInFlightRef.current = true;
@@ -3871,12 +3875,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }));
         if (autoSyncRetryTimerRef.current) clearTimeout(autoSyncRetryTimerRef.current);
         autoSyncRetryTimerRef.current = setTimeout(() => {
+          autoSyncRetryTimerRef.current = null;
           void runQueuedAutoSync();
         }, 5000);
       }
     } finally {
       autoSyncInFlightRef.current = false;
-      if (autoSyncQueuedSnapshotRef.current) {
+      if (autoSyncQueuedSnapshotRef.current && !autoSyncRetryTimerRef.current) {
         if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current);
         autoSyncTimerRef.current = setTimeout(() => {
           void runQueuedAutoSync();
@@ -3904,7 +3909,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       lastSyncedSnapshotRef.current = fingerprint;
       return;
     }
-    if (fingerprint === lastSyncedSnapshotRef.current) return;
+    if (!localTournamentChangeRef.current || fingerprint === lastSyncedSnapshotRef.current) return;
+    localTournamentChangeRef.current = false;
 
     autoSyncQueuedSnapshotRef.current = snapshot;
     if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current);
@@ -3930,9 +3936,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!supabaseSyncInfo.isConfigured) return;
 
     const retryPendingSync = () => {
-      if (!autoSyncQueuedSnapshotRef.current) {
-        autoSyncQueuedSnapshotRef.current = getCurrentSyncSnapshot();
-      }
+      if (!autoSyncQueuedSnapshotRef.current) return;
       void runQueuedAutoSync();
     };
 
@@ -4065,6 +4069,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         revokeInvitation,
         changeUserRole,
         rankings,
+        rankingsState,
+        retryRankings: () => setRankingsRequest(n => n + 1),
         hallOfFame,
         importRankingWorkbook,
         resetAllData,
