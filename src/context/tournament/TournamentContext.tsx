@@ -2151,33 +2151,46 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const updateStageTiebreakers = async (stageId: string, tiebreakers: TiebreakerCriteria[]) => {
     assertWritablePersistence();
-    let targetStageName = stageId;
-    let targetStage: Stage | undefined;
-    setStages(prev => {
-      const updated = prev.map(s => {
-        if (s.id === stageId) {
-          targetStageName = s.name;
-          targetStage = {
-            ...s,
-            config: {
-              ...s.config,
-              tiebreakers,
-            },
-          };
-          return targetStage;
-        }
-        return s;
-      });
+    const targetStage = stages.find((stage) => stage.id === stageId);
+    if (!targetStage) throw new Error('La etapa no existe.');
+    if (targetStage.status !== 'pending') {
+      throw new Error('Las reglas de desempate quedan bloqueadas cuando inicia la etapa.');
+    }
+    if (tiebreakers.length === 0 || new Set(tiebreakers).size !== tiebreakers.length) {
+      throw new Error('Selecciona al menos un criterio de desempate y no repitas criterios.');
+    }
+
+    const result = getSupabaseClient()
+      ? await persistStageTiebreakers(stageId, tiebreakers)
+      : {
+          success: true,
+          persistedIn: 'none' as const,
+          timestamp: new Date().toISOString(),
+          message: 'Reglas guardadas sólo en este dispositivo; no se sincronizaron con Supabase.',
+        };
+
+    if (!result.success) {
+      logAudit(
+        'stages',
+        stageId,
+        'update',
+        `No se guardaron las reglas de desempate de "${targetStage.name}". Criterios solicitados: ${tiebreakers.join(' → ')}`
+      );
+      return result;
+    }
+
+    setStages((current) => {
+      const updated = current.map((stage) => stage.id === stageId
+        ? { ...stage, config: { ...stage.config, tiebreakers } }
+        : stage);
       saveState({ stages: updated });
       return updated;
     });
-
-    const result = await persistStageTiebreakers(stageId, tiebreakers, targetStage?.config);
     logAudit(
       'stages',
       stageId,
       'update',
-      `Reglas de desempate de la etapa "${targetStageName}" ${result.success ? 'persistidas en Supabase' : 'no persistidas'}. Criterios: ${tiebreakers.join(' → ')}`
+      `Reglas de desempate de "${targetStage.name}" guardadas ${result.persistedIn === 'supabase' ? 'en Supabase' : 'en modo local'}. Criterios: ${tiebreakers.join(' → ')}`
     );
 
     return result;

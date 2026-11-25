@@ -45,7 +45,7 @@ export async function persistStageTiebreakers(
 
   const { data: current, error: readError } = await supabase
     .from('stages')
-    .select('config')
+    .select('config, status')
     .eq('id', stageId)
     .single();
 
@@ -55,6 +55,15 @@ export async function persistStageTiebreakers(
       persistedIn: 'none',
       timestamp,
       message: `No se pudo leer la etapa antes de actualizarla: ${readError?.message || 'etapa no encontrada'}.`,
+    };
+  }
+
+  if (current.status !== 'pending') {
+    return {
+      success: false,
+      persistedIn: 'none',
+      timestamp,
+      message: 'Las reglas de desempate quedan bloqueadas cuando inicia la etapa.',
     };
   }
 
@@ -68,6 +77,7 @@ export async function persistStageTiebreakers(
     .from('stages')
     .update({ config })
     .eq('id', stageId)
+    .eq('status', 'pending')
     .select('id, config')
     .single();
 
