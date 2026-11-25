@@ -108,6 +108,27 @@ create table stages (
   unique (tournament_id, position)
 );
 
+-- Keep competitive rules stable once a stage begins.
+create or replace function public.prevent_started_stage_tiebreaker_changes()
+returns trigger
+language plpgsql
+set search_path = ''
+as $
+begin
+  if (old.status <> 'pending' or new.status <> 'pending')
+     and new.config -> 'tiebreakers' is distinct from old.config -> 'tiebreakers' then
+    raise exception using
+      errcode = '55000',
+      message = 'stage_tiebreakers_locked';
+  end if;
+  return new;
+end;
+$;
+
+create trigger prevent_started_stage_tiebreaker_changes
+before update of status, config on public.stages
+for each row execute function public.prevent_started_stage_tiebreaker_changes();
+
 -- 8. TABLA GROUPS Y GROUP_PARTICIPANTS
 create table groups (
   id uuid primary key default gen_random_uuid(),

@@ -510,109 +510,77 @@ El script usa `supabase.cmd` y `ExecutionPolicy Bypass` sólo para ese proceso. 
 - No se deben incluir contraseñas, service role keys, tokens ni datos reales en el repositorio.
 - Las cuentas administrativas deben crearse desde Supabase Dashboard y recibir rol explícito en `profiles`.
 
-## Estado real: implementado, parcial y pendiente
+## Estado de preparación para un torneo real
 
-| Área | Estado actual | Qué falta para considerarla completa |
+> Actualizado el 25 de noviembre de 2026. APbey tiene un núcleo funcional amplio, pero todavía no se debe usar como único registro de un torneo multiusuario hasta completar los bloqueadores y las validaciones indicadas aquí.
+
+| Área | Estado del código | Requisito para usarla en un evento real |
 |---|---|---|
-| React/Vite/Express | Implementado | Validar el contenedor publicado y sus variables en staging. |
-| Torneos, participantes y check-in | Implementado en UI y contexto | Pruebas E2E y cierre de reglas operativas. |
-| Eliminación simple | Implementado y probado parcialmente | Más casos de integración y avance persistido. |
-| Eliminación doble | Avanzado | Validar en staging todos los cruces, undo y el reset de gran final. Las etapas nuevas de eliminación usan best-of-3 por defecto. |
-| Round robin | Implementado | Más cobertura de empates, byes y dos vueltas. |
-| Swiss | Avanzado | Rondas configurables, emparejamiento por puntuación, BYEs y prevención de revancha; faltan escenarios E2E. |
-| Desempates | Implementado en motor | Buchholz, Median-Buchholz y puntos configurables se aplican al cálculo; faltan casos oficiales adicionales. |
-| Marcador local | Implementado | Validar en staging los flujos remotos y sus conflictos de concurrencia. |
-| Batallas y penalizaciones RPC | Avanzado | Aplicar migración de idempotencia y ejecutar pruebas multi-cliente con cuentas reales. |
-| Undo | Parcial avanzado | Permisos, motivo obligatorio, auditoría completa y reapertura autorizada. |
-| Realtime | Implementado de forma parcial | Reconexión, idempotencia y pruebas de concurrencia en staging. |
-| Stadium Display | Implementado | Desconexión visible, API pública y overlays externos. |
-| RBAC y RLS | Avanzado | Matriz completa con cuentas persistentes de admin, organizer, referee y blader. |
-| Invitaciones | Implementado con fallback de `mailto` | Desplegar y comprobar entrega transaccional de correo. |
-| Rankings Excel | Implementado | Previsualización, versionado, rollback y auditoría del archivo. |
-| Deck 3on3 | Implementado | La migración añade `deck_combos`; falta aplicar y validar el esquema en staging. |
-| Tier List | Placeholder honesto | Fuente oficial, publicación y trazabilidad de tiers. |
-| Accesibilidad | Parcial | Auditoría automatizada, foco completo, teclado y axe. |
-| Pruebas | Unitarias y SQL en crecimiento | Integración API, RLS por rol, E2E, accesibilidad y responsive. |
+| React/Vite/Express | Implementados | Desplegar frontend y Express juntos en el contenedor Node/Docker de referencia; Vercel estático por sí solo no publica el backend. |
+| Registro, participantes y check-in | Implementados | Ensayar altas, edición, check-in y estados de participantes con cuentas reales. |
+| Eliminación simple | Implementada | Validar generación, avance persistido, resultados corregidos y final en staging. |
+| Eliminación doble | Parcial/avanzada | No usar como formato oficial hasta comprobar todas las rutas del bracket, el recorrido de perdedores y el reset de gran final. |
+| Round robin y sistema suizo | Motor implementado | Ensayar empates, BYEs, revancha, cierre de ronda y avance con la cantidad real de participantes. |
+| Desempates | Motor implementado | El orden se guarda antes de iniciar la etapa y queda bloqueado al iniciarla; la migración que aplica el bloqueo en la base debe desplegarse. |
+| Marcador y penalizaciones | RPC y control de versión implementados | Confirmar resultados, concurrencia, reintentos y recuperación de conexión entre varios dispositivos. |
+| Realtime y pantalla pública | Parciales | Validar refresco, reconexión y consistencia con la clasificación durante la operación. |
+| Autenticación, roles y RLS | Implementación avanzada | Verificar con sesiones persistentes de administrador, organizador, árbitro y blader, incluyendo intentos no autorizados. |
+| Invitaciones | Implementadas con envío configurable | Desplegar y confirmar el servicio de correo, el dominio y la entrega. |
+| Undo y reapertura | Parciales | Completar autorización, motivo, auditoría y sincronización antes de depender de ellos durante el evento. |
+| Respaldo y recuperación | Pendientes de operación | Ejecutar un respaldo y restaurarlo en staging; definir quién toma el control si falla la conexión. |
+| Accesibilidad y vistas de evento | Parciales | Revisar móvil, escritorio y proyector con los dispositivos que se usarán. |
 
-## Qué falta para cumplir el lanzamiento multiusuario
+## Cambios de preparación incluidos en esta actualización
 
-No se debe publicar como plataforma multiusuario hasta cerrar estos puntos:
+- Los desempates ahora sólo se aplican a etapas pendientes. La interfaz y el contexto rechazan cambios después de iniciar la etapa.
+- El guardado en Supabase se confirma antes de actualizar la clasificación local. Si falla la persistencia, la tabla no aparenta tener una configuración guardada.
+- El modo local indica claramente que los cambios sólo quedan en ese dispositivo y no están sincronizados con Supabase.
+- Se añadió un trigger de base de datos para impedir que una edición directa cambie los desempates de una etapa iniciada.
+- El bloqueo de base de datos está definido en `supabase/schema.sql` y en una migración nueva. Esa migración debe aplicarse en staging antes de usar la función en un evento real.
 
-### Bloqueadores P0
+## Trabajo funcional pendiente
 
-- [ ] Aplicar todas las migraciones en un proyecto Supabase de staging.
-- [ ] Verificar RLS con cuentas reales de `admin`, `organizer`, `referee` y `blader`.
-- [ ] Confirmar que ningún usuario puede leer o mutar un torneo fuera de su ámbito.
-- [ ] Aplicar `20261116000002_mutation_idempotency.sql` y probar reintentos con la misma clave.
-- [x] Definir el despliegue de referencia con frontend y Express en un mismo contenedor.
-- [ ] Publicar y validar ese contenedor en staging.
-- [ ] Probar creación, configuración, inicio, operación y cierre de un torneo desde un checkout limpio.
-- [ ] Confirmar que no existe confirmación falsa cuando falla la red o Supabase.
-- [ ] Probar backup y restauración.
-- [ ] Mantener secretos fuera del bundle, repositorio, logs y tickets.
+- Completar y validar el flujo de eliminación doble antes de ofrecerlo como formato de torneo.
+- Completar reapertura autorizada y undo remoto con motivo y auditoría coherente.
+- Decidir si el MVP exige decks persistentes, historial de Bey Check, check-in con ventana temporal, auto-drop y re-siembra.
+- Definir el flujo de corrección de resultados y apelaciones para el organizador, sin editar directamente la base de datos.
+- Publicar una fuente verificable para Tier List si esa pantalla se incluye en el evento.
 
-### Integridad del motor
+## Puertas de salida para staging
 
-- [ ] Completar eliminación doble real.
-- [ ] Ejecutar un flujo staging de eliminación doble con victoria del Winners,
-  victoria del Losers y reset de la gran final.
-- [ ] Cubrir todos los casos de Swiss y desempates con pruebas.
-- [ ] Definir reglas de empate por formato.
-- [ ] Bloquear cambios incompatibles después de iniciar una etapa.
-- [ ] Completar avance de matches, walk-over, descalificación, abandono y tercer lugar.
-- [ ] Implementar reapertura autorizada con motivo y auditoría.
+No declarar APbey listo para producción multiusuario hasta completar todas estas operaciones en un proyecto Supabase de staging independiente:
 
-### Operación y datos
+- [ ] Aplicar todas las migraciones desde un checkout limpio, incluida la migración de bloqueo de desempates.
+- [ ] Desplegar el contenedor Node/Docker con las variables de Supabase configuradas y comprobar `/api/health`.
+- [ ] Probar lectura y escritura con cuentas reales de cada rol; confirmar que un usuario no accede a torneos ajenos.
+- [ ] Ejecutar un torneo de principio a fin con el formato que se usará, incluyendo participantes impares, un BYE, empate/desempate, cambio de ronda, penalización y cierre.
+- [ ] Confirmar que los criterios fijados antes de iniciar aparecen en la tabla al cerrar la primera ronda y que la base rechaza cambiarlos después del inicio.
+- [ ] Operar marcador, panel de árbitro y pantalla pública desde varios dispositivos; probar refresco, reconexión e interrupción de red.
+- [ ] Probar reintentos concurrentes y comprobar que no se duplican resultados ni se sobrescriben cambios.
+- [ ] Crear un respaldo y restaurarlo; documentar el procedimiento manual de contingencia y el rollback del despliegue.
+- [ ] Revisar logs, alertas, secretos, accesibilidad y vistas en los dispositivos del evento.
 
-- [ ] Hacer persistentes los decks y el historial de Bey Check si forman parte del alcance del MVP.
-- [ ] Implementar check-in con ventana temporal, auto-drop y re-siembra sólo si el producto lo requiere.
-- [ ] Versionar importaciones de rankings y permitir rollback.
-- [ ] Registrar actor, recurso, acción y timestamp en cada mutación crítica.
-- [ ] Añadir logs estructurados, request IDs, métricas y alertas.
-- [ ] Documentar rollback, rotación de secretos y recuperación ante incidentes.
+La CI verde sólo acredita las comprobaciones automatizadas que ejecuta el repositorio. No demuestra que las migraciones estén instaladas en el proyecto correcto, que los roles reales tengan los permisos previstos, ni que el flujo completo funcione en el lugar del torneo. Las validaciones de esta sección siguen pendientes y no se ejecutaron como parte de esta actualización.
 
-### Calidad
+## Documentación relacionada
 
-- [ ] Añadir pruebas de integración con tokens y roles reales.
-- [ ] Añadir pruebas E2E de login, invitación, torneo, bracket, arbitraje, rankings y estadio.
-- [ ] Añadir auditoría de accesibilidad y pruebas en móvil, tablet, escritorio y proyector.
-- [ ] Ejecutar `npm run lint`, `npm run test`, `npm run build` y las pruebas SQL desde checkout limpio.
-- [ ] Ejecutar un smoke test del despliegue publicado, incluyendo `/api/health` y una mutación autenticada.
+- `AUDITORIA_PLAN_ACCION.md`: revisión técnica y riesgos conocidos.
+- `PLAN_ACCION_PRODUCCION.md`: fases, backlog y criterios de aceptación.
+- `supabase/schema.sql`: esquema de referencia, RLS y funciones SQL.
+- `supabase/migrations/`: historial reproducible de cambios de base de datos.
+- `supabase/tests/`: pruebas SQL y de autorización.
+- `.github/workflows/ci.yml`: validaciones automatizadas de integración continua.
+- `src/components/docs/SoftwareEngineeringGuide.tsx`: guía técnica dentro de APbey.
 
-Para repetir la validación local antes de publicar staging:
+Para repetir las comprobaciones de despliegue antes de liberar staging:
 
 ```bash
 npm run verify:release
 STAGING_HEALTH_URL=https://staging.example.com/api/health npm run staging:preflight
 ```
 
-El preflight exige `SUPABASE_URL`, `SUPABASE_ANON_KEY` y que `/api/health` confirme
-`status: "ok"` con `persistence: "ready"`. La aplicación de migraciones y la
-prueba con cuentas reales siguen siendo una operación del proyecto Supabase de staging.
-
-## Documentación relacionada
-
-- `AUDITORIA_PLAN_ACCION.md`: auditoría técnica, cobertura del plan y riesgos conocidos.
-- `PLAN_ACCION_PRODUCCION.md`: fases, backlog, criterios de aceptación y puertas de salida.
-- `supabase/schema.sql`: esquema de referencia, RLS y funciones SQL.
-- `supabase/migrations/`: historial reproducible de cambios de base de datos.
-- `supabase/tests/`: pruebas SQL y de autorización.
-- `.github/workflows/ci.yml`: validaciones de CI.
-- `src/components/docs/SoftwareEngineeringGuide.tsx`: guía técnica visible dentro de APbey.
+El preflight requiere `SUPABASE_URL`, `SUPABASE_ANON_KEY` y una respuesta de salud con `status: "ok"` y `persistence: "ready"`. Aplicar las migraciones y probar cuentas reales sigue siendo una operación del entorno de staging.
 
 ## Definición de listo
 
-APbey podrá declararse listo para producción multiusuario cuando todos los bloqueadores P0 estén cerrados y exista evidencia de un torneo de staging con:
-
-1. los cuatro roles operativos;
-2. participantes cuyo número no sea potencia de dos;
-3. generación y avance de etapas;
-4. batallas, penalizaciones y undo;
-5. refresh y reconexión durante la operación;
-6. actualización Realtime en marcador y estadio;
-7. importación y rollback de rankings;
-8. revisión de auditoría;
-9. backup y restauración;
-10. despliegue reproducible desde un commit limpio.
-
-La aplicación ya tiene una base funcional amplia; el trabajo restante debe priorizar autorización, persistencia transaccional, pruebas y operación antes de añadir más superficies de producto.
+APbey podrá considerarse listo para producción multiusuario cuando se hayan cerrado los requisitos funcionales que el evento necesita y exista evidencia de un torneo completo en staging con roles reales, configuración inmutable al iniciar cada etapa, resultados consistentes, Realtime, permisos validados y respaldo restaurado. La liberación final también requiere un despliegue reproducible desde un commit limpio y un plan operativo para red, recuperación y rollback.

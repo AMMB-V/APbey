@@ -307,16 +307,22 @@ export const TournamentWizard: React.FC<{
     if (!activeStage) return;
     setIsSavingTiebreakers(true);
     try {
-      const result = await updateStageTiebreakers(activeStage.id, stageTiebreakers);
+      const otherStages = applyToAllStages
+        ? tournamentStages.filter((stage) =>
+            stage.id !== activeStage.id && ['group_stage', 'round_robin', 'swiss'].includes(stage.type)
+          )
+        : [];
+      const lockedStage = [activeStage, ...otherStages].find((stage) => stage.status !== 'pending');
+      if (lockedStage) {
+        throw new Error(`No se pueden cambiar los desempates: la etapa "${lockedStage.name}" ya inició.`);
+      }
 
+      const result = await updateStageTiebreakers(activeStage.id, stageTiebreakers);
       if (!result.success) throw new Error(result.message);
-      if (applyToAllStages) {
-        // Also update any other group or round robin stages in this tournament
-        const otherStages = tournamentStages.filter((s) => s.id !== activeStage.id && ['group_stage', 'round_robin', 'swiss'].includes(s.type));
-        for (const s of otherStages) {
-          const saved = await updateStageTiebreakers(s.id, stageTiebreakers);
-          if (!saved.success) throw new Error(`${s.name}: ${saved.message}`);
-        }
+
+      for (const stage of otherStages) {
+        const saved = await updateStageTiebreakers(stage.id, stageTiebreakers);
+        if (!saved.success) throw new Error(`${stage.name}: ${saved.message}`);
       }
 
       setLastSyncInfo({
@@ -326,19 +332,14 @@ export const TournamentWizard: React.FC<{
         message: result.message,
       });
 
-      showSuccess(
-        result.success
-          ? `Reglas de desempate persistidas en Supabase para la etapa "${activeStage.name}".`
-          : result.message
-      );
+      showSuccess(result.message);
     } catch (err) {
       console.error(err);
-      setErrorMsg('No se pudieron persistir las reglas de desempate.');
+      setErrorMsg(err instanceof Error ? err.message : 'No se pudieron guardar las reglas de desempate.');
     } finally {
       setIsSavingTiebreakers(false);
     }
   };
-
   const handleSaveGeneral = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeTournament) return;
@@ -1081,6 +1082,11 @@ export const TournamentWizard: React.FC<{
                 <p className="text-xs text-[var(--acero)] mt-1">
                   Se aplica el primer criterio de la lista. Si persiste el empate, se compara el siguiente.
                 </p>
+                {activeStage?.status !== 'pending' && (
+                  <p role="status" className="mt-3 rounded-lg border border-amber-700/60 bg-amber-950/30 p-3 text-xs text-amber-200">
+                    La etapa ya inició. Las reglas de desempate están bloqueadas para conservar la integridad del torneo.
+                  </p>
+                )}
               </div>
 
               {lastSyncInfo && lastSyncInfo.stageId === activeStage?.id && <span className="text-sm text-[var(--acero)]">Último guardado · {lastSyncInfo.timestamp}</span>}
@@ -1364,7 +1370,7 @@ export const TournamentWizard: React.FC<{
             <button
               type="button"
               onClick={handleSaveTiebreakers}
-              disabled={isSavingTiebreakers}
+              disabled={isSavingTiebreakers || activeStage?.status !== 'pending'}
               className="px-5 py-2.5 text-xs font-bold text-white bg-neutral-900 hover:bg-neutral-800               disabled:bg-[var(--grafito)] rounded-lg transition-colors flex items-center justify-center gap-2 shadow-xs"
             >
               {isSavingTiebreakers ? (
@@ -1375,7 +1381,7 @@ export const TournamentWizard: React.FC<{
               ) : (
                 <>
                   <Database className="w-4 h-4" />
-                  <span>Guardar reglas de desempate</span>
+                  <span>{activeStage?.status === 'pending' ? 'Guardar reglas de desempate' : 'Etapa iniciada · reglas bloqueadas'}</span>
                 </>
               )}
             </button>
