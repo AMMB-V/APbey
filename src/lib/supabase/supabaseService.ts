@@ -899,8 +899,8 @@ export function subscribeToTournamentRealtime(
       () => callbacks.onRemoteDataChange?.()
     )
     .on('postgres_changes', { event: '*', schema: 'public', table: 'group_participants' }, () => callbacks.onRemoteDataChange?.())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_referees' }, () => callbacks.onRemoteDataChange?.())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_finish_points' }, () => callbacks.onRemoteDataChange?.())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_referees', ...(tournamentId ? { filter: `tournament_id=eq.${tournamentId}` } : {}) }, () => callbacks.onRemoteDataChange?.())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_finish_points', ...(tournamentId ? { filter: `tournament_id=eq.${tournamentId}` } : {}) }, () => callbacks.onRemoteDataChange?.())
     .subscribe((status) => {
       if (status === 'SUBSCRIBED') callbacks.onRemoteDataChange?.();
       if (
@@ -917,7 +917,7 @@ export function subscribeToTournamentRealtime(
           if (channel) supabase.removeChannel(channel);
           channel = undefined;
           connect();
-        }, 1_000);
+        }, 10_000);
       }
     });
   };

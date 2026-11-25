@@ -502,6 +502,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const deletedTournamentIdsRef = useRef(new Set<string>());
   const remoteHydrationAvailableRef = useRef(!hasConfiguredSupabase);
   const autoSyncInFlightRef = useRef(false);
+  const autoSyncFailureCountRef = useRef(0);
   const localTournamentChangeRef = useRef(false);
   const autoSyncQueuedSnapshotRef = useRef<{
     tournaments: Tournament[];
@@ -3854,6 +3855,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const result = await syncAllTournamentsToSupabase(snapshot);
       if (result.success) {
+        autoSyncFailureCountRef.current = 0;
         lastSyncedSnapshotRef.current = getSyncSnapshotFingerprint(snapshot);
         setSupabaseSyncInfo((previous) => ({
           ...previous,
@@ -3863,10 +3865,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }));
       } else {
         if (result.message.includes('El torneo cambió en otro dispositivo')) {
+          autoSyncFailureCountRef.current = 0;
           autoSyncQueuedSnapshotRef.current = null;
           setRemoteRefreshVersion(version => version + 1);
           return;
         }
+        autoSyncFailureCountRef.current += 1;
+        const retryDelayMs = Math.min(60_000, 5_000 * 2 ** Math.min(autoSyncFailureCountRef.current - 1, 4));
         autoSyncQueuedSnapshotRef.current ??= snapshot;
         setSupabaseSyncInfo((previous) => ({
           ...previous,
@@ -3877,8 +3882,22 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         autoSyncRetryTimerRef.current = setTimeout(() => {
           autoSyncRetryTimerRef.current = null;
           void runQueuedAutoSync();
-        }, 5000);
+        }, retryDelayMs);
       }
+    } catch (error) {
+      autoSyncFailureCountRef.current += 1;
+      const retryDelayMs = Math.min(60_000, 5_000 * 2 ** Math.min(autoSyncFailureCountRef.current - 1, 4));
+      autoSyncQueuedSnapshotRef.current ??= snapshot;
+      setSupabaseSyncInfo((previous) => ({
+        ...previous,
+        isConnected: false,
+        message: error instanceof Error ? error.message : 'Error inesperado al sincronizar con Supabase.',
+      }));
+      if (autoSyncRetryTimerRef.current) clearTimeout(autoSyncRetryTimerRef.current);
+      autoSyncRetryTimerRef.current = setTimeout(() => {
+        autoSyncRetryTimerRef.current = null;
+        void runQueuedAutoSync();
+      }, retryDelayMs);
     } finally {
       autoSyncInFlightRef.current = false;
       if (autoSyncQueuedSnapshotRef.current && !autoSyncRetryTimerRef.current) {
