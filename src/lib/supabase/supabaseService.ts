@@ -1,4 +1,5 @@
-import { getSupabaseClient } from './client';
+import { createClient } from '@supabase/supabase-js';
+import { getStoredSupabaseConfig, getSupabaseClient } from './client';
 import {
   Tournament,
   Stage,
@@ -179,11 +180,14 @@ export async function syncRankingsToSupabase(data: RankingData, season: import('
 }
 
 export async function loadRankingsFromSupabase(): Promise<RankingData | null> {
-  const supabase = getSupabaseClient();
-  if (!supabase) return null;
+  const { url, anonKey } = getStoredSupabaseConfig();
+  if (!url || !anonKey) return null;
+  // Published standings use the anonymous role even while Auth restores a session.
+  const supabase = createClient(url, anonKey, { accessToken: async () => null });
+  const signal = AbortSignal.timeout(12000);
   const [{ data: rankingRows, error: rankingsError }, { data: hallRows, error: hallError }] = await Promise.all([
-    supabase.from('ranking_entries').select('*').order('points', { ascending: false }),
-    supabase.from('hall_of_fame_entries').select('*').order('date', { ascending: false }),
+    supabase.from('ranking_entries').select('*').order('points', { ascending: false }).abortSignal(signal),
+    supabase.from('hall_of_fame_entries').select('*').order('date', { ascending: false }).abortSignal(signal),
   ]);
   if (rankingsError || hallError) return null;
   return {
