@@ -249,7 +249,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
           )}
           {canManage && ranked && hasNextStage && !roundsRemaining && stage.status === 'in_progress' && (
             <button className="acero-btn acero-btn--primary" disabled={!stageMatches.length || stageMatches.some(m => m.status !== 'completed')}
-              onClick={() => { try { advanceCurrentStage(stage.id); } catch (e) { window.alert(e instanceof Error ? e.message : 'No se pudo avanzar.'); } }}>
+              onClick={async () => { try { await advanceCurrentStage(stage.id); } catch (e) { window.alert(e instanceof Error ? e.message : 'No se pudo avanzar.'); } }}>
               Avanzar a la siguiente etapa
             </button>
           )}
@@ -293,7 +293,7 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
           {canManage && stage.status === 'pending' && (
             <button
               type="button"
-              onClick={() => { try { startStage(stage.id); } catch (e) { window.alert(e instanceof Error ? e.message : 'No se pudo iniciar.'); } }}
+              onClick={async () => { try { await startStage(stage.id); } catch (e) { window.alert(e instanceof Error ? e.message : 'No se pudo iniciar.'); } }}
               disabled={participants.filter((participant) => participant.tournamentId === stage.tournamentId).length < 2}
               className="acero-btn acero-btn--primary text-xs px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               title="Generar la llave y habilitar el arbitraje"

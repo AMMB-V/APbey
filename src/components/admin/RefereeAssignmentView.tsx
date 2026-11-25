@@ -22,6 +22,7 @@ export const RefereeAssignmentView: React.FC = () => {
     assignRefereeToStage,
     unassignRefereeFromAll,
     autoBalanceRefereesAcrossGroups,
+    supabaseSyncInfo,
     currentUser,
   } = useTournament();
 
@@ -126,8 +127,8 @@ export const RefereeAssignmentView: React.FC = () => {
     e.preventDefault();
     const refId = e.dataTransfer.getData('text/plain') || draggedRefId;
     if (refId) {
-      assignRefereeToGroup(groupId, refId);
-      triggerAutoSync();
+      if (!supabaseSyncInfo.isConfigured) assignRefereeToGroup(groupId, refId);
+      triggerAutoSync({ [groupId]: refId });
     }
     setDragOverTarget(null);
     setDraggedRefId(null);
@@ -138,34 +139,24 @@ export const RefereeAssignmentView: React.FC = () => {
     e.preventDefault();
     const refId = e.dataTransfer.getData('text/plain') || draggedRefId;
     if (refId) {
-      assignRefereeToStage(stageId, refId);
-      triggerAutoSync();
+      if (!supabaseSyncInfo.isConfigured) assignRefereeToStage(stageId, refId);
+      triggerAutoSync({}, { [stageId]: refId });
     }
     setDragOverTarget(null);
     setDraggedRefId(null);
   };
 
   // Trigger Supabase persistence
-  const triggerAutoSync = async () => {
+  const triggerAutoSync = async (groupMap: Record<string, string | null>, stageMap: Record<string, string | null> = {}, releaseOfficial?: string) => {
     if (!currentTourney) return;
     setIsSyncing(true);
-
-    const groupMap: Record<string, string | null> = {};
-    stageGroups.forEach((g) => {
-      groupMap[g.id] = g.refereeId || null;
-    });
-
-    const stageMap: Record<string, string | null> = {};
-    if (activeStage) {
-      stageMap[activeStage.id] = null;
-    }
 
     try {
       const result = await persistRefereeAssignments(
         currentTourney.id,
         stageMap,
         groupMap,
-        currentUser.id
+        releaseOfficial
       );
       setSyncStatus(result);
     } catch (err: any) {
@@ -183,19 +174,17 @@ export const RefereeAssignmentView: React.FC = () => {
   // Auto balance referees across groups with direct save
   const handleAutoBalance = () => {
     if (!activeStage) return;
-    autoBalanceRefereesAcrossGroups(activeStage.id);
-    setTimeout(() => {
-      triggerAutoSync();
-    }, 100);
+    if (!supabaseSyncInfo.isConfigured) autoBalanceRefereesAcrossGroups(activeStage.id);
+    if (referees.length) void triggerAutoSync(Object.fromEntries(stageGroups.map((g, i) => [g.id, referees[i % referees.length].id])));
   };
 
   // Unassign all from active stage
   const handleClearStageAssignments = () => {
     if (!confirm('¿Desasignar los árbitros de todos los grupos de esta fase?')) return;
     stageGroups.forEach((g) => {
-      assignRefereeToGroup(g.id, null);
+      if (!supabaseSyncInfo.isConfigured) assignRefereeToGroup(g.id, null);
     });
-    triggerAutoSync();
+    triggerAutoSync(Object.fromEntries(stageGroups.map(g => [g.id, null])));
   };
 
   // Current generated SQL statements for Supabase inspection
@@ -289,7 +278,7 @@ export const RefereeAssignmentView: React.FC = () => {
 
           {/* Direct Supabase Manual Sync Button */}
           <button
-            onClick={triggerAutoSync}
+            onClick={() => triggerAutoSync(Object.fromEntries(stageGroups.map(g => [g.id, g.refereeId || null])))}
             disabled={isSyncing}
             className="px-3 py-1.5 rounded-[var(--r-control,4px)] border border-emerald-600/50 bg-emerald-950/30 text-emerald-300 hover:bg-emerald-900/40 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs antialiased"
             title="Guardar asignaciones en Supabase"
@@ -524,8 +513,8 @@ export const RefereeAssignmentView: React.FC = () => {
                         <button
                           onClick={() => {
                             if (currentTourney) {
-                              unassignRefereeFromAll(currentTourney.id, ref.id);
-                              triggerAutoSync();
+                              if (!supabaseSyncInfo.isConfigured) unassignRefereeFromAll(currentTourney.id, ref.id);
+                              triggerAutoSync({}, {}, ref.id);
                             }
                           }}
                           className="text-[10px] text-red-400 hover:text-red-300 font-semibold"
@@ -700,8 +689,8 @@ export const RefereeAssignmentView: React.FC = () => {
 
                             <button
                               onClick={() => {
-                                assignRefereeToGroup(group.id, null);
-                                triggerAutoSync();
+                                if (!supabaseSyncInfo.isConfigured) assignRefereeToGroup(group.id, null);
+                                triggerAutoSync({ [group.id]: null });
                               }}
                               className="text-[var(--acero,#a3abb5)] hover:text-red-400 p-1.5 rounded transition-colors"
                               title="Remover árbitro de este grupo"
@@ -742,8 +731,8 @@ export const RefereeAssignmentView: React.FC = () => {
                             value={group.refereeId || ''}
                             onChange={(e) => {
                               const refId = e.target.value || null;
-                              assignRefereeToGroup(group.id, refId);
-                              triggerAutoSync();
+                              if (!supabaseSyncInfo.isConfigured) assignRefereeToGroup(group.id, refId);
+                              triggerAutoSync({ [group.id]: refId });
                             }}
                             className="text-[11px] font-semibold bg-[#1b1d21] text-[var(--hueso,#ece8e0)] border border-[var(--costura,#363b43)] rounded px-2 py-1 focus:outline-none cursor-pointer"
                           >

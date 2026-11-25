@@ -256,6 +256,7 @@ export async function syncTournamentToSupabase(
     // 1. Upsert Tournament
     const tourneyPayload = {
       id: tournament.id,
+      expected_revision: tournament.revision ?? null,
       slug: tournament.slug,
       name: tournament.name,
       description: tournament.description || null,
@@ -417,17 +418,10 @@ export async function syncTournamentToSupabase(
       p_battles: battlesPayload,
       p_penalties: penaltiesPayload,
     });
+    if (snapshotError?.code === '40001') return { success: false, message: 'El torneo cambió en otro dispositivo. Actualiza y revisa el cambio.' };
     if (snapshotError) {
       throw new Error(`Error al publicar el snapshot transaccional: ${snapshotError.message}`);
     }
-    const { error: resourceError } = await supabase.rpc('set_match_resources', {
-      p_resources: tourneyMatches.map((match) => ({
-        id: match.id,
-        station: match.station || null,
-        called_to_station: Boolean(match.calledToStation),
-      })),
-    });
-    if (resourceError) throw new Error(`Error al publicar mesas: ${resourceError.message}`);
 
     return {
       success: true,
@@ -578,6 +572,7 @@ export async function loadTournamentsFromSupabase(): Promise<{
 
     const tournaments: Tournament[] = (tourneys || []).map((t) => ({
       id: t.id,
+      revision: t.revision,
       slug: t.slug,
       name: t.name,
       description: t.description || undefined,
@@ -755,7 +750,11 @@ export function subscribeToTournamentRealtime(
       },
       (payload) => {
         const m = payload.new as Record<string, unknown>;
-        if (payload.eventType !== 'DELETE' && callbacks.onMatchUpdate) {
+        if (payload.eventType !== 'UPDATE') {
+          callbacks.onRemoteDataChange?.();
+          return;
+        }
+        if (callbacks.onMatchUpdate) {
           callbacks.onMatchUpdate({
             id: String(m.id),
             score1: Number(m.score1) || 0,
@@ -794,7 +793,8 @@ export function subscribeToTournamentRealtime(
       },
       (payload) => {
         const b = payload.new as Record<string, unknown>;
-        if (payload.eventType === 'INSERT' && callbacks.onBattleInsert) {
+        if (payload.eventType !== 'INSERT') return callbacks.onRemoteDataChange?.();
+        if (callbacks.onBattleInsert) {
           callbacks.onBattleInsert({
             id: String(b.id),
             matchId: String(b.match_id),
@@ -819,7 +819,8 @@ export function subscribeToTournamentRealtime(
       },
       (payload) => {
         const p = payload.new as Record<string, unknown>;
-        if (payload.eventType === 'INSERT' && callbacks.onPenaltyInsert) {
+        if (payload.eventType !== 'INSERT') return callbacks.onRemoteDataChange?.();
+        if (callbacks.onPenaltyInsert) {
           callbacks.onPenaltyInsert({
             id: String(p.id),
             matchId: String(p.match_id),
@@ -893,7 +894,11 @@ export function subscribeToTournamentRealtime(
       },
       () => callbacks.onRemoteDataChange?.()
     )
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'group_participants' }, () => callbacks.onRemoteDataChange?.())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_referees' }, () => callbacks.onRemoteDataChange?.())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_finish_points' }, () => callbacks.onRemoteDataChange?.())
     .subscribe((status) => {
+      if (status === 'SUBSCRIBED') callbacks.onRemoteDataChange?.();
       if (
         status === 'SUBSCRIBED' ||
         status === 'CHANNEL_ERROR' ||

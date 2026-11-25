@@ -157,9 +157,8 @@ interface TournamentContextType {
   randomizeParticipants: (tournamentId: string) => void;
 
   // Tournament flow actions
-  generateBracketForStage: (stageId: string) => void;
-  startStage: (stageId: string) => void;
-  advanceCurrentStage: (stageId: string) => void;
+  startStage: (stageId: string) => Promise<void>;
+  advanceCurrentStage: (stageId: string) => Promise<void>;
   generateNextSwissRound: (stageId: string) => Promise<void>;
   configureSwissStations: (stageId: string, stationCount: number) => Promise<void>;
   addStage: (tournamentId: string, type: StageType, name?: string) => Stage;
@@ -579,6 +578,23 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   useEffect(() => {
+    if (currentRole === 'organizer') {
+      const client = getSupabaseClient();
+      if (!client) return;
+      let active = true;
+      setUsers([]);
+      void client.rpc('list_eligible_officials').then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          setSupabaseSyncInfo(previous => ({ ...previous, message: 'No se pudo cargar el directorio de oficiales.' }));
+          return;
+        }
+        setUsers((data || []).map((p: {id: string; display_name: string; role: UserRole}) => ({
+          id: p.id, displayName: p.display_name, role: p.role, createdAt: '', email: '',
+        })));
+      });
+      return () => { active = false; };
+    }
     if (currentRole !== 'admin') return;
     let active = true;
     void Promise.all([loadAdminProfiles(), loadAdminAuditLogs()]).then(([remoteUsers, remoteAuditLogs]) => {
@@ -1697,10 +1713,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // Generate bracket for a stage (groups or single elimination)
-  const generateBracketForStage = (stageId: string) => {
+  const buildBracketForStage = (stageId: string) => {
     assertWritablePersistence();
     const stage = stages.find(s => s.id === stageId);
-    if (!stage) return;
+    if (!stage) throw new Error('Etapa no encontrada.');
     const tournament = tournaments.find(t => t.id === stage.tournamentId);
     const tParts = participants.filter(p =>
       p.tournamentId === stage.tournamentId &&
@@ -1713,19 +1729,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         thirdPlaceMatch: stage.config.thirdPlaceMatch,
       });
 
-      setRounds(prev => {
-        const others = prev.filter(r => r.stageId !== stage.id);
-        const updated = [...others, ...se.rounds];
-        saveState({ rounds: updated });
-        return updated;
-      });
-
-      setMatches(prev => {
-        const others = prev.filter(m => m.stageId !== stage.id);
-        const updated = [...others, ...se.matches];
-        saveState({ matches: updated });
-        return updated;
-      });
+      return { groups: [], rounds: se.rounds, matches: se.matches };
     } else if (stage.type === 'group_stage') {
       const groupSize = stage.config.groupSize || 4;
       const numGroups = Math.max(1, Math.ceil(tParts.length / groupSize));
@@ -1758,57 +1762,17 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         createdMatches.push(...rr.matches);
       });
 
-      setGroups(prev => {
-        const others = prev.filter(g => g.stageId !== stage.id);
-        const updated = [...others, ...createdGroups];
-        saveState({ groups: updated });
-        return updated;
-      });
-
-      setRounds(prev => {
-        const others = prev.filter(r => r.stageId !== stage.id);
-        const updated = [...others, ...createdRounds];
-        saveState({ rounds: updated });
-        return updated;
-      });
-
-      setMatches(prev => {
-        const others = prev.filter(m => m.stageId !== stage.id);
-        const updated = [...others, ...createdMatches];
-        saveState({ matches: updated });
-        return updated;
-      });
+      return { groups: createdGroups, rounds: createdRounds, matches: createdMatches };
     } else if (stage.type === 'round_robin') {
       const rr = generateRoundRobin(stage.tournamentId, stage.id, tParts, { legs: 1 });
-      setRounds(prev => {
-        const updated = [...prev.filter(r => r.stageId !== stage.id), ...rr.rounds];
-        saveState({ rounds: updated });
-        return updated;
-      });
-      setMatches(prev => {
-        const updated = [...prev.filter(m => m.stageId !== stage.id), ...rr.matches];
-        saveState({ matches: updated });
-        return updated;
-      });
+      return { groups: [], rounds: rr.rounds, matches: rr.matches };
     } else if (stage.type === 'double_elimination') {
       const de = generateDoubleElimination(stage.tournamentId, stage.id, tParts, {
         grandFinalType: stage.config.grandFinalType,
         grandFinalReset: stage.config.grandFinalReset ?? true,
       });
 
-      setRounds(prev => {
-        const others = prev.filter(r => r.stageId !== stage.id);
-        const updated = [...others, ...de.rounds];
-        saveState({ rounds: updated });
-        return updated;
-      });
-
-      setMatches(prev => {
-        const others = prev.filter(m => m.stageId !== stage.id);
-        const updated = [...others, ...de.matches];
-        saveState({ matches: updated });
-        return updated;
-      });
+      return { groups: [], rounds: de.rounds, matches: de.matches };
     } else if (stage.type === 'swiss') {
       const tournament = tournaments.find((item) => item.id === stage.tournamentId);
       const sw = generateSwiss(stage.tournamentId, stage.id, tParts, {
@@ -1818,25 +1782,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         refereeIds: tournament?.assignedReferees || [],
       });
 
-      setRounds(prev => {
-        const others = prev.filter(r => r.stageId !== stage.id);
-        const updated = [...others, ...sw.rounds];
-        saveState({ rounds: updated });
-        return updated;
-      });
-
-      setMatches(prev => {
-        const others = prev.filter(m => m.stageId !== stage.id);
-        const updated = [...others, ...sw.matches];
-        saveState({ matches: updated });
-        return updated;
-      });
+      return { groups: [], rounds: sw.rounds, matches: sw.matches };
     }
 
-    logAudit('stages', stage.id, 'update', `Estructura de bracket/grupos generada para etapa ${stage.name}.`);
+    throw new Error('Formato de etapa no compatible.');
   };
 
-  const startStage = (stageId: string) => {
+  const startStage = async (stageId: string) => {
     assertWritablePersistence();
     const stage = stages.find(s => s.id === stageId);
     if (!stage) return;
@@ -1844,8 +1796,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const prior = stages.filter(s => s.tournamentId === stage.tournamentId && s.position < stage.position)
       .sort((a, b) => b.position - a.position)[0];
     if (prior && ['group_stage', 'swiss', 'round_robin'].includes(prior.type) && stage.status === 'pending') {
-      advanceCurrentStage(prior.id);
-      return;
+      return advanceCurrentStage(prior.id);
     }
     if (prior && prior.status !== 'completed') {
       const previousMatches = matches.filter(m => m.stageId === prior.id);
@@ -1873,23 +1824,27 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (issue) throw new Error(issue.message);
     }
     const existingMatches = matches.filter(m => m.stageId === stageId);
-    if (existingMatches.length === 0) {
-      generateBracketForStage(stageId);
+    if (!tournament) throw new Error('Torneo no encontrado.');
+    const bracket = existingMatches.length ? null : buildBracketForStage(stageId);
+    const nextRounds = bracket ? [...rounds.filter(r => r.stageId !== stageId), ...bracket.rounds] : rounds;
+    const nextGroups = bracket ? [...groups.filter(g => g.stageId !== stageId), ...bracket.groups] : groups;
+    const nextMatches = bracket ? [...matches.filter(m => m.stageId !== stageId), ...bracket.matches] : matches;
+    const nextStages = stages.map(s => s.id === stageId ? { ...s, status: 'in_progress' as const } : s);
+    const started = { ...tournament, status: 'in_progress' as const };
+    if (supabaseSyncInfo.isConfigured) {
+      const saved = await syncTournamentToSupabase(started, nextStages, nextGroups, nextRounds, nextMatches, participants, battles, penalties);
+      setRemoteRefreshVersion(v => v + 1);
+      if (!saved.success) throw new Error(saved.message);
+      return;
     }
-
-    setStages(prev => {
-      const updated = prev.map(s => s.id === stageId ? { ...s, status: 'in_progress' as const } : s);
-      saveState({ stages: updated });
-      return updated;
-    });
-
-    setTournaments(prev => {
-      const updated = prev.map(t => t.id === stage.tournamentId ? { ...t, status: 'in_progress' as const } : t);
-      saveState({ tournaments: updated });
-      return updated;
-    });
-
-    logAudit('stages', stageId, 'update', 'Etapa iniciada. El arbitraje ya está activo.');
+    const nextTournaments = tournaments.map(t => t.id === started.id ? started : t);
+    setTournaments(nextTournaments);
+    setStages(nextStages);
+    setGroups(nextGroups);
+    setRounds(nextRounds);
+    setMatches(nextMatches);
+    saveState({ tournaments: nextTournaments, stages: nextStages, groups: nextGroups, rounds: nextRounds, matches: nextMatches });
+    logAudit('stages', stageId, 'update', 'Etapa iniciada.');
   };
 
   const generateNextSwissRoundForStage = async (stageId: string) => {
@@ -1983,7 +1938,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // Advance stage to playoffs (from groups or swiss)
-  const advanceCurrentStage = (stageId: string) => {
+  const advanceCurrentStage = async (stageId: string) => {
     assertWritablePersistence();
     const stage = stages.find(s => s.id === stageId);
     if (!stage) return;
@@ -2037,6 +1992,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     updatedStages.push(result.nextStage);
     const updatedRounds = [...rounds, ...result.nextRounds];
     const updatedMatches = [...matches, ...playoffMatchesWithReferees];
+    if (supabaseSyncInfo.isConfigured && tournament) {
+      const saved = await syncTournamentToSupabase(tournament, updatedStages, groups, updatedRounds, updatedMatches, participants, battles, penalties);
+      setRemoteRefreshVersion(v => v + 1);
+      if (!saved.success) throw new Error(saved.message);
+      return;
+    }
     setStages(updatedStages);
     setRounds(updatedRounds);
     setMatches(updatedMatches);
@@ -3874,7 +3835,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           message: result.message,
         }));
       } else {
-        autoSyncQueuedSnapshotRef.current = snapshot;
+        if (result.message.includes('El torneo cambió en otro dispositivo')) {
+          autoSyncQueuedSnapshotRef.current = null;
+          setRemoteRefreshVersion(version => version + 1);
+          return;
+        }
+        autoSyncQueuedSnapshotRef.current ??= snapshot;
         setSupabaseSyncInfo((previous) => ({
           ...previous,
           isConnected: false,
@@ -4043,7 +4009,6 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         toggleInspected,
         reorderParticipants,
         randomizeParticipants,
-        generateBracketForStage,
         startStage,
         advanceCurrentStage,
         generateNextSwissRound: generateNextSwissRoundForStage,

@@ -57,7 +57,7 @@ export async function persistRefereeAssignments(
   tournamentId: string,
   stageAssignments: Record<string, string | null>,
   groupAssignments: Record<string, string | null>,
-  _updatedBy?: string
+  releaseOfficial?: string
 ): Promise<SupabaseSyncResult> {
   const timestamp = new Date().toISOString();
   const sqlStatements = generateSupabaseSQL(tournamentId, stageAssignments, groupAssignments);
@@ -73,137 +73,11 @@ export async function persistRefereeAssignments(
     };
   }
 
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError || !sessionData.session) {
-    return {
-      success: false,
-      persistedIn: 'none',
-      timestamp,
-      message: 'Se requiere una sesión autenticada para guardar asignaciones.',
-      sqlStatements,
-    };
-  }
-
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData.user) {
-    return {
-      success: false,
-      persistedIn: 'none',
-      timestamp,
-      message: 'No se pudo identificar al usuario autenticado.',
-      sqlStatements,
-    };
-  }
-
-  const actor = userData.user.id;
-  let recordsUpdated = 0;
-
-  for (const [groupId, refereeId] of Object.entries(groupAssignments)) {
-    const { data: group, error: groupError } = await supabase
-      .from('groups')
-      .update({ referee_id: refereeId })
-      .eq('id', groupId)
-      .select('id')
-      .maybeSingle();
-    if (groupError || !group) {
-      return {
-        success: false,
-        persistedIn: 'none',
-        timestamp,
-        message: `No se pudo guardar el grupo ${groupId}: ${groupError?.message || 'grupo no encontrado o no autorizado'}.`,
-        sqlStatements,
-      };
-    }
-
-    const { error: matchesError } = await supabase
-      .from('matches')
-      .update({ referee_id: refereeId })
-      .eq('group_id', groupId)
-      .neq('status', 'completed');
-    if (matchesError) {
-      return {
-        success: false,
-        persistedIn: 'none',
-        timestamp,
-        message: `No se pudieron actualizar las partidas del grupo ${groupId}: ${matchesError.message}.`,
-        sqlStatements,
-      };
-    }
-    recordsUpdated++;
-  }
-
-  for (const [stageId, refereeId] of Object.entries(stageAssignments)) {
-    const { data: stage, error: readError } = await supabase
-      .from('stages')
-      .select('config')
-      .eq('id', stageId)
-      .single();
-    if (readError || !stage) {
-      return {
-        success: false,
-        persistedIn: 'none',
-        timestamp,
-        message: `No se pudo leer la etapa ${stageId}: ${readError?.message || 'etapa no encontrada'}.`,
-        sqlStatements,
-      };
-    }
-
-    const config = { ...(stage.config || {}) } as Record<string, unknown>;
-    if (refereeId) config.head_referee_id = refereeId;
-    else delete config.head_referee_id;
-
-    const { error: stageError } = await supabase
-      .from('stages')
-      .update({ config })
-      .eq('id', stageId)
-      .select('id')
-      .single();
-    if (stageError) {
-      return {
-        success: false,
-        persistedIn: 'none',
-        timestamp,
-        message: `No se pudo guardar la etapa ${stageId}: ${stageError.message}.`,
-        sqlStatements,
-      };
-    }
-  }
-
-  const refereeIds = new Set(
-    [...Object.values(stageAssignments), ...Object.values(groupAssignments)].filter(
-      (refereeId): refereeId is string => Boolean(refereeId)
-    )
-  );
-  if (refereeIds.size > 0) {
-    const { error: rosterError } = await supabase
-      .from('tournament_referees')
-      .upsert([...refereeIds].map((profile_id) => ({ tournament_id: tournamentId, profile_id })));
-    if (rosterError) {
-      return {
-        success: false,
-        persistedIn: 'none',
-        timestamp,
-        message: `No se pudo actualizar el roster de árbitros: ${rosterError.message}.`,
-        sqlStatements,
-      };
-    }
-  }
-
-  const { error: auditError } = await supabase.from('audit_log').insert({
-    table_name: 'tournament_referees',
-    record_id: tournamentId,
-    action: 'update',
-    actor,
+  const { error } = await supabase.rpc('apply_referee_assignments', {
+    p_tournament: tournamentId, p_stages: stageAssignments, p_groups: groupAssignments, p_release: releaseOfficial ?? null,
   });
-  if (auditError) {
-    return {
-      success: false,
-      persistedIn: 'none',
-      timestamp,
-      message: `La asignación se actualizó, pero la auditoría falló: ${auditError.message}.`,
-      sqlStatements,
-    };
-  }
+  if (error) return { success: false, persistedIn: 'none', timestamp, message: error.message, sqlStatements };
+  const recordsUpdated = Object.keys(groupAssignments).length;
 
   return {
     success: true,

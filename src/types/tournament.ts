@@ -42,6 +42,7 @@ export interface FinishPointsConfig {
 }
 
 export interface Tournament {
+  revision?: number;
   id: string;
   slug: string;
   name: string;

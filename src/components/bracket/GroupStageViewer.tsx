@@ -128,7 +128,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
                 <button
                   onClick={() => {
                     if (tourneyParticipants.length < 2) return;
-                    startStage(stage.id);
+                    void Promise.resolve(startStage(stage.id)).catch(error => window.alert(error.message));
                   }}
                   disabled={tourneyParticipants.length < 2}
                   className={`text-xs px-3.5 py-1.5 flex items-center gap-1.5 rounded-[var(--r-control)] font-semibold transition-all ${
@@ -150,7 +150,7 @@ export const GroupStageViewer: React.FC<GroupStageViewerProps> = ({
               {stage.status === 'in_progress' && hasNextStage && (
                 <button
                   disabled={!totalMatches || completedMatches < totalMatches}
-                  onClick={() => { try { advanceCurrentStage(stage.id); } catch (e) { window.alert(e instanceof Error ? e.message : 'No se pudo avanzar.'); } }}
+                  onClick={async () => { try { await advanceCurrentStage(stage.id); } catch (e) { window.alert(e instanceof Error ? e.message : 'No se pudo avanzar.'); } }}
                   className="acero-btn acero-btn--primary text-xs px-3.5 py-1.5 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs"
                   title="Calcula los clasificados y genera el cuadro de playoffs de eliminación directa"
                 >

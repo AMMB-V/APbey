@@ -193,7 +193,9 @@ describe('audit follow-up migration', () => {
 
   it('ensures application code uses canonical audit_log table', () => {
     const refereeCode = readFileSync(resolve(process.cwd(), 'src/lib/supabase/refereeAssignments.ts'), 'utf8');
-    expect(refereeCode).toContain("from('audit_log')");
+    expect(refereeCode).toContain("rpc('apply_referee_assignments'");
+    const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261125210000_atomic_officials.sql'), 'utf8');
+    expect(sql).toContain('insert into public.audit_log(');
     expect(refereeCode).not.toContain("from('audit_logs')");
   });
 });

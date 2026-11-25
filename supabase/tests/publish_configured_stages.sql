@@ -1,5 +1,5 @@
 begin;
-select plan(4);
+select plan(7);
 
 create temp table transition_fixture as
 select gen_random_uuid() as owner_id, gen_random_uuid() as blader_id, gen_random_uuid() as tournament_id,
@@ -16,7 +16,7 @@ select stage_id,tournament_id,2,'Suizo final','swiss','pending' from transition_
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub',owner_id::text,true) from transition_fixture;
-select is((public.publish_tournament_snapshot(to_jsonb(t) || '{"category":"grand"}'::jsonb,'[]','[]',
+select is((public.publish_tournament_snapshot(to_jsonb(t) || jsonb_build_object('category','grand','expected_revision',t.revision),'[]','[]',
   jsonb_build_array(jsonb_build_object('id',f.participant_id,'tournament_id',f.tournament_id,
     'profile_id',f.blader_id,'display_name','Blader','seed',1,'checked_in',true,'inspected',false,
     'deck_combos','[]'::jsonb,'status','active')),
@@ -30,5 +30,16 @@ select is((select category from public.tournaments t join transition_fixture f o
   'grand','The ranking category is persisted atomically');
 select is((select profile_id from public.participants p join transition_fixture f on p.id=f.participant_id),
   (select blader_id from transition_fixture),'The participant keeps the linked ranking profile');
+select throws_ok(format(
+  'select public.publish_tournament_snapshot(%L::jsonb,''[]'',''[]'',''[]'',''[]'',''[]'',''[]'',''[]'',''[]'',''[]'',''[]'')',
+  jsonb_build_object('id', tournament_id,'expected_revision',-1)::text),
+  '40001','stale_tournament','An outdated client cannot replace the accepted bracket')
+from transition_fixture;
+select public.apply_referee_assignments(tournament_id,jsonb_build_object(stage_id::text,owner_id),'{}')
+from transition_fixture;
+select is((select config->>'head_referee_id' from public.stages s join transition_fixture f on f.stage_id=s.id),
+  (select owner_id::text from transition_fixture),'The assigned official is persisted on the stage');
+select is((select count(*) from public.tournament_referees r join transition_fixture f
+  on f.tournament_id=r.tournament_id and f.owner_id=r.profile_id),1::bigint,'Stage assignment updates the tournament roster');
 select * from finish();
 rollback;
