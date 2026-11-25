@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { getSupabaseClient } from '../../lib/supabase/client';
+import type { Match } from '../../types/tournament';
 import { useTournament } from '../../context/TournamentContext';
 import { AceroIcon } from '../common/AceroIcon';
 import {
@@ -17,6 +19,9 @@ export const RefereeAssignmentView: React.FC = () => {
     stages,
     groups,
     matches,
+    rounds,
+    participants,
+    assignReferee,
     users,
     assignRefereeToGroup,
     assignRefereeToStage,
@@ -89,9 +94,10 @@ export const RefereeAssignmentView: React.FC = () => {
       (g) => stageIds.includes(g.stageId) && g.refereeId === refId
     );
     const assignedMatches = matches.filter(
-      (m) => m.tournamentId === currentTourney?.id && m.refereeId === refId
+      (m) => m.tournamentId === currentTourney?.id && m.refereeId === refId && m.status !== 'completed' && !m.isBye
     );
     return {
+      assigned: assignedGroups.length > 0 || assignedMatches.length > 0 || tourneyStages.some(s => s.config.head_referee_id === refId),
       groupCount: assignedGroups.length,
       matchCount: assignedMatches.length,
     };
@@ -105,8 +111,8 @@ export const RefereeAssignmentView: React.FC = () => {
     if (!matchesSearch) return false;
 
     const workload = getRefereeWorkload(ref.id);
-    if (filterMode === 'available') return workload.groupCount === 0;
-    if (filterMode === 'assigned') return workload.groupCount > 0;
+    if (filterMode === 'available') return !workload.assigned;
+    if (filterMode === 'assigned') return workload.assigned;
     return true;
   });
 
@@ -134,13 +140,40 @@ export const RefereeAssignmentView: React.FC = () => {
     setDraggedRefId(null);
   };
 
+  const selectStageReferee = (stageId: string, official: string | null) => {
+    if (supabaseSyncInfo.isConfigured) void triggerAutoSync({}, { [stageId]: official });
+    else assignRefereeToStage(stageId, official);
+  };
+
+  const selectMatchReferee = async (match: Match, official: string | null) => {
+    if (!supabaseSyncInfo.isConfigured) {
+      assignReferee(match.id, official);
+      return;
+    }
+    const client = getSupabaseClient();
+    if (!client || !currentTourney) return;
+    setIsSyncing(true);
+    try {
+      const { error, data } = await client.from('matches')
+        .update({ referee_id: official, version: match.version + 1 })
+        .eq('id', match.id).eq('tournament_id', currentTourney.id)
+        .eq('version', match.version).neq('status', 'completed').select('id').maybeSingle();
+      if (error || !data) throw new Error(error?.message || 'El combate cambió o ya terminó.');
+      setSyncStatus({ success: true, persistedIn: 'supabase', timestamp: new Date().toISOString(), message: 'Árbitro del combate actualizado.' });
+    } catch (error) {
+      setSyncStatus({ success: false, persistedIn: 'none', timestamp: new Date().toISOString(),
+        message: error instanceof Error ? error.message : 'No se pudo asignar el árbitro.' });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // Handle Drop on Stage / Phase
   const handleDropOnStage = (e: React.DragEvent, stageId: string) => {
     e.preventDefault();
     const refId = e.dataTransfer.getData('text/plain') || draggedRefId;
     if (refId) {
-      if (!supabaseSyncInfo.isConfigured) assignRefereeToStage(stageId, refId);
-      triggerAutoSync({}, { [stageId]: refId });
+      selectStageReferee(stageId, refId);
     }
     setDragOverTarget(null);
     setDraggedRefId(null);
@@ -276,8 +309,7 @@ export const RefereeAssignmentView: React.FC = () => {
             </select>
           </div>
 
-          {/* Direct Supabase Manual Sync Button */}
-          <button
+          {stageGroups.length > 0 && supabaseSyncInfo.isConfigured && <button
             onClick={() => triggerAutoSync(Object.fromEntries(stageGroups.map(g => [g.id, g.refereeId || null])))}
             disabled={isSyncing}
             className="px-3 py-1.5 rounded-[var(--r-control,4px)] border border-emerald-600/50 bg-emerald-950/30 text-emerald-300 hover:bg-emerald-900/40 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs antialiased"
@@ -285,7 +317,7 @@ export const RefereeAssignmentView: React.FC = () => {
           >
             <AceroIcon id="i-ok" size="sm" className={isSyncing ? 'animate-spin' : 'text-emerald-400'} />
             <span>{isSyncing ? 'Sincronizando...' : 'Guardar en Supabase'}</span>
-          </button>
+          </button>}
 
           {/* Toggle SQL inspector */}
           <button
@@ -383,7 +415,7 @@ export const RefereeAssignmentView: React.FC = () => {
               <AceroIcon id={stageIcon as any} size="sm" />
               <span>{stage.name}</span>
               <span className="text-[10px] opacity-75 font-mono">
-                ({stage.type === 'group_stage' ? `${groups.filter(g => g.stageId === stage.id).length} grupos` : 'Playoffs'})
+                ({({ group_stage: 'Grupos', swiss: 'Suizo', double_elimination: 'Doble eliminación', round_robin: 'Todos contra todos', single_elimination: 'Eliminación directa' })[stage.type]})
               </span>
             </button>
           );
@@ -499,17 +531,17 @@ export const RefereeAssignmentView: React.FC = () => {
                           className="w-2 h-2 rounded-full"
                           style={{
                             backgroundColor:
-                              workload.groupCount > 0 ? 'var(--cobalto, #5c80f5)' : 'var(--en-vivo, #7bc96f)',
+                              workload.assigned ? 'var(--cobalto, #5c80f5)' : 'var(--en-vivo, #7bc96f)',
                           }}
                         />
                         <span className="text-[var(--acero,#a3abb5)]">
                           {workload.groupCount > 0
                             ? `${workload.groupCount} ${workload.groupCount === 1 ? 'grupo' : 'grupos'}`
-                            : 'Disponible'}
+                            : workload.matchCount ? `${workload.matchCount} combates` : workload.assigned ? 'Árbitro principal' : 'Disponible'}
                         </span>
                       </div>
 
-                      {workload.groupCount > 0 && (
+                      {workload.assigned && (
                         <button
                           onClick={() => {
                             if (currentTourney) {
@@ -574,6 +606,15 @@ export const RefereeAssignmentView: React.FC = () => {
                   </div>
                 </div>
 
+                <label className="grid gap-1 text-xs">
+                  Árbitro principal de la fase
+                  <select value={activeStage.config.head_referee_id || ''} disabled={isSyncing || activeStage.status === 'completed'}
+                    onChange={event => selectStageReferee(activeStage.id, event.target.value || null)}
+                    className="rounded border bg-[#1b1d21] p-2">
+                    <option value="">Sin árbitro principal</option>
+                    {referees.map(ref => <option key={ref.id} value={ref.id}>{ref.displayName}</option>)}
+                  </select>
+                </label>
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                   {stageGroups.length > 0 && (
                     <button
@@ -599,8 +640,27 @@ export const RefereeAssignmentView: React.FC = () => {
             </div>
           )}
 
-          {/* Groups Grid / Drop Targets */}
-          <div className="space-y-3">
+          {activeStage && activeStage.type !== 'group_stage' && (
+            <section className="space-y-3">
+              <h3>Árbitros por combate</h3>
+              {matches.filter(m => m.stageId === activeStage.id && !m.isBye && m.status !== 'completed').map(match => (
+                <label key={match.id} className="flex flex-wrap items-center justify-between gap-2 rounded border p-3 text-sm">
+                  <span>{rounds.find(r => r.id === match.roundId)?.name || 'Ronda'} · Combate {match.position}
+                    {match.station && ` · ${match.station}`}<br />
+                    {participants.find(p => p.id === match.participant1Id)?.displayName || 'Por definir'} vs. {participants.find(p => p.id === match.participant2Id)?.displayName || 'Por definir'}
+                  </span>
+                  <select className="rounded border bg-[#1b1d21] p-2" value={match.refereeId || ''}
+                    disabled={isSyncing} onChange={event => void selectMatchReferee(match, event.target.value || null)}>
+                    <option value="">Sin árbitro</option>
+                    {referees.map(ref => <option key={ref.id} value={ref.id}>{ref.displayName}</option>)}
+                  </select>
+                </label>
+              ))}
+              {!matches.some(m => m.stageId === activeStage.id && !m.isBye && m.status !== 'completed') &&
+                <p className="text-sm">No hay combates pendientes en esta fase.</p>}
+            </section>
+          )}
+          {activeStage?.type === 'group_stage' && <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AceroIcon id="i-grupos" size="md" className="text-[var(--cobre,#ee8433)]" />
@@ -620,7 +680,7 @@ export const RefereeAssignmentView: React.FC = () => {
                   Esta fase no tiene grupos configurados.
                 </div>
                 <p className="text-xs text-[var(--acero,#a3abb5)] max-w-md mx-auto">
-                  Es una etapa de eliminación directa o suiza continua. Puedes arrastrar árbitros a la caja superior de "Asignación Global de Fase" para cubrir todas sus partidas.
+                  Puedes seleccionar el árbitro principal antes de generar los grupos.
                 </p>
               </div>
             ) : (
@@ -750,7 +810,7 @@ export const RefereeAssignmentView: React.FC = () => {
                 })}
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </div>
     </div>

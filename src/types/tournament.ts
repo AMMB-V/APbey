@@ -70,6 +70,7 @@ export interface Tournament {
 }
 
 export interface StageConfig {
+  head_referee_id?: string;
   stageStructure?: StageStructure;
   pointsPerMatchWin?: number;
   pointsPerMatchDraw?: number;

@@ -1827,8 +1827,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!tournament) throw new Error('Torneo no encontrado.');
     const bracket = existingMatches.length ? null : buildBracketForStage(stageId);
     const nextRounds = bracket ? [...rounds.filter(r => r.stageId !== stageId), ...bracket.rounds] : rounds;
-    const nextGroups = bracket ? [...groups.filter(g => g.stageId !== stageId), ...bracket.groups] : groups;
-    const nextMatches = bracket ? [...matches.filter(m => m.stageId !== stageId), ...bracket.matches] : matches;
+    const nextGroups = bracket ? [...groups.filter(g => g.stageId !== stageId),
+      ...bracket.groups.map(g => ({ ...g, refereeId: stage.config.head_referee_id || g.refereeId }))] : groups;
+    const headReferee = stage.config.head_referee_id;
+    const nextMatches = bracket ? [...matches.filter(m => m.stageId !== stageId),
+      ...bracket.matches.map(m => headReferee && !m.isBye ? { ...m, refereeId: headReferee } : m)] : matches;
     const nextStages = stages.map(s => s.id === stageId ? { ...s, status: 'in_progress' as const } : s);
     const started = { ...tournament, status: 'in_progress' as const };
     if (supabaseSyncInfo.isConfigured) {
@@ -1880,7 +1883,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         scoring: stage.config,
         getMatchPoints: matchPointTotals(stageMatches, battles, penalties),
         stationCount: stage.config.swissStations || 1,
-        refereeIds: tournament?.assignedReferees || [],
+        refereeIds: stage.config.head_referee_id ? [stage.config.head_referee_id] : tournament?.assignedReferees || [],
       }
     );
     const updatedRounds = [...rounds, next.round];
@@ -1978,6 +1981,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     ])) as string[];
 
     const playoffMatchesWithReferees = result.nextMatches.map((m, idx) => {
+      if (destination?.config.head_referee_id && !m.isBye) return { ...m, refereeId: destination.config.head_referee_id };
       if (activeReferees.length > 0) {
         return {
           ...m,
@@ -2743,9 +2747,15 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const stage = stages.find(s => s.id === stageId);
     if (!stage) return;
 
+    setStages(prev => {
+      const updated = prev.map(s => s.id === stageId
+        ? { ...s, config: { ...s.config, head_referee_id: refereeId || undefined } } : s);
+      saveState({ stages: updated });
+      return updated;
+    });
     // Update matches in this stage
     setMatches(prev => {
-      const updated = prev.map(m => m.stageId === stageId ? { ...m, refereeId } : m);
+      const updated = prev.map(m => m.stageId === stageId && m.status !== 'completed' ? { ...m, refereeId } : m);
       saveState({ matches: updated });
       return updated;
     });
