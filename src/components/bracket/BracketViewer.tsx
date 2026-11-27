@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Match, Participant, Round, Stage } from '../../types/tournament';
+import { Match, Participant, Round, Stage, TiebreakerCriteria } from '../../types/tournament';
 import { useTournament } from '../../context/TournamentContext';
 import { MatchQueue, type QueueFilter } from './MatchQueue';
 import { BracketConnections } from './BracketConnections';
@@ -91,7 +91,14 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
 
   const roster = new Set(stageMatches.flatMap(m => [m.participant1Id, m.participant2Id]));
   const ranked = stage.type === 'swiss' || stage.type === 'round_robin';
-  const showDirectResult = stage.config.tiebreakers?.includes('head_to_head');
+  const configuredTiebreakers: TiebreakerCriteria[] = stage.config.tiebreakers?.length
+    ? stage.config.tiebreakers
+    : stage.type === 'swiss'
+      ? ['points', 'median_buchholz', 'head_to_head', 'point_diff', 'seed']
+      : ['points', 'head_to_head', 'point_diff', 'points_for', 'seed'];
+  const standingsColumns = configuredTiebreakers.filter(
+    (criterion): criterion is Exclude<TiebreakerCriteria, 'seed'> => criterion !== 'seed'
+  );
   const standingsTitle = stage.status === 'completed' ? 'Clasificación final' : 'Clasificación provisional';
   const standings = ranked ? computeStandings(stageMatches, participants.filter(p => roster.has(p.id)),
     stage.config.tiebreakers, stage.config.advanceCount,
@@ -329,10 +336,28 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                 <th scope="col">Puesto</th>
                 <th scope="col" className="sticky left-0 bg-[var(--chasis)] text-left sm:bg-transparent">Blader</th>
                 <th scope="col">Victorias</th>
-                <th scope="col">Puntos</th>
-                {stage.type === 'swiss' && <th scope="col">Buchholz medio</th>}
-                {showDirectResult && <th scope="col">Directo</th>}
-                <th scope="col">Diferencia</th>
+                {standingsColumns.map((criterion, index) => {
+                  const labels: Record<Exclude<TiebreakerCriteria, 'seed'>, string> = {
+                    points: 'Puntos',
+                    head_to_head: 'Directo',
+                    median_buchholz: 'Buchholz medio',
+                    buchholz: 'Buchholz',
+                    point_diff: 'Diferencia',
+                    points_for: 'Puntos a favor',
+                    points_average: 'Promedio',
+                    points_ratio: 'Ratio',
+                    game_wins: 'Sets ganados',
+                  };
+                  return (
+                    <th
+                      key={criterion}
+                      scope="col"
+                      title={`Prioridad de desempate #${index + 1}: ${labels[criterion]}`}
+                    >
+                      {labels[criterion]}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody className="tabular-nums [&_td]:border-y [&_td]:border-[var(--costura)] [&_td]:bg-[var(--chasis)] [&_td]:px-3 [&_td]:py-3 [&_td]:text-center [&_th]:border-y [&_th]:border-[var(--costura)] [&_th]:bg-[var(--chasis)] [&_th]:px-3 [&_th]:py-3">
@@ -370,18 +395,45 @@ export const BracketViewer: React.FC<BracketViewerProps> = ({
                         {row.won}
                       </span>
                     </td>
-                    <td>
-                      <span className="inline-flex min-w-10 justify-center rounded-[var(--r-chip)] bg-[var(--cobalto)] px-2.5 py-1 font-bold text-slate-950 shadow-sm">
-                        {row.points}
-                      </span>
-                    </td>
-                    {stage.type === 'swiss' && <td className="text-[var(--hueso)]">{row.medianBuchholz}</td>}
-                    {showDirectResult && <td>{row.directWins ?? '—'}</td>}
-                    <td>
-                      <span className={`font-semibold ${row.pointDiff > 0 ? 'text-emerald-300' : row.pointDiff < 0 ? 'text-rose-300' : 'text-[var(--acero)]'}`}>
-                        {row.pointDiff > 0 ? '+' : ''}{row.pointDiff}
-                      </span>
-                    </td>
+                    {standingsColumns.map((criterion) => {
+                      if (criterion === 'points') {
+                        return (
+                          <td key={criterion}>
+                            <span className="inline-flex min-w-10 justify-center rounded-[var(--r-chip)] bg-[var(--cobalto)] px-2.5 py-1 font-bold text-slate-950 shadow-sm">
+                              {row.points}
+                            </span>
+                          </td>
+                        );
+                      }
+                      if (criterion === 'head_to_head') {
+                        return <td key={criterion}>{row.directWins ?? '—'}</td>;
+                      }
+                      if (criterion === 'median_buchholz') {
+                        return <td key={criterion} className="text-[var(--hueso)]">{row.medianBuchholz ?? 0}</td>;
+                      }
+                      if (criterion === 'buchholz') {
+                        return <td key={criterion} className="text-[var(--hueso)]">{row.buchholz ?? 0}</td>;
+                      }
+                      if (criterion === 'point_diff') {
+                        return (
+                          <td key={criterion}>
+                            <span className={`font-semibold ${row.pointDiff > 0 ? 'text-emerald-300' : row.pointDiff < 0 ? 'text-rose-300' : 'text-[var(--acero)]'}`}>
+                              {row.pointDiff > 0 ? '+' : ''}{row.pointDiff}
+                            </span>
+                          </td>
+                        );
+                      }
+                      if (criterion === 'points_for') {
+                        return <td key={criterion}>{row.pointsFor}</td>;
+                      }
+                      if (criterion === 'points_average') {
+                        return <td key={criterion}>{row.pointsAverage !== undefined ? row.pointsAverage.toFixed(2) : '0.00'}</td>;
+                      }
+                      if (criterion === 'points_ratio') {
+                        return <td key={criterion}>{row.pointsRatio !== undefined ? row.pointsRatio.toFixed(2) : '0.00'}</td>;
+                      }
+                      return <td key={criterion}>{row.gameWins}</td>;
+                    })}
                   </tr>
                 );
               })}
