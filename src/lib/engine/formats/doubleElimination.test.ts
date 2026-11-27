@@ -102,4 +102,27 @@ describe('generateDoubleElimination', () => {
       .filter((match) => losersRounds.some((round) => round.id === match.roundId))
       .every((match) => match.nextMatchWinnerId || match.roundId === lastLosersRoundId)).toBe(true);
   });
+
+  it.each([3, 5, 6, 7])('avoids deadlocked pending matches for %i players', (size) => {
+    const result = generateDoubleElimination(
+      'tournament-1',
+      'stage-1',
+      Array.from({ length: size }, (_, index) => participant(`p${index + 1}`, index + 1))
+    );
+
+    // Any match whose incoming feeders are all already completed, but is missing
+    // one or both participants, must NOT remain pending (which would deadlock the bracket)
+    for (const match of result.matches) {
+      const incomingFeeders = result.matches.filter(
+        (m) => m.nextMatchWinnerId === match.id || m.nextMatchLoserId === match.id
+      );
+      if (incomingFeeders.length > 0 && incomingFeeders.every((f) => f.status === 'completed')) {
+        const hasBoth = match.participant1Id !== null && match.participant2Id !== null;
+        if (!hasBoth) {
+          expect(match.status).toBe('completed');
+          expect(match.isBye).toBe(true);
+        }
+      }
+    }
+  });
 });

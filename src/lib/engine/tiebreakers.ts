@@ -17,7 +17,11 @@ function sumScores(scores: SetScore[]): SetScore {
 }
 
 function recordedMatchPoints(match: Match): SetScore {
-  return match.manualSetScores?.length ? sumScores(match.manualSetScores) : [match.score1, match.score2];
+  if (match.manualSetScores?.length) return sumScores(match.manualSetScores);
+  if (match.setCheckpoint?.scores?.length) {
+    return sumScores([...match.setCheckpoint.scores, [match.score1, match.score2]]);
+  }
+  return [match.score1, match.score2];
 }
 
 export function matchPointTotals(matches: Match[], battles: Battle[], penalties: Penalty[]): MatchPointTotals {

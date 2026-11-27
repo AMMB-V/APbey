@@ -198,6 +198,27 @@ it('counts tied and deciding sets in the standings', () => {
   });
 });
 
+it('aggregates points from setCheckpoint and current set in recordedMatchPoints', () => {
+  const match: Match = {
+    ...completedMatch('m1', 'p1', 'p2', 'p1', 5, 2),
+    setCheckpoint: {
+      scores: [[3, 1], [2, 4]],
+      battleNumber: 4,
+      penaltyIds: [],
+    },
+  };
+  const standings = computeStandings([match], participants);
+  // Total points for p1: 3 + 2 + 5 = 10
+  // Total points for p2: 1 + 4 + 2 = 7
+  // Point difference: 10 - 7 = 3
+  expect(standings.find(row => row.participant.id === 'p1')).toMatchObject({
+    won: 1, pointsFor: 10, pointsAgainst: 7, pointDiff: 3,
+  });
+  expect(standings.find(row => row.participant.id === 'p2')).toMatchObject({
+    lost: 1, pointsFor: 7, pointsAgainst: 10, pointDiff: -3,
+  });
+});
+
 it('combines the saved partial with later scoring events without counting earlier or voided points twice', () => {
   const match: Match = {
     ...completedMatch('m1', 'p1', 'p2', 'p1', 4, 2),

@@ -131,4 +131,37 @@ describe('Swiss round generation', () => {
     expect(byeMatch?.status).toBe('completed');
     expect(round1.matches.filter((m) => !m.isBye)).toHaveLength(2);
   });
+
+  it('excludes disqualified and withdrawn participants from Swiss pairing', () => {
+    const first = generateSwiss('t1', 's1', participants);
+    const completed: Match[] = first.matches.map((match) => ({
+      ...match,
+      status: 'completed',
+      winnerId: match.participant1Id,
+      score1: 4,
+      score2: 0,
+    }));
+
+    // Mark p4 as disqualified and p3 as withdrawn
+    const updatedParticipants: Participant[] = participants.map((p) => {
+      if (p.id === 'p4') return { ...p, status: 'disqualified' as const };
+      if (p.id === 'p3') return { ...p, status: 'withdrawn' as const };
+      return p;
+    });
+
+    const next = generateNextSwissRound(
+      't1',
+      's1',
+      first.rounds,
+      updatedParticipants,
+      completed
+    );
+
+    // Only p1 and p2 remain, so they should be paired (1 match, 0 byes)
+    const pairedParticipantIds = next.matches.flatMap((m) => [m.participant1Id, m.participant2Id].filter(Boolean));
+    expect(pairedParticipantIds).not.toContain('p4');
+    expect(pairedParticipantIds).not.toContain('p3');
+    expect(pairedParticipantIds).toContain('p1');
+    expect(pairedParticipantIds).toContain('p2');
+  });
 });

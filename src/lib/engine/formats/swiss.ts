@@ -146,7 +146,9 @@ export function generateSwissRound(
     { ...swissScoringDefaults, ...options.scoring },
     options.getMatchPoints
   );
-  const availableParticipants = standings.map((s) => s.participant);
+  const availableParticipants = standings
+    .map((s) => s.participant)
+    .filter((p) => p.status !== 'withdrawn' && p.status !== 'disqualified');
 
   const matches: Match[] = [];
   let position = 1;
@@ -186,9 +188,7 @@ export function generateSwissRound(
   // Pair within identical score groups first, with deterministic float-downs only
   // when a score group has an odd number of players.
   const byeId = matches.find((match) => match.isBye)?.participant1Id;
-  const remainingParticipants = standings
-    .map((standing) => standing.participant)
-    .filter((participant) => participant.id !== byeId);
+  const remainingParticipants = availableParticipants.filter((participant) => participant.id !== byeId);
   const standingPoints = new Map(standings.map((standing) => [standing.participant.id, standing.points]));
   const standingRanks = new Map(standings.map((standing, idx) => [standing.participant.id, idx + 1]));
 

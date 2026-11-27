@@ -11,3 +11,5 @@ coverage/
 .turbo/
 .eslintcache
 *.tsbuildinfo
+supabase/.temp/
+.sonar-config.json

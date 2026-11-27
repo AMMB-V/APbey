@@ -1880,7 +1880,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const roster = new Set(stageMatches.flatMap(m => [m.participant1Id, m.participant2Id]));
     const stageParticipants = participants.filter((participant) =>
       participant.tournamentId === stage.tournamentId &&
-      roster.has(participant.id) && participant.status !== 'withdrawn' &&
+      roster.has(participant.id) && participant.status !== 'withdrawn' && participant.status !== 'disqualified' &&
       (!tournament?.checkInRequired || participant.checkedIn)
     );
     const configuredRounds = stage.config.swissRounds || 3;

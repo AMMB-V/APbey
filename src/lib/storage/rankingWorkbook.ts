@@ -1,4 +1,4 @@
-import readXlsxFile, { type Sheet } from 'read-excel-file/browser';
+import type { Sheet } from 'read-excel-file/browser';
 import { BladerRanking, HallOfFameEntry } from '../../types/rankings';
 import { IMPORTED_ELO_ID_PREFIX } from '../../types/rankings';
 
@@ -50,6 +50,7 @@ export async function parseRankingWorkbook(file: File): Promise<RankingWorkbookD
     throw new Error('El archivo de rankings no puede superar 10 MB.');
   }
 
+  const { default: readXlsxFile } = await import('read-excel-file/browser');
   const sheets = await readXlsxFile(file);
   const sheetNames = sheets.map(({ sheet }) => sheet);
   const rankingRows = sheetRows(sheets, ['rankings', 'ranking', 'bladers', 'bladers rankings']);

@@ -116,6 +116,52 @@ export function generateDoubleElimination(
     }
   }
 
+  // Propagate BYEs: In brackets where participant count is not a power of 2,
+  // some WB matches are BYEs that never produce a loser.
+  // Cascade through matches so that any match whose feeders are all completed
+  // and which cannot receive any further participants is automatically resolved
+  // as a BYE without deadlocking the bracket.
+  let byeChanged = true;
+  while (byeChanged) {
+    byeChanged = false;
+    for (const match of matches) {
+      if (match.status !== 'pending') continue;
+
+      const incomingFeeders = matches.filter(
+        (m) => m.nextMatchWinnerId === match.id || m.nextMatchLoserId === match.id
+      );
+
+      if (incomingFeeders.length > 0 && incomingFeeders.every((f) => f.status === 'completed')) {
+        const hasP1 = match.participant1Id !== null;
+        const hasP2 = match.participant2Id !== null;
+
+        if (!hasP1 && !hasP2) {
+          match.isBye = true;
+          match.status = 'completed';
+          match.winnerId = null;
+          byeChanged = true;
+        } else if ((hasP1 || hasP2) && !(hasP1 && hasP2)) {
+          const advancer = match.participant1Id || match.participant2Id;
+          match.isBye = true;
+          match.status = 'completed';
+          match.winnerId = advancer;
+
+          if (match.nextMatchWinnerId && advancer) {
+            const nextMatch = matches.find((m) => m.id === match.nextMatchWinnerId);
+            if (nextMatch) {
+              if (!nextMatch.participant1Id) {
+                nextMatch.participant1Id = advancer;
+              } else if (!nextMatch.participant2Id && nextMatch.participant1Id !== advancer) {
+                nextMatch.participant2Id = advancer;
+              }
+            }
+          }
+          byeChanged = true;
+        }
+      }
+    }
+  }
+
   if (grandFinalType === 'none') {
     return { rounds, matches };
   }

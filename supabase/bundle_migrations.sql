@@ -1,6 +1,6 @@
 -- =====================================================================
 -- APbey Arena - Consolidated Migration Bundle
--- Total Migrations: 49
+-- Total Migrations: 51
 -- Generated automatically for Supabase SQL Editor execution
 -- =====================================================================
 
@@ -6584,5 +6584,61 @@ begin
   return v_result;
 end;
 $$;
+
+
+
+
+-- ---------------------------------------------------------------------
+
+-- Migration: 20261126000200_drop_unused_indexes.sql
+
+-- ---------------------------------------------------------------------
+
+-- Optimization: drop unused indexes to reduce write overhead on tournament tables.
+-- All 13 indexes had idx_scan = 0 as of 2026-11-25.
+-- FK-based indexes for joins (group_id, stage_id) are retained via existing PKs.
+
+DROP INDEX IF EXISTS public.idx_matches_referee_active;
+DROP INDEX IF EXISTS public.invitations_email_status_idx;
+DROP INDEX IF EXISTS public.invitations_code_idx;
+DROP INDEX IF EXISTS public.mutation_idempotency_created_at_idx;
+DROP INDEX IF EXISTS public.battles_recorded_by_idx;
+DROP INDEX IF EXISTS public.group_participants_participant_id_idx;
+DROP INDEX IF EXISTS public.groups_referee_id_idx;
+DROP INDEX IF EXISTS public.participants_profile_id_idx;
+DROP INDEX IF EXISTS public.penalties_issued_by_idx;
+DROP INDEX IF EXISTS public.rounds_group_id_idx;
+DROP INDEX IF EXISTS public.tournament_referees_profile_id_idx;
+DROP INDEX IF EXISTS public.deleted_tournaments_deleted_by_idx;
+DROP INDEX IF EXISTS public.matches_reopened_by_idx;
+
+
+
+
+-- ---------------------------------------------------------------------
+
+-- Migration: 20261126000300_connection_pool_protection.sql
+
+-- ---------------------------------------------------------------------
+
+-- Prevent zombie connections from blocking the PostgREST connection pool.
+-- idle_in_transaction_session_timeout: auto-cancels stuck transactions after 30s
+-- statement_timeout on publish_tournament_snapshot: breaks loops that hammer the RPC
+
+ALTER ROLE authenticator SET idle_in_transaction_session_timeout = '30s';
+
+ALTER FUNCTION public.publish_tournament_snapshot(
+  p_tournament jsonb,
+  p_finish_points jsonb,
+  p_referees jsonb,
+  p_participants jsonb,
+  p_stages jsonb,
+  p_groups jsonb,
+  p_group_participants jsonb,
+  p_rounds jsonb,
+  p_matches jsonb,
+  p_battles jsonb,
+  p_penalties jsonb
+) SET statement_timeout = '10s';
 
 

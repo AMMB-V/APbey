@@ -81,7 +81,7 @@ export const ScoreboardView: React.FC<ScoreboardViewProps> = ({ initialMatchId, 
   // Foul / Penalty Modal State
   const [showFoulModal, setShowFoulModal] = useState(false);
   const [foulTarget, setFoulTarget] = useState<'p1' | 'p2'>('p1');
-  const [foulReason, setFoulReason] = useState('Lanzamiento anticipado (False Start)');
+  const [foulReason, setFoulReason] = useState('Lanzamiento anticipado');
   const [foulPointsToRival, setFoulPointsToRival] = useState(false);
 
   // Filter valid tournament matches — only pending/in_progress shown in grid
